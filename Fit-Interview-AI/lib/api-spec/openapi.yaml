@@ -1,0 +1,216 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification for CV Fit & Interview AI
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: cv
+    description: CV analysis and matching
+  - name: interview
+    description: Mock interview chat
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /cv/analyze:
+    post:
+      operationId: analyzeCV
+      tags: [cv]
+      summary: Upload CV and match against JD
+      description: Parses uploaded CV PDF and compares it against the job description using AI
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                cv_text:
+                  type: string
+                  description: Extracted text content from the CV
+                jd_text:
+                  type: string
+                  description: Job description text
+              required:
+                - cv_text
+                - jd_text
+      responses:
+        "200":
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CVAnalysisResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /interview/chat:
+    post:
+      operationId: interviewChat
+      tags: [interview]
+      summary: Send a message to the mock interviewer
+      description: Continues the mock interview conversation with the AI interviewer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterviewChatRequest"
+      responses:
+        "200":
+          description: AI interviewer response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewChatResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    ExperienceEntry:
+      type: object
+      properties:
+        company:
+          type: string
+        role:
+          type: string
+        bullet_points:
+          type: array
+          items:
+            type: string
+      required:
+        - company
+        - role
+        - bullet_points
+
+    TailoredCV:
+      type: object
+      properties:
+        name:
+          type: string
+        summary:
+          type: string
+        experience:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExperienceEntry"
+        education:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+      required:
+        - name
+        - summary
+        - experience
+        - education
+        - skills
+
+    CVAnalysisResult:
+      type: object
+      properties:
+        match_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        missing_skills:
+          type: array
+          items:
+            type: string
+        tailored_cv:
+          $ref: "#/components/schemas/TailoredCV"
+      required:
+        - match_score
+        - missing_skills
+        - tailored_cv
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    InterviewChatRequest:
+      type: object
+      properties:
+        jd_text:
+          type: string
+        cv_text:
+          type: string
+        chat_history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+      required:
+        - jd_text
+        - cv_text
+        - chat_history
+
+    InterviewChatResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message

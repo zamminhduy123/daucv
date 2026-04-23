@@ -1,0 +1,75 @@
+import Link from "next/link";
+import Logo from "./Logo";
+
+interface TopNavbarProps {
+  /** Left-side action — defaults to nothing (landing), pass props to show a back button */
+  leftSlot?: React.ReactNode;
+  /** Right-side action — defaults to nothing */
+  rightSlot?: React.ReactNode;
+  /** Show step indicator dots for the workspace */
+  currentStep?: 1 | 2;
+}
+
+export default function TopNavbar({ leftSlot, rightSlot, currentStep }: TopNavbarProps) {
+  return (
+    <header className="bg-white border-b border-[#2F4F4F]/[0.08] shrink-0">
+      <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between relative">
+        {/* Left slot */}
+        <div className="flex items-center gap-3 min-w-[140px]">
+          {leftSlot}
+        </div>
+
+        {/* Centre logo — absolutely centred */}
+        <div className="absolute left-1/2 -translate-x-1/2">
+          <Logo size="md" />
+        </div>
+
+        {/* Right slot */}
+        <div className="flex items-center gap-3 min-w-[140px] justify-end">
+          {currentStep && (
+            <div className="flex items-center gap-1.5 mr-2">
+              {[1, 2].map((s) => (
+                <div
+                  key={s}
+                  className="h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: s === currentStep ? 32 : 8,
+                    backgroundColor:
+                      s === currentStep ? "#98C18E" : "rgba(47,79,79,0.15)",
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          {rightSlot}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/** Convenience: the sticky Landing navbar */
+export function LandingNavbar() {
+  return (
+    <header
+      className="max-w-7xl mx-auto flex items-center justify-between"
+      style={{ padding: "2rem 3rem 1rem" }}
+    >
+      <Logo size="md" />
+      <nav className="flex gap-8 text-sm font-semibold">
+        {["Lợi ích", "Cách hoạt động", "Tính năng"].map((item) => (
+          <a
+            key={item}
+            href={`#${item.toLowerCase().replace(" ", "-")}`}
+            className="hover-elevate px-3 py-2 rounded-xl text-[#2F4F4F] no-underline"
+          >
+            {item}
+          </a>
+        ))}
+      </nav>
+      <Link href="/app" className="btn-green">
+        Bắt đầu ngay
+      </Link>
+    </header>
+  );
+}

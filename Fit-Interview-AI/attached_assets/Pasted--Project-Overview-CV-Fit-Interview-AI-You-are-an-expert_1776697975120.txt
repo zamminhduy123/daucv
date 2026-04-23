@@ -1,0 +1,66 @@
+# Project Overview: "CV Fit & Interview AI"
+You are an expert full-stack developer. We are going to "vibe code" an MVP for an AI-powered job application assistant targeted at the Vietnamese market. 
+
+The app allows users to upload their CV and a Job Description (JD). The AI will quantify the match, rewrite the CV into a beautiful exportable PDF, and conduct a mock interview.
+
+## Tech Stack
+- **Frontend:** Next.js (App Router), React, Tailwind CSS, Shadcn UI (for quick, beautiful components), `react-to-print` (for PDF export).
+- **Backend:** Python FastAPI, Pydantic, Uvicorn.
+- **AI Integration:** OpenAI API (using `gpt-4o-mini` or similar for cost efficiency).
+- **Other:** `PyPDF2` or `pdfplumber` (for parsing uploaded CVs in FastAPI).
+
+---
+
+## Phase 1: Backend Development (FastAPI)
+Create a FastAPI server with CORS enabled for the Next.js frontend. 
+
+**Endpoints needed:**
+1. `POST /api/upload-and-match`
+   - **Input:** Multipart form data containing a `cv_file` (PDF) and a `jd_text` (String).
+   - **Process:** Parse the PDF to extract text. Send the CV text and JD text to the OpenAI API.
+   - **System Prompt for AI:** "You are an expert HR Manager. Compare the CV and JD. Return a JSON object with: `match_score` (0-100), `missing_skills` (list of strings), and a `tailored_cv` (JSON object containing `name`, `summary`, `experience` (array of objects with `company`, `role`, `bullet_points`), `education`, and `skills`). Ensure bullet points are rewritten to highlight JD requirements."
+   - **Output:** The JSON object from the AI.
+
+2. `POST /api/interview/chat`
+   - **Input:** JSON payload with `jd_text`, `cv_text`, and `chat_history` (array of role/content messages).
+   - **Process:** Pass this to OpenAI. 
+   - **System Prompt for AI:** "You are an interviewer for the provided Job Description. The candidate's CV is provided. Ask one technical or behavioral question at a time. Keep it conversational. Evaluate their previous answer briefly before asking the next question."
+   - **Output:** The AI's response text.
+
+---
+
+## Phase 2: Frontend Development (Next.js)
+Set up a clean, modern Next.js UI using Tailwind CSS and Shadcn UI. 
+
+**Pages & Flow:**
+
+**1. Landing / Upload Page (`/`)**
+   - Title: "Hack Your Next Job Interview 🚀"
+   - A file upload area for the CV (PDF) and a Textarea for the Job Description.
+   - A generic "Analyze Match" button with a cool loading spinner.
+
+**2. Results & Tailored CV Page (`/results`)**
+   - **Top Section:** Display the `match_score` as a circular progress bar. List the `missing_skills` in red/yellow tags.
+   - **Middle Section (The CV Preview):** 
+     - Map the `tailored_cv` JSON data into a clean, minimalist HTML/CSS CV template (single column, ATS-friendly). 
+     - Include an "Export as PDF" button. Use `react-to-print` or standard `window.print()` targeting just the CV component.
+   - **Bottom Section:** A "Start Mock Interview" button.
+
+**3. Mock Interview Page (`/interview`)**
+   - A chat interface (similar to ChatGPT).
+   - **Input:** Text input field for the user to type their answers.
+   - **Bonus (Web Speech API):** Add a microphone icon button. When clicked, use the browser's native `SpeechRecognition` API (set `lang="vi-VN"` or `lang="en-US"` based on a toggle) to transcribe user speech to text and put it in the input field.
+   - **Output:** Display chat history. Use the browser's native `SpeechSynthesis` API to read the AI's questions out loud.
+
+**4. The "Buy Me a Coffee" Modal**
+   - After the interview ends (or reaches 5 messages), trigger a modal.
+   - **Text:** "Did this help you prepare? Buy me a Phin coffee to keep the servers running! ☕"
+   - **Visual:** Display a placeholder image for a VietQR / MoMo QR code. 
+
+---
+
+## Coding Rules & Vibe
+- **Design:** Keep the UI clean, with plenty of whitespace. Use a subtle color palette (e.g., Slate and Emerald greens).
+- **Robustness:** Add try/catch blocks for the API calls and loading states for all AI generations.
+- **Backend structure:** Keep it simple in a single `main.py` file for now, using Pydantic models for data validation.
+- Please write the code step-by-step. Start with the FastAPI setup and the Pydantic models.

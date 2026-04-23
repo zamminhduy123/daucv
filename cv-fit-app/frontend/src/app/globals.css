@@ -1,0 +1,162 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Quicksand:wght@400;500;600;700&display=swap');
+
+@import "tailwindcss";
+
+:root {
+  --bg: #F9F9F2;           /* Soft Cream */
+  --fg: #2F4F4F;           /* Deep Forest */
+  --primary: #98C18E;      /* Mung Bean Green */
+  --primary-dark: #7A9F71;
+  --accent-red: #B22222;   /* Red Bean */
+  --muted: #5A6D6D;
+  --card: #FFFFFF;
+  --radius: 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-serif, .font-heading {
+  font-family: 'Quicksand', sans-serif;
+}
+
+/* Hover lift effect */
+.hover-elevate {
+  transition: all 0.2s ease;
+}
+.hover-elevate:hover {
+  background-color: rgba(152, 193, 142, 0.1);
+  transform: translateY(-2px);
+}
+
+
+/* Green CTA button */
+.btn-green {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--primary);
+  color: #FFFFFF;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(152, 193, 142, 0.3);
+}
+.btn-green:hover {
+  background-color: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(152, 193, 142, 0.4);
+}
+.btn-green--lg {
+  padding: 1rem 2rem;
+  font-size: 1.125rem;
+}
+
+/* Red Bean button */
+.btn-red {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--accent-red);
+  color: #FFFFFF;
+  padding: 0.75rem 2rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-red:hover {
+  filter: brightness(1.1);
+  transform: scale(1.02);
+}
+
+/* Feature card with CSS hover shadow */
+.feature-card {
+  background-color: white;
+  border-radius: var(--radius);
+  padding: 2rem;
+  border: 1px solid rgba(47, 79, 79, 0.05);
+  transition: all 0.3s ease;
+}
+.feature-card:hover {
+  box-shadow: 0 12px 32px rgba(47, 79, 79, 0.08);
+  transform: translateY(-4px);
+}
+
+
+/* Loading spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Fade in animation */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fadeUp 0.5s ease forwards;
+}
+
+/* Chat bubble */
+.chat-bubble-user {
+  background-color: var(--green-dark);
+  color: var(--bg);
+  border-radius: 18px 18px 4px 18px;
+}
+.chat-bubble-ai {
+  background-color: white;
+  color: var(--fg);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 18px 18px 18px 4px;
+}
+
+/* Circular progress ring */
+.progress-ring circle {
+  transition: stroke-dashoffset 1s ease;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* Bean bounce animation (used in loading overlay) */
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-12px); }
+}
+
+/* Loading progress bar fill */
+@keyframes loading-bar {
+  0%   { width: 0%; }
+  60%  { width: 80%; }
+  100% { width: 100%; }
+}
+
+/* Step 2 diff row hover */
+.diff-row:hover > div {
+  filter: brightness(0.98);
+}

@@ -1,0 +1,27 @@
+# Node
+node_modules/
+.next/
+out/
+build/
+dist/
+.env*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+venv/
+env/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project
+.vscode/
+.idea/
+.gemini/
