@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 const MESSAGES = [
   "Bé Đậu đang đọc JD của bạn...",
@@ -28,9 +29,15 @@ export default function LoadingOverlay() {
         className="bg-[#F9F9F2] text-center rounded-[28px] shadow-2xl max-w-sm w-[90%]"
         style={{ padding: "3.5rem 4rem" }}
       >
-        {/* Bouncing sprout */}
-        <div className="text-6xl mb-6 inline-block" style={{ animation: "bounce 0.8s ease-in-out infinite" }}>
-          🌱
+        {/* Bouncing sprout -> Mascot Image */}
+        <div className="mb-6 inline-block" style={{ animation: "bounce 0.8s ease-in-out infinite" }}>
+          <Image 
+            src="/main-icon.webp" 
+            alt="Đang xử lý..." 
+            width={80} 
+            height={80} 
+            className="drop-shadow-md"
+          />
         </div>
 
         <h3 className="font-heading font-bold text-[#2F4F4F] text-2xl mb-3">

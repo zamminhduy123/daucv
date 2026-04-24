@@ -16,6 +16,7 @@ declare class SpeechRecognitionEvent extends Event {
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Send, Mic, MicOff, Volume2 } from "lucide-react";
 
 interface Message {
@@ -170,7 +171,9 @@ export default function InterviewPage() {
       
       {/* NAV */}
       <header style={{ padding: "1rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(47,79,79,0.08)", backgroundColor: "white" }}>
-        <Link href="/" className="font-heading" style={{ fontSize: "1.5rem", fontWeight: 700, textDecoration: "none", color: "#2F4F4F", display: "flex", alignItems: "center", gap: "0.5rem" }}>🌱 Đậu</Link>
+        <Link href="/" className="font-heading" style={{ fontSize: "1.5rem", fontWeight: 700, textDecoration: "none", color: "#2F4F4F", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <Image src="/main-icon.webp" alt="Đậu" width={28} height={28} /> Đậu
+        </Link>
         <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
           {/* Language toggle */}
           <button
@@ -187,15 +190,17 @@ export default function InterviewPage() {
       <div style={{ flex: 1, maxWidth: 800, width: "100%", margin: "0 auto", padding: "2rem 1.5rem", overflowY: "auto", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
         {messages.length === 0 && !loading && (
           <div style={{ textAlign: "center", paddingTop: "5rem", color: "#5A6D6D" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🌱</div>
+            <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "center" }}>
+              <Image src="/main-icon.webp" alt="Loading" width={64} height={64} className="drop-shadow-sm" />
+            </div>
             <p className="font-heading" style={{ fontWeight: 600, fontSize: "1.1rem" }}>Bé Đậu đang chuẩn bị câu hỏi...</p>
           </div>
         )}
         {messages.map((msg, i) => (
           <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end", gap: "0.75rem" }}>
             {msg.role === "assistant" && (
-              <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "#98C18E", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 4px 12px rgba(152,193,142,0.2)" }}>
-                <span style={{ fontSize: "1.2rem" }}>🌱</span>
+              <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "#E8EFD5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 4px 12px rgba(152,193,142,0.2)", padding: 6 }}>
+                <Image src="/main-icon.webp" alt="Đậu" width={24} height={24} />
               </div>
             )}
             <div
@@ -217,8 +222,8 @@ export default function InterviewPage() {
         ))}
         {loading && (
           <div style={{ display: "flex", alignItems: "flex-end", gap: "0.75rem" }}>
-            <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "#98C18E", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <span style={{ fontSize: "1.2rem" }}>🌱</span>
+            <div style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "#E8EFD5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 6 }}>
+              <Image src="/main-icon.webp" alt="Đậu" width={24} height={24} />
             </div>
             <div style={{ backgroundColor: "white", padding: "1rem 1.5rem", borderRadius: "20px 20px 20px 4px", border: "1px solid rgba(0,0,0,0.03)", boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
               <span style={{ display: "flex", gap: "6px" }}>

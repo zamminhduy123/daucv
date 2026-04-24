@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
 import {
   Sparkles,
@@ -155,7 +156,13 @@ ${template.education}`;
                 <div className="relative">
                   <div className="absolute inset-0 bg-[#98C18E]/20 rounded-full blur-3xl scale-110" />
                   <div className="relative bg-white p-8 rounded-3xl border-2 border-[#98C18E]/20 shadow-2xl flex flex-col items-center justify-center h-64 w-64">
-                    <span className="text-6xl mb-4">🌱</span>
+                    <Image 
+                      src="/main-icon.webp" 
+                      alt="CV Expert Mascot" 
+                      width={100} 
+                      height={100} 
+                      className="mb-4 drop-shadow-md"
+                    />
                     <div className="mt-4 text-center">
                       <p className="font-semibold text-[#2F4F4F]">Bé Đậu - CV Expert</p>
                       <p className="text-sm text-[#5A6D6D]">Chuyên gia tối ưu CV</p>
