@@ -3,7 +3,8 @@ import HeroSection from "@/components/landing/HeroSection";
 import MockupSection from "@/components/landing/MockupSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
 import HowItWorksSection from "@/components/landing/HowItWorksSection";
-import CtaAndFooter from "@/components/landing/CtaAndFooter";
+import CallToAction from "@/components/landing/CallToAction";
+import Footer from "@/components/landing/Footer";
 
 /**
  * Landing page — Server Component.
@@ -11,13 +12,14 @@ import CtaAndFooter from "@/components/landing/CtaAndFooter";
  */
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#F9F9F2] text-[#2F4F4F]">
+    <main className="min-h-screen bg-[#F9F9F2] text-[#2F4F4F]">
       <LandingNavbar />
       <HeroSection />
       <MockupSection />
       <FeaturesSection />
       <HowItWorksSection />
-      <CtaAndFooter />
-    </div>
+      <CallToAction />
+      <Footer />
+    </main>
   );
 }

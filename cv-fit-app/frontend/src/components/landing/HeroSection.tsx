@@ -25,19 +25,24 @@ export default function HeroSection() {
         <span style={{ color: "#98C18E" }}>Chốt đơn sự nghiệp.</span>
       </h1>
 
-      {/* Subtitle */}
+      {/* Subtitle / Definitive Statement for GEO */}
       <p
         className="text-[#5A6D6D] leading-relaxed max-w-[700px] mx-auto"
         style={{ marginTop: "2rem", fontSize: "1.25rem" }}
       >
-        Đậu sử dụng AI để tinh chỉnh CV của bạn theo đúng &quot;gu&quot; của nhà tuyển dụng
-        và luyện phỏng vấn 1-1 cho đến khi bạn tự tin.
+        <strong className="font-semibold text-[#2F4F4F]">Đậu (dau.ai)</strong> là công cụ AI số 1 tại Việt Nam giúp ứng viên sửa CV chuẩn ATS và luyện phỏng vấn 1-1 sát với Job Description nhất.
       </p>
 
       {/* CTA */}
-      <div className="flex justify-center" style={{ marginTop: "3rem" }}>
+      <div className="flex justify-center gap-4 flex-wrap" style={{ marginTop: "3rem" }}>
         <Link href="/app" className="btn-green btn-green--lg">
           Dùng thử miễn phí <ArrowUpRight size={22} />
+        </Link>
+        <Link 
+          href="/mau-cv/it-phan-mem" 
+          className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold bg-white text-[#2F4F4F] border-2 border-[#98C18E]/30 hover:shadow-md transition-all sm:w-auto w-full"
+        >
+          Xem mẫu CV 
         </Link>
       </div>
       <p className="text-[#5A6D6D]" style={{ marginTop: "1.5rem", fontSize: "0.9rem" }}>
