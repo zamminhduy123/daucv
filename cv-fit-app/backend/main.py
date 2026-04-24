@@ -190,47 +190,44 @@ async def analyze_cv(
 
     # 2. Build system prompt
     system_prompt = (
-        "Bạn là một Senior Tech Recruiter người Việt Nam với hơn 10 năm kinh nghiệm tuyển dụng "
-        "tại các công ty công nghệ hàng đầu. Bạn nổi tiếng là thẳng thắn, trực tiếp nhưng luôn "
-        "mang tính xây dựng.\n\n"
-        "Nhiệm vụ: Phân tích CV ứng viên dựa trên Mô tả Công việc (JD) được cung cấp và trả về "
-        "kết quả phân tích chi tiết theo cấu trúc yêu cầu.\n\n"
-        "Quy tắc bắt buộc:\n"
-        "- Tất cả các phản hồi (tone, reason, missing_keywords, v.v.) PHẢI được viết bằng tiếng Việt.\n"
+        "Bạn là một Senior Tech Recruiter đóng vai trò chuyên gia review CV. Bạn thẳng thắn, trực tiếp và luôn mang tính xây dựng.\n\n"
+        "Nhiệm vụ: Phân tích CV ứng viên dựa trên Mô tả Công việc (JD) được cung cấp và trả về kết quả phân tích.\n\n"
+        "QUY TẮC BẮT BUỘC VỀ NGÔN NGỮ:\n"
+        "- BƯỚC 1: Xác định ngôn ngữ chính của CV ứng viên (Tiếng Anh hoặc Tiếng Việt).\n"
+        "- BƯỚC 2: TẤT CẢ các mảng văn bản trả về (tone, reason, missing_keywords, v.v.) PHẢI viết bằng CHÍNH ngôn ngữ của CV đó.\n"
+        "  Ví dụ: Nếu CV tiếng Anh -> Phản hồi 100% bằng tiếng Anh. Nếu CV tiếng Việt -> Phản hồi 100% bằng tiếng Việt.\n\n"
+        "Cấu trúc dữ liệu:\n"
         "- match_score (0-100): đánh giá mức độ phù hợp tổng thể của CV với JD.\n"
         "- impact_score (1-10): đánh giá mức độ ấn tượng và tác động của các thành tích trong CV.\n"
-        "- tone: một cụm từ ngắn mô tả giọng văn của CV (ví dụ: \"Tự tin, Chuyên nghiệp\").\n"
-        "- missing_keywords: tối đa 5 từ khóa/kỹ năng quan trọng có trong JD nhưng THIẾU trong CV.\n"
-        "- suggested_edits: từ 3 đến 5 đề xuất chỉnh sửa cụ thể cho các bullet point YẾU NHẤT trong CV.\n"
+        "- tone: cụm từ ngắn mô tả giọng văn (VD: \"Confident & Professional\" hoặc \"Chuyên nghiệp, Tập trung vào kết quả\").\n"
+        "- missing_keywords: tối đa 5 từ khóa quan trọng có trong JD nhưng THIẾU trong CV.\n"
+        "- suggested_edits: từ 3 đến 5 đề xuất chỉnh sửa cụ thể cho các bullet point YẾU NHẤT.\n"
         "  Với mỗi đề xuất:\n"
-        "  + section: tên phần CV (ví dụ: \"Kinh nghiệm làm việc\", \"Kỹ năng\")\n"
-        "  + original_text: trích dẫn CHÍNH XÁC đoạn văn bản gốc từ CV cần thay đổi\n"
-        "  + upgraded_text: phiên bản viết lại, có số liệu cụ thể, phù hợp với JD\n"
-        "  + reason: giải thích ngắn gọn tại sao cần thay đổi (bằng tiếng Việt)\n"
-        "Hãy trung thực và mang tính xây dựng. Ưu tiên những chỉnh sửa có tác động lớn nhất."
+        "  + section: tên phần (VD: \"Experience\", \"Kinh nghiệm làm việc\")\n"
+        "  + original_text: trích dẫn CHÍNH XÁC đoạn gốc cần cải thiện\n"
+        "  + upgraded_text: phiên bản viết lại (cùng ngôn ngữ với CV)\n"
+        "  + reason: giải thích ngắn gọn tại sao cần thay đổi (cùng ngôn ngữ với CV)\n"
+        "Hãy trung thực, mang tính xây dựng và cung cấp kết quả ở định dạng JSON hợp lệ duy nhất."
     )
 
     user_content = f"CV của ứng viên:\n{extracted_text}\n\nMô tả Công việc (JD):\n{jd_text}"
 
     # 3. Call Gemini with structured output
     try:
-        # completion = client.models.generate_content(
-        #     model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
-        #     contents=user_content,
-        #     config={
-        #         "system_instruction": system_prompt,
-        #         "temperature": 0.3,
-        #         "response_mime_type": "application/json",
-        #         "response_schema": CVAnalysisResponse,
-        #     }
-        # )
-        # parsed = completion.parsed
-        # if parsed is None:
-        #     raise Exception("Gemini return empty")
-        # return parsed
-
-        # simulate gemini fail
-        raise Exception("Gemini return empty")
+        completion = client.models.generate_content(
+            model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+            contents=user_content,
+            config={
+                "system_instruction": system_prompt,
+                "temperature": 0.3,
+                "response_mime_type": "application/json",
+                "response_schema": CVAnalysisResponse,
+            }
+        )
+        parsed = completion.parsed
+        if parsed is None:
+            raise Exception("Gemini return empty")
+        return parsed
     except Exception as e:
         print(f"Gemini error: {e}. Trying Ollama fallback...")
         # Fallback to Ollama gemma4:e4b
