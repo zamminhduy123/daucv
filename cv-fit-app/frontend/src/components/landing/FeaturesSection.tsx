@@ -125,36 +125,35 @@ export default function FeaturesSection() {
           </p>
           
           {/* Inner Mockup 3 */}
-          <div className="mt-auto bg-white rounded-2xl p-5 shadow-sm border border-gray-100 relative min-h-[160px]">
-            {/* Chat Bubble */}
-            <div className="p-3 bg-white border border-gray-100 rounded-2xl rounded-bl-none shadow-sm mb-6 relative z-10">
-              <p className="text-[11px] text-[#2F4F4F] leading-relaxed">
-                <span className="font-bold text-[var(--primary)]">Bé Đậu:</span> Bạn hãy giới thiệu về dự án đáng tự hào nhất của bạn?
-              </p>
-            </div>
+          <div className="mt-auto bg-[#F9FAF6] rounded-2xl p-4 shadow-sm border border-gray-100 relative min-h-[160px] flex items-end justify-between overflow-hidden">
+            <div className="flex flex-col gap-2 flex-1 z-10">
+              {/* Chat Bubble 1: Text */}
+              <div className="p-3 bg-white border border-gray-100 rounded-2xl rounded-bl-none shadow-sm max-w-[180px]">
+                <p className="text-[10px] text-[#2F4F4F] leading-relaxed">
+                  <span className="font-bold text-[var(--primary)]">Bé Đậu:</span> Bạn hãy giới thiệu về dự án đáng tự hào nhất của bạn?
+                </p>
+              </div>
 
-            <div className="flex items-end justify-between">
-              {/* Audio Waveform */}
-              <div className="flex items-end gap-1 mb-2">
-                {[4, 7, 5, 8, 4, 9, 6, 4, 7, 5].map((h, i) => (
+              {/* Chat Bubble 2: Waveform */}
+              <div className="p-3 bg-white border border-gray-100 rounded-2xl rounded-bl-none shadow-sm w-fit flex items-center gap-1 min-w-[120px]">
+                {[2, 4, 3, 6, 4, 8, 5, 3, 6, 4, 7, 3, 2].map((h, i) => (
                   <div 
                     key={i} 
                     className="w-1 bg-[var(--primary)] rounded-full" 
-                    style={{ height: `${h * 2}px` }}
+                    style={{ height: `${h * 1.5}px` }}
                   ></div>
                 ))}
               </div>
+            </div>
 
-              {/* Mascot Image */}
-              <div className="relative w-16 h-16 mr-[-10px] mb-[-10px]">
-                <Image
-                  src="/upload.webp" // Falling back to available upload.webp since mascot-headphones.png might not exist
-                  alt="Mascot"
-                  width={64}
-                  height={64}
-                  className="object-contain"
-                />
-              </div>
+            {/* Mascot Image */}
+            <div className="relative w-24 h-24 -mr-2 flex-shrink-0">
+              <Image
+                src="/call.webp"
+                alt="Mascot with headphones"
+                fill
+                className="object-contain"
+              />
             </div>
           </div>
         </div>
