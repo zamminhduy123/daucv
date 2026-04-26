@@ -1,56 +1,70 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+
+import { ArrowRight, Play, CheckCircle2 } from "lucide-react";
 
 export default function HeroSection() {
   return (
-    <section
-      className="fade-up max-w-[1100px] mx-auto text-center"
-      style={{ padding: "5rem 3rem 2rem" }}
+    <section 
+      className="fade-up relative overflow-hidden pt-20 pb-24 lg:pt-16 lg:pb-24 bg-none lg:bg-[url('/bg.webp')] bg-cover bg-center bg-no-repeat"
     >
-      {/* Badge */}
-      <div
-        className="inline-flex items-center gap-2 text-xs font-semibold text-[#2F4F4F] rounded-xl border border-[#98C18E] mb-10"
-        style={{ padding: "0.375rem 1rem", backgroundColor: "rgba(152,193,142,0.1)" }}
-      >
-        <span className="text-[#98C18E]">★</span>
-        Chạm là Đậu — AI nâng bước sự nghiệp
+      <div className="max-w-7xl mx-auto px-6 relative z-10 flex flex-col items-center lg:items-start">
+        {/* Content */}
+        <div className="z-10 text-center lg:text-left lg:max-w-2xl">
+          {/* Badge */}
+          <div
+            className="inline-flex items-center gap-2 text-sm font-semibold text-[#2F4F4F] rounded-full border border-[var(--primary)]/30 mb-6 lg:mb-8 text-left"
+            style={{ padding: "0.5rem 1rem", backgroundColor: "rgba(152,193,142,0.15)" }}
+          >
+            <span className="text-[var(--primary)] text-base shrink-0">🌱</span>
+            <span className="leading-tight sm:leading-normal">AI của người Việt, giúp bạn Đậu mọi vòng phỏng vấn</span>
+          </div>
+
+          {/* H1 */}
+          <h1
+            className="font-heading font-bold leading-tight text-[#2F4F4F] mb-4 lg:mb-6"
+            style={{ letterSpacing: "-0.03em", fontSize: "clamp(2.5rem, 6vw, 4.5rem)" }}
+          >
+            Nâng cấp CV.<br />
+            <span className="text-[var(--primary)]">Chốt đơn sự nghiệp.</span>
+          </h1>
+
+          {/* Subtitle */}
+          <p
+            className="text-[#5A6D6D] leading-relaxed mb-8 lg:mb-10 mx-auto lg:mx-0 text-base lg:text-xl"
+            style={{ maxWidth: "600px" }}
+          >
+            <strong className="font-semibold text-[#2F4F4F]">Đậu (dau.ai)</strong> là công cụ AI số 1 tại Việt Nam giúp ứng viên sửa CV chuẩn ATS và luyện phỏng vấn 1-1 sát với Job Description nhất.
+          </p>
+
+          {/* CTA */}
+          <div className="flex flex-col sm:flex-row gap-4 items-center justify-center lg:justify-start mb-6">
+            <Link href="/app" className="w-full sm:w-auto group px-6 py-4 lg:px-8 bg-[var(--primary)] text-white rounded-xl font-bold hover:opacity-90 transition-all shadow-md flex justify-center items-center gap-2 text-base lg:text-lg">
+              Bắt đầu miễn phí <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+            <Link 
+              href="/app" 
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-6 py-4 lg:px-8 rounded-xl font-bold bg-white text-[#2F4F4F] border border-gray-200 hover:shadow-md transition-all text-base lg:text-lg"
+            >
+              <div className="bg-gray-100 rounded-full p-1"><Play size={16} fill="currentColor" /></div>
+              Xem demo
+            </Link>
+          </div>
+
+          {/* Bullet Points */}
+          <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 sm:gap-6 text-sm text-[#5A6D6D] font-medium">
+            <span className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-[var(--primary)]" /> Không cần thẻ tín dụng
+            </span>
+            <span className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-[var(--primary)]" /> Miễn phí 3 lượt/ngày
+            </span>
+          </div>
+        </div>
+
+        {/* Right Column - Image */}
+        {/* <div className="relative w-1/2 h-full">
+        </div> */}
       </div>
-
-      {/* H1 */}
-      <h1
-        className="font-heading font-bold leading-tight text-[#2F4F4F]"
-        style={{ letterSpacing: "-0.03em", fontSize: "clamp(3rem, 8vw, 6rem)" }}
-      >
-        Nâng cấp CV.<br />
-        <span style={{ color: "#98C18E" }}>Chốt đơn sự nghiệp.</span>
-      </h1>
-
-      {/* Subtitle / Definitive Statement for GEO */}
-      <p
-        className="text-[#5A6D6D] leading-relaxed max-w-[700px] mx-auto"
-        style={{ marginTop: "2rem", fontSize: "1.25rem" }}
-      >
-        <strong className="font-semibold text-[#2F4F4F]">Đậu (dau.ai)</strong> là công cụ AI số 1 tại Việt Nam giúp ứng viên sửa CV chuẩn ATS và luyện phỏng vấn 1-1 sát với Job Description nhất.
-      </p>
-
-      {/* CTA */}
-      <div className="flex justify-center gap-4 flex-wrap" style={{ marginTop: "3rem" }}>
-        <Link href="/app" className="btn-green btn-green--lg">
-          Dùng thử miễn phí <ArrowUpRight size={22} />
-        </Link>
-        <Link 
-          href="/mau-cv/it-phan-mem" 
-          className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold bg-white text-[#2F4F4F] border-2 border-[#98C18E]/30 hover:shadow-md transition-all sm:w-auto w-full"
-        >
-          Xem mẫu CV 
-        </Link>
-      </div>
-      <p className="text-[#5A6D6D]" style={{ marginTop: "1.5rem", fontSize: "0.9rem" }}>
-        Bí quyết:{" "}
-        <em className="not-italic font-semibold" style={{ color: "#98C18E" }}>
-          Sửa CV tinh gọn, phỏng vấn trơn tru.
-        </em>
-      </p>
     </section>
   );
 }

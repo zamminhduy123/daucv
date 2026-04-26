@@ -26,7 +26,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
         transition={{ delay: 0.1 }}
         className="mb-8"
       >
-        <div className="bg-gradient-to-br from-[#98C18E] to-[#98C18E]/80 rounded-3xl p-12 text-center relative overflow-hidden shadow-xl">
+        <div className="bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/80 rounded-3xl p-12 text-center relative overflow-hidden shadow-xl">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
 
@@ -71,10 +71,10 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <div className="flex flex-col items-left justify-between bg-white rounded-3xl p-8 border-2 border-[#98C18E]/10 h-full">
+          <div className="flex flex-col items-left justify-between bg-white rounded-3xl p-8 border-2 border-[var(--primary)]/10 h-full">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-[#98C18E]/10 rounded-xl flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-[#98C18E]" />
+              <div className="w-12 h-12 bg-[var(--primary)]/10 rounded-xl flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-[var(--primary)]" />
               </div>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Điểm sáng của CV</h2>
             </div>
@@ -84,7 +84,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.3 }}
-                className="px-4 py-2 bg-[#98C18E]/10 text-[#2F4F4F] rounded-xl border-2 border-[#98C18E]/20 font-medium"
+                className="px-4 py-2 bg-[var(--primary)]/10 text-[#2F4F4F] rounded-xl border-2 border-[var(--primary)]/20 font-medium"
               >
                 Tác động: {result.impact_score}/10
               </motion.div>
@@ -92,13 +92,13 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.35 }}
-                className="px-4 py-2 bg-[#98C18E]/10 text-[#2F4F4F] rounded-xl border-2 border-[#98C18E]/20 font-medium"
+                className="px-4 py-2 bg-[var(--primary)]/10 text-[#2F4F4F] rounded-xl border-2 border-[var(--primary)]/20 font-medium"
               >
                 Giọng văn: {result.tone}
               </motion.div>
             </div>
 
-            <div className="mt-6 p-4 bg-[#98C18E]/5 rounded-2xl">
+            <div className="mt-6 p-4 bg-[var(--primary)]/5 rounded-2xl">
               <p className="text-sm text-[#2F4F4F]/70">
                 <strong>✅ Rất tốt!</strong> Tone giọng và điểm tác động của cấu trúc nội dung hiện tại đạt chuẩn chuyên nghiệp.
               </p>

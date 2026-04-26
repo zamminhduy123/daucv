@@ -77,8 +77,8 @@ export default function WorkspacePage() {
     <div className="min-h-screen flex flex-col bg-[#F9F9F2] overflow-y-auto relative">
       {/* Decorative background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 right-20 w-96 h-96 bg-[#98C18E]/10 rounded-full blur-3xl z-0" />
-        <div className="absolute bottom-40 left-20 w-96 h-96 bg-[#98C18E]/5 rounded-full blur-3xl z-0" />
+        <div className="absolute top-20 right-20 w-96 h-96 bg-[var(--primary)]/10 rounded-full blur-3xl z-0" />
+        <div className="absolute bottom-40 left-20 w-96 h-96 bg-[var(--primary)]/5 rounded-full blur-3xl z-0" />
       </div>
 
       {loading && <LoadingOverlay />}
@@ -129,11 +129,11 @@ export default function WorkspacePage() {
               transition={{ delay: 0.6 }}
               className="mt-4 flex flex-wrap gap-4 justify-center"
             >
-              <button onClick={handleExportPDF} className="px-8 py-4 bg-[#98C18E] text-[#2F4F4F] rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2">
+              <button onClick={handleExportPDF} className="px-8 py-4 bg-[var(--primary)] text-[#2F4F4F] rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2">
                 <Download className="w-5 h-5" />
                 Lưu PDF
               </button>
-              <button onClick={handleBack} className="px-8 py-4 bg-white text-[#2F4F4F] rounded-2xl font-semibold hover:scale-105 transition-all border-2 border-[#98C18E]/20 flex items-center gap-2">
+              <button onClick={handleBack} className="px-8 py-4 bg-white text-[#2F4F4F] rounded-2xl font-semibold hover:scale-105 transition-all border-2 border-[var(--primary)]/20 flex items-center gap-2">
                 Thử JD khác
               </button>
             </motion.div>

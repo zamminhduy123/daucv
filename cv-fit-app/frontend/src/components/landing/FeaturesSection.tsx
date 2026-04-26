@@ -1,68 +1,164 @@
-import { Sparkles, FileText, MessageSquare } from "lucide-react";
-import type { FeatureItem } from "@/types";
-
-const FEATURES: FeatureItem[] = [
-  {
-    icon: Sparkles,
-    title: "Điểm tương thích",
-    body: "AI quét JD và chấm điểm độ phù hợp. Thiếu kỹ năng nào, Đậu sẽ giúp bạn bổ sung ngay kỹ năng đó.",
-  },
-  {
-    icon: FileText,
-    title: "CV chuẩn, phỏng vấn chất",
-    body: "CV được viết lại để làm nổi bật các điểm mạnh mà nhà tuyển dụng đang tìm kiếm — chuyên nghiệp và ấn tượng.",
-  },
-  {
-    icon: MessageSquare,
-    title: "Tập dượt với Bé Đậu",
-    body: "Phỏng vấn thử bằng tiếng Anh hoặc tiếng Việt. Nhận xét chi tiết ngay sau mỗi câu trả lời để bạn rút kinh nghiệm.",
-  },
-];
+import React from 'react';
+import { FileCheck, Target, MessageSquare, Check } from 'lucide-react';
+import Image from 'next/image';
 
 export default function FeaturesSection() {
   return (
-    <section id="Lợi ích" className="max-w-7xl mx-auto" style={{ padding: "6rem 3rem" }}>
-      {/* Header */}
-      <div
-        className="grid gap-16 items-start"
-        style={{ gridTemplateColumns: "1fr 1fr", marginBottom: "5rem" }}
-      >
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#98C18E] mb-6">
-            Lợi ích từ Bé Đậu
-          </p>
-          <h2
-            className="font-heading font-bold leading-tight text-[#2F4F4F]"
-            style={{ fontSize: "clamp(2.5rem,5vw,4rem)" }}
-          >
-            Biến JD khó thành thư mời nhận việc.
-          </h2>
-        </div>
-        <p className="text-[#5A6D6D] leading-relaxed pt-10" style={{ fontSize: "1.25rem" }}>
-          Đậu không chỉ chấm điểm, chúng tôi đồng hành cùng bạn từ lúc sửa từng dấu phẩy
-          trên CV cho đến khi bạn tự tin trả lời phỏng vấn.
-        </p>
+    <section id="features" className="max-w-7xl mx-auto px-6 py-12">
+      <div className="flex flex-col items-center justify-center mb-4">
+        <h2 className='font-heading font-bold text-[#2F4F4F] text-3xl md:text-4xl mb-4'>Đậu đồng hành với bạn mọi lúc</h2>
+        <p className='text-sm text-gray-600 leading-relaxed'>Từ chỉnh sửa CV đến khi bạn nhận được offer!</p>
       </div>
-
-      {/* Feature cards */}
-      <div className="grid grid-cols-3 gap-8">
-        {FEATURES.map(({ icon: Icon, title, body }) => (
-          <div key={title} className="feature-card">
-            <div
-              className="flex items-center justify-center rounded-2xl mb-7"
-              style={{
-                width: 56, height: 56,
-                backgroundColor: "rgba(152,193,142,0.15)",
-              }}
-            >
-              <Icon size={24} color="#98C18E" />
-            </div>
-            <h3 className="font-heading font-bold text-[#2F4F4F] mb-4" style={{ fontSize: "1.5rem" }}>
-              {title}
-            </h3>
-            <p className="text-[#5A6D6D] leading-relaxed">{body}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+        
+        {/* Card 1: Tối ưu CV với AI */}
+        <div className="bg-green-50/50 rounded-3xl p-8 border border-gray-100 flex flex-col h-full">
+          <div className="bg-white rounded-xl shadow-sm p-2 w-12 h-12 flex items-center justify-center mb-6">
+            <FileCheck className="text-[var(--primary)]" size={24} />
           </div>
-        ))}
+          <h3 className="text-xl font-bold text-[#2F4F4F] mb-3">Tối ưu CV với AI</h3>
+          <p className="text-sm text-gray-600 leading-relaxed mb-8">
+            Hệ thống tự động phân tích và đề xuất chỉnh sửa nội dung CV để vượt qua các bộ lọc ATS khắt khe nhất.
+          </p>
+          
+          {/* Inner Mockup 1 */}
+          <div className="mt-auto bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <p className="text-[10px] uppercase font-bold text-gray-400 mb-6 tracking-wider">Độ tương thích</p>
+            <div className="flex items-center gap-8">
+              {/* Circular Progress */}
+              <div className="relative w-20 h-20 flex-shrink-0">
+                <svg className="w-full h-full" viewBox="0 0 36 36">
+                  <path
+                    className="stroke-gray-100"
+                    strokeWidth="3"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="stroke-[var(--primary)]"
+                    strokeWidth="3"
+                    strokeDasharray="85, 100"
+                    strokeLinecap="round"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-lg font-bold text-[#2F4F4F]">85%</span>
+                </div>
+              </div>
+
+              {/* Checklist */}
+              <div className="flex flex-col gap-3 flex-1">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="bg-green-100 rounded-full p-0.5">
+                      <Check size={10} className="text-[var(--primary)]" strokeWidth={4} />
+                    </div>
+                    <div className="bg-gray-100 rounded-full h-2 w-full max-w-[80px]"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Chấm điểm độ phù hợp */}
+        <div className="bg-orange-50/50 rounded-3xl p-8 border border-gray-100 flex flex-col h-full">
+          <div className="bg-white rounded-xl shadow-sm p-2 w-12 h-12 flex items-center justify-center mb-6">
+            <Target className="text-orange-500" size={24} />
+          </div>
+          <h3 className="text-xl font-bold text-[#2F4F4F] mb-3">Chấm điểm độ phù hợp</h3>
+          <p className="text-sm text-gray-600 leading-relaxed mb-8">
+            So sánh kỹ năng của bạn với mô tả công việc (JD) để tìm ra những khoảng trống cần bổ sung.
+          </p>
+          
+          {/* Inner Mockup 2 */}
+          <div className="mt-auto bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <p className="text-[10px] uppercase font-bold text-gray-400 mb-6 tracking-wider">Kỹ năng còn thiếu</p>
+            <div className="flex flex-col gap-4">
+              {/* Skill Item 1 */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                  <span className="text-xs font-semibold text-[#2F4F4F]">Data Analysis</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="bg-gray-100 rounded-full h-1.5 w-12"></div>
+                  <span className="bg-red-50 text-red-600 px-2.5 py-0.5 rounded-full text-[9px] font-bold">Quan trọng</span>
+                </div>
+              </div>
+              {/* Skill Item 2 */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
+                  <span className="text-xs font-semibold text-[#2F4F4F]">Python</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="bg-gray-100 rounded-full h-1.5 w-12"></div>
+                  <span className="bg-orange-50 text-orange-600 px-2.5 py-0.5 rounded-full text-[9px] font-bold">Nên có</span>
+                </div>
+              </div>
+              {/* Skill Item 3 */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-[var(--primary)]"></div>
+                  <span className="text-xs font-semibold text-[#2F4F4F]">SQL</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="bg-gray-100 rounded-full h-1.5 w-12"></div>
+                  <span className="bg-green-50 text-[var(--primary)] px-2.5 py-0.5 rounded-full text-[9px] font-bold">Tốt</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Luyện phỏng vấn 1-1 */}
+        <div className="bg-blue-50/50 rounded-3xl p-8 border border-gray-100 flex flex-col h-full">
+          <div className="bg-white rounded-xl shadow-sm p-2 w-12 h-12 flex items-center justify-center mb-6">
+            <MessageSquare className="text-blue-500" size={24} />
+          </div>
+          <h3 className="text-xl font-bold text-[#2F4F4F] mb-3">Luyện phỏng vấn 1-1</h3>
+          <p className="text-sm text-gray-600 leading-relaxed mb-8">
+            Thực hành phỏng vấn với AI mô phỏng người thật, giúp bạn làm quen với áp lực và cải thiện phản xạ.
+          </p>
+          
+          {/* Inner Mockup 3 */}
+          <div className="mt-auto bg-white rounded-2xl p-5 shadow-sm border border-gray-100 relative min-h-[160px]">
+            {/* Chat Bubble */}
+            <div className="p-3 bg-white border border-gray-100 rounded-2xl rounded-bl-none shadow-sm mb-6 relative z-10">
+              <p className="text-[11px] text-[#2F4F4F] leading-relaxed">
+                <span className="font-bold text-[var(--primary)]">Bé Đậu:</span> Bạn hãy giới thiệu về dự án đáng tự hào nhất của bạn?
+              </p>
+            </div>
+
+            <div className="flex items-end justify-between">
+              {/* Audio Waveform */}
+              <div className="flex items-end gap-1 mb-2">
+                {[4, 7, 5, 8, 4, 9, 6, 4, 7, 5].map((h, i) => (
+                  <div 
+                    key={i} 
+                    className="w-1 bg-[var(--primary)] rounded-full" 
+                    style={{ height: `${h * 2}px` }}
+                  ></div>
+                ))}
+              </div>
+
+              {/* Mascot Image */}
+              <div className="relative w-16 h-16 mr-[-10px] mb-[-10px]">
+                <Image
+                  src="/upload.webp" // Falling back to available upload.webp since mascot-headphones.png might not exist
+                  alt="Mascot"
+                  width={64}
+                  height={64}
+                  className="object-contain"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </section>
   );

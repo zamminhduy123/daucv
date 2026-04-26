@@ -30,7 +30,7 @@ function TextCard({ title, subtitle, children, wordCountText, headerRight, topBa
       <div className="px-4 py-3 border-b border-[#2F4F4F]/[0.07] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "rgba(152,193,142,0.15)" }}>
-            <FileText size={15} color="#98C18E" />
+            <FileText size={15} color="var(--primary)" />
           </div>
           <div>
             <h2 className="font-heading font-bold text-[#2F4F4F] text-sm leading-tight">{title}</h2>
@@ -87,7 +87,7 @@ export default function InputSection({ inputs, onChange, onAnalyze, loading, err
         </h1>
         <p className="text-[#5A6D6D] text-sm mt-0.5">
           Dán JD và CV của bạn vào đây.{" "}
-          <span className="text-[#98C18E] font-semibold">Bé Đậu sẽ lo phần còn lại.</span>
+          <span className="text-[var(--primary)] font-semibold">Bé Đậu sẽ lo phần còn lại.</span>
         </p>
       </div>
 
@@ -108,7 +108,7 @@ export default function InputSection({ inputs, onChange, onAnalyze, loading, err
             style={{ padding: "1rem", fontFamily: "'Inter', 'Courier New', monospace" }}
             onFocus={(e) => {
               const card = e.target.closest<HTMLDivElement>(".bg-white");
-              if (card) card.style.boxShadow = "0 0 0 2px #98C18E";
+              if (card) card.style.boxShadow = "0 0 0 2px var(--primary)";
             }}
             onBlur={(e) => {
               const card = e.target.closest<HTMLDivElement>(".bg-white");
@@ -145,7 +145,7 @@ export default function InputSection({ inputs, onChange, onAnalyze, loading, err
                 style={{ backgroundColor: "rgba(152,193,142,0.1)", border: "1px solid rgba(152,193,142,0.3)" }}
               >
                 <span className="flex items-center gap-1.5 text-xs font-semibold text-[#2F4F4F] truncate">
-                  <CheckCircle size={12} color="#98C18E" />
+                  <CheckCircle size={12} color="var(--primary)" />
                   {inputs.cvFile.name}
                 </span>
                 <button onClick={clearFile} className="text-[#5A6D6D] hover:text-[#B22222] transition-colors p-0.5 shrink-0">
@@ -160,11 +160,11 @@ export default function InputSection({ inputs, onChange, onAnalyze, loading, err
                 onClick={() => fileInputRef.current?.click()}
                 className="text-center cursor-pointer rounded-xl py-2 transition-all text-[#5A6D6D] text-xs"
                 style={{
-                  border: `1.5px dashed ${dragging ? "#98C18E" : "rgba(47,79,79,0.12)"}`,
+                  border: `1.5px dashed ${dragging ? "var(--primary)" : "rgba(47,79,79,0.12)"}`,
                   backgroundColor: dragging ? "rgba(152,193,142,0.06)" : "transparent",
                 }}
               >
-                <Upload size={13} color="#98C18E" className="mx-auto mb-0.5" />
+                <Upload size={13} color="var(--primary)" className="mx-auto mb-0.5" />
                 Kéo thả PDF
               </div>
             )
@@ -209,7 +209,7 @@ export default function InputSection({ inputs, onChange, onAnalyze, loading, err
             className="inline-flex items-center gap-2 font-heading font-bold text-white rounded-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             style={{
               padding: "0.75rem 2rem", fontSize: "1rem",
-              backgroundColor: "#98C18E",
+              backgroundColor: "var(--primary)",
               boxShadow: "0 6px 20px rgba(152,193,142,0.35)",
             }}
             onMouseOver={(e) => {

@@ -35,7 +35,7 @@ export default function TopNavbar({ leftSlot, rightSlot, currentStep }: TopNavba
                   style={{
                     width: s === currentStep ? 32 : 8,
                     backgroundColor:
-                      s === currentStep ? "#98C18E" : "rgba(47,79,79,0.15)",
+                      s === currentStep ? "var(--primary)" : "rgba(47,79,79,0.15)",
                   }}
                 />
               ))}
@@ -52,11 +52,10 @@ export default function TopNavbar({ leftSlot, rightSlot, currentStep }: TopNavba
 export function LandingNavbar() {
   return (
     <header
-      className="max-w-7xl mx-auto flex items-center justify-between"
-      style={{ padding: "2rem 3rem 1rem" }}
+      className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-12 py-6 lg:py-8"
     >
       <Logo size="md" />
-      <nav className="flex gap-8 text-sm font-semibold">
+      <nav className="hidden md:flex gap-8 text-sm font-semibold">
         {["Lợi ích", "Cách hoạt động", "Tính năng"].map((item) => (
           <a
             key={item}
@@ -67,7 +66,7 @@ export function LandingNavbar() {
           </a>
         ))}
       </nav>
-      <Link href="/app" className="btn-green">
+      <Link href="/app" className="btn-green text-sm sm:text-base px-4 py-2 sm:px-6 sm:py-3">
         Bắt đầu ngay
       </Link>
     </header>

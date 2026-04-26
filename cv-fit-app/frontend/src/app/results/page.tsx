@@ -29,7 +29,7 @@ function CircleProgress({ score }: { score: number }) {
       <circle cx="90" cy="90" r={r} fill="none" stroke="rgba(152,193,142,0.2)" strokeWidth="12" />
       <circle
         cx="90" cy="90" r={r} fill="none"
-        stroke="#98C18E" strokeWidth="12"
+        stroke="var(--primary)" strokeWidth="12"
         strokeDasharray={circ} strokeDashoffset={offset}
         strokeLinecap="round"
       />
@@ -52,14 +52,14 @@ export default function ResultsPage() {
 
   if (!result) return (
     <div style={{ minHeight: "100vh", backgroundColor: "#F9F9F2", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div className="spinner" style={{ width: 32, height: 32, borderWidth: 3, borderColor: "rgba(152,193,142,0.2)", borderTopColor: "#98C18E" }} />
+      <div className="spinner" style={{ width: 32, height: 32, borderWidth: 3, borderColor: "rgba(152,193,142,0.2)", borderTopColor: "var(--primary)" }} />
     </div>
   );
 
   const { match_score, missing_skills, tailored_cv } = result;
   
   let scoreLabel = "Có hội ĐẬU lớn! 🎯";
-  let scoreColor = "#98C18E";
+  let scoreColor = "var(--primary)";
   if (match_score >= 85) {
       scoreLabel = "Khả năng ĐẬU cực cao 🚀";
   } else if (match_score >= 60) {
@@ -84,7 +84,7 @@ export default function ResultsPage() {
         <div className="fade-up no-print" style={{ backgroundColor: "white", borderRadius: 24, padding: "3rem", border: "1px solid rgba(47,79,79,0.06)", marginBottom: "2rem", display: "flex", alignItems: "center", gap: "4rem", boxShadow: "0 8px 32px rgba(47,79,79,0.04)" }}>
           <CircleProgress score={match_score} />
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "#98C18E", marginBottom: "0.5rem" }}>Tỷ lệ ĐẬU dự kiến</p>
+            <p style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "var(--primary)", marginBottom: "0.5rem" }}>Tỷ lệ ĐẬU dự kiến</p>
             <h2 className="font-heading" style={{ fontSize: "2.25rem", fontWeight: 700, color: scoreColor, marginBottom: "0.75rem" }}>{scoreLabel}</h2>
             <p style={{ color: "#5A6D6D", lineHeight: 1.7, fontSize: "1.05rem" }}>
               {match_score >= 75
@@ -132,7 +132,7 @@ export default function ResultsPage() {
 
             {tailored_cv.experience.length > 0 && (
               <div style={{ marginBottom: "2rem" }}>
-                <h2 style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "#98C18E", marginBottom: "1.5rem" }}>Kinh nghiệm làm việc</h2>
+                <h2 style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "var(--primary)", marginBottom: "1.5rem" }}>Kinh nghiệm làm việc</h2>
                 {tailored_cv.experience.map((exp, i) => (
                   <div key={i} style={{ marginBottom: "2rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -152,11 +152,11 @@ export default function ResultsPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem" }}>
                 {tailored_cv.skills.length > 0 && (
                   <div>
-                    <h2 style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "#98C18E", marginBottom: "1rem" }}>Kỹ năng chuyên môn</h2>
+                    <h2 style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "var(--primary)", marginBottom: "1rem" }}>Kỹ năng chuyên môn</h2>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
                       {tailored_cv.skills.map((s) => (
                         <span key={s} style={{ padding: "0.4rem 1rem", borderRadius: 12, backgroundColor: "rgba(152,193,142,0.1)", border: "1px solid rgba(152,193,142,0.2)", color: "#2F4F4F", fontSize: "0.9rem", fontWeight: 500, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                          <Check size={14} color="#98C18E" strokeWidth={3} />{s}
+                          <Check size={14} color="var(--primary)" strokeWidth={3} />{s}
                         </span>
                       ))}
                     </div>
@@ -165,7 +165,7 @@ export default function ResultsPage() {
 
                 {tailored_cv.education && (
                   <div>
-                    <h2 style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "#98C18E", marginBottom: "1rem" }}>Học vấn</h2>
+                    <h2 style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "var(--primary)", marginBottom: "1rem" }}>Học vấn</h2>
                     <p style={{ color: "#2F4F4F", fontSize: "0.95rem", lineHeight: 1.6 }}>{tailored_cv.education}</p>
                   </div>
                 )}

@@ -77,8 +77,8 @@ ${template.education}`;
     <div className="min-h-screen bg-[#F9F9F2]">
       {/* Decorative background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-40 right-20 w-96 h-96 bg-[#98C18E]/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 left-20 w-96 h-96 bg-[#98C18E]/10 rounded-full blur-3xl" />
+        <div className="absolute top-40 right-20 w-96 h-96 bg-[var(--primary)]/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 left-20 w-96 h-96 bg-[var(--primary)]/10 rounded-full blur-3xl" />
       </div>
 
       <LandingNavbar />
@@ -98,9 +98,9 @@ ${template.education}`;
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.2 }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#98C18E]/10 rounded-full border-2 border-[#98C18E]/20 mb-6"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)]/10 rounded-full border-2 border-[var(--primary)]/20 mb-6"
                 >
-                  <Sparkles className="w-4 h-4 text-[#98C18E]" />
+                  <Sparkles className="w-4 h-4 text-[var(--primary)]" />
                   <span className="text-sm font-semibold text-[#2F4F4F]">Mẫu CV được tin dùng bởi 1000+ ứng viên</span>
                 </motion.div>
 
@@ -122,18 +122,18 @@ ${template.education}`;
 
                 <div className="flex flex-wrap gap-4">
                   <Link href="/app">
-                    <button className="group px-8 py-4 bg-[#98C18E] text-[#2F4F4F] rounded-2xl font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-xl flex items-center gap-2">
+                    <button className="group px-8 py-4 bg-[var(--primary)] text-[#2F4F4F] rounded-2xl font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-xl flex items-center gap-2">
                       Tùy chỉnh với AI
                       <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </button>
                   </Link>
                   <button
                     onClick={handleCopy}
-                    className="px-8 py-4 bg-white text-[#2F4F4F] rounded-2xl font-semibold hover:scale-105 transition-all border-2 border-[#98C18E]/20 flex items-center gap-2"
+                    className="px-8 py-4 bg-white text-[#2F4F4F] rounded-2xl font-semibold hover:scale-105 transition-all border-2 border-[var(--primary)]/20 flex items-center gap-2"
                   >
                     {copied ? (
                       <>
-                        <CheckCircle className="w-5 h-5 text-[#98C18E]" />
+                        <CheckCircle className="w-5 h-5 text-[var(--primary)]" />
                         Đã copy!
                       </>
                     ) : (
@@ -154,8 +154,8 @@ ${template.education}`;
                 className="flex justify-center lg:justify-end"
               >
                 <div className="relative">
-                  <div className="absolute inset-0 bg-[#98C18E]/20 rounded-full blur-3xl scale-110" />
-                  <div className="relative bg-white p-8 rounded-3xl border-2 border-[#98C18E]/20 shadow-2xl flex flex-col items-center justify-center h-64 w-64">
+                  <div className="absolute inset-0 bg-[var(--primary)]/20 rounded-full blur-3xl scale-110" />
+                  <div className="relative bg-white p-8 rounded-3xl border-2 border-[var(--primary)]/20 shadow-2xl flex flex-col items-center justify-center h-64 w-64">
                     <Image 
                       src="/main-icon.webp" 
                       alt="CV Expert Mascot" 
@@ -213,11 +213,11 @@ ${template.education}`;
                           whileInView={{ opacity: 1, y: 0 }}
                           viewport={{ once: true }}
                           transition={{ delay: index * 0.1 }}
-                          className="group bg-white p-6 rounded-3xl border-2 border-[#98C18E]/10 hover:border-[#98C18E]/30 hover:shadow-lg transition-all duration-300"
+                          className="group bg-white p-6 rounded-3xl border-2 border-[var(--primary)]/10 hover:border-[var(--primary)]/30 hover:shadow-lg transition-all duration-300"
                         >
                           <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0 w-12 h-12 bg-[#98C18E]/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                              <IconComp className="w-6 h-6 text-[#98C18E]" />
+                            <div className="flex-shrink-0 w-12 h-12 bg-[var(--primary)]/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <IconComp className="w-6 h-6 text-[var(--primary)]" />
                             </div>
                             <div>
                               <h3 className="font-semibold text-[#2F4F4F] mb-2">{tip.title}</h3>
@@ -241,9 +241,9 @@ ${template.education}`;
                 transition={{ duration: 0.6 }}
                 className="lg:col-span-3"
               >
-                <div className="bg-white rounded-3xl shadow-2xl border-2 border-[#98C18E]/10 overflow-hidden">
+                <div className="bg-white rounded-3xl shadow-2xl border-2 border-[var(--primary)]/10 overflow-hidden">
                   {/* Paper Header */}
-                  <div className="bg-gradient-to-br from-[#98C18E]/5 to-[#98C18E]/10 px-8 py-6 border-b-2 border-[#98C18E]/10">
+                  <div className="bg-gradient-to-br from-[var(--primary)]/5 to-[var(--primary)]/10 px-8 py-6 border-b-2 border-[var(--primary)]/10">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-semibold text-[#2F4F4F] mb-1">Template Preview</h3>
@@ -251,7 +251,7 @@ ${template.education}`;
                       </div>
                       <button
                         onClick={handleCopy}
-                        className="px-4 py-2 bg-white text-[#2F4F4F] rounded-xl font-medium hover:scale-105 transition-all border border-[#98C18E]/20 flex items-center gap-2"
+                        className="px-4 py-2 bg-white text-[#2F4F4F] rounded-xl font-medium hover:scale-105 transition-all border border-[var(--primary)]/20 flex items-center gap-2"
                       >
                         <Copy className="w-4 h-4" />
                         {copied ? "Copied!" : "Copy"}
@@ -266,7 +266,7 @@ ${template.education}`;
                       <h1 className="text-3xl font-bold text-[#2F4F4F] mb-2">
                         {data.template.name}
                       </h1>
-                      <p className="text-xl text-[#98C18E] font-semibold mb-3">
+                      <p className="text-xl text-[var(--primary)] font-semibold mb-3">
                         {data.template.title}
                       </p>
                       <p className="text-sm text-[#5A6D6D]">
@@ -276,7 +276,7 @@ ${template.education}`;
 
                     {/* Summary */}
                     <div className="mb-6">
-                      <h2 className="text-lg font-bold text-[#2F4F4F] mb-3 uppercase tracking-wide border-l-4 border-[#98C18E] pl-3">
+                      <h2 className="text-lg font-bold text-[#2F4F4F] mb-3 uppercase tracking-wide border-l-4 border-[var(--primary)] pl-3">
                         Summary
                       </h2>
                       <p className="text-sm text-[#2F4F4F] leading-relaxed">
@@ -286,7 +286,7 @@ ${template.education}`;
 
                     {/* Skills */}
                     <div className="mb-6">
-                      <h2 className="text-lg font-bold text-[#2F4F4F] mb-3 uppercase tracking-wide border-l-4 border-[#98C18E] pl-3">
+                      <h2 className="text-lg font-bold text-[#2F4F4F] mb-3 uppercase tracking-wide border-l-4 border-[var(--primary)] pl-3">
                         Skills
                       </h2>
                       <div className="space-y-2">
@@ -300,7 +300,7 @@ ${template.education}`;
 
                     {/* Experience */}
                     <div className="mb-6">
-                      <h2 className="text-lg font-bold text-[#2F4F4F] mb-3 uppercase tracking-wide border-l-4 border-[#98C18E] pl-3">
+                      <h2 className="text-lg font-bold text-[#2F4F4F] mb-3 uppercase tracking-wide border-l-4 border-[var(--primary)] pl-3">
                         Experience
                       </h2>
                       <div className="space-y-5">
@@ -327,7 +327,7 @@ ${template.education}`;
 
                     {/* Education */}
                     <div>
-                      <h2 className="text-lg font-bold text-[#2F4F4F] mb-3 uppercase tracking-wide border-l-4 border-[#98C18E] pl-3">
+                      <h2 className="text-lg font-bold text-[#2F4F4F] mb-3 uppercase tracking-wide border-l-4 border-[var(--primary)] pl-3">
                         Education
                       </h2>
                       <p className="text-sm text-[#2F4F4F]">
@@ -350,7 +350,7 @@ ${template.education}`;
           viewport={{ once: true }}
           className="sticky bottom-0 z-40"
         >
-          <div className="bg-gradient-to-br from-[#98C18E] to-[#98C18E]/90 border-t-4 border-white shadow-2xl">
+          <div className="bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/90 border-t-4 border-white shadow-2xl">
             <div className="max-w-7xl mx-auto px-6 py-5">
               <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
                 <div className="text-center lg:text-left">
@@ -363,7 +363,7 @@ ${template.education}`;
                 </div>
                 <Link href="/app">
                   <button className="group px-10 py-5 bg-white text-[#2F4F4F] rounded-2xl font-bold hover:scale-105 transition-all shadow-xl hover:shadow-2xl flex items-center gap-3 whitespace-nowrap">
-                    <Sparkles className="w-6 h-6 text-[#98C18E]" />
+                    <Sparkles className="w-6 h-6 text-[var(--primary)]" />
                     Dùng thử Đậu miễn phí
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </button>

@@ -53,7 +53,7 @@ export default function LoadingOverlay() {
           style={{ backgroundColor: "rgba(152,193,142,0.2)" }}
         >
           <div
-            className="h-full rounded-full bg-[#98C18E]"
+            className="h-full rounded-full bg-[var(--primary)]"
             style={{ animation: "loading-bar 2s ease-in-out forwards" }}
           />
         </div>

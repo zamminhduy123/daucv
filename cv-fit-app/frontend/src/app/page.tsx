@@ -12,13 +12,15 @@ import Footer from "@/components/landing/Footer";
  */
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[#F9F9F2] text-[#2F4F4F]">
+    <main className="min-h-screen bg-[var(--bg)] text-[#2F4F4F]">
       <LandingNavbar />
       <HeroSection />
-      <MockupSection />
-      <FeaturesSection />
-      <HowItWorksSection />
-      <CallToAction />
+      <div className="bg-white mx-auto max-w-[95%] rounded-3xl mt-[-48px] z-100 relative p-0">
+        <FeaturesSection />
+        {/* <MockupSection /> */}
+        <HowItWorksSection />
+        <CallToAction />
+      </div>
       <Footer />
     </main>
   );
