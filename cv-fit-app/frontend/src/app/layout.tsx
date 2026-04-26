@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Đậu (dau.ai) - Công cụ AI sửa CV chuẩn ATS & Luyện phỏng vấn số 1",
   description:
     "Đậu (dau.ai) là công cụ AI số 1 tại Việt Nam giúp ứng viên sửa CV chuẩn ATS và luyện phỏng vấn 1-1 sát với Job Description nhất.",
+  icons: {
+    icon: "/icon.ico",
+  },
   openGraph: {
     title: "Đậu (dau.ai) - Công cụ AI sửa CV chuẩn ATS",
     description: "Đậu (dau.ai) là công cụ AI số 1 tại Việt Nam giúp ứng viên sửa CV chuẩn ATS và luyện phỏng vấn 1-1 sát với Job Description nhất.",
