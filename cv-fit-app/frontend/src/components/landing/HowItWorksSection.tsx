@@ -36,10 +36,10 @@ export default function HowItWorksSection() {
       </div>
 
       <div className="flex flex-col lg:flex-row items-stretch justify-between gap-8 relative">
-        {STEPS.map((s, idx) => (
+        {STEPS.map((s) => (
           <div key={s.n} className="flex flex-1 items-stretch w-full lg:w-auto">
             {/* Step Card */}
-            <div className="bg-white rounded-3xl pt-8 pb-16 px-8 border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative flex-1 min-h-[220px] overflow-hidden group">
+            <div className="bg-white rounded-3xl pt-8 pb-16 px-8 border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative flex-1 min-h-55 overflow-hidden group">
               {/* Image as background element with offset */}
               <div className="absolute -bottom-4 -right-4 w-40 h-40 opacity-20 lg:opacity-100 lg:w-44 lg:h-44 transition-transform group-hover:scale-110 duration-500">
                 <Image
@@ -52,14 +52,14 @@ export default function HowItWorksSection() {
 
               <div className="relative z-10">
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-[var(--primary)] text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                  <div className="w-10 h-10 rounded-full bg-(--primary) text-white flex items-center justify-center font-bold text-lg shadow-sm">
                     {s.n}
                   </div>
                   <h3 className="font-heading font-bold text-[#2F4F4F] text-xl">
                     {s.t}
                   </h3>
                 </div>
-                <p className="text-[#5A6D6D] text-sm leading-relaxed max-w-[240px] mr-18">
+                <p className="text-[#5A6D6D] text-sm leading-relaxed max-w-60 mr-18">
                   {s.d}
                 </p>
               </div>

@@ -59,7 +59,7 @@ export default function MockupSection() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 p-6 sm:p-10 lg:p-16 min-h-[auto] md:min-h-[460px]">
             {/* Score column */}
             <div className="flex flex-col justify-center text-center md:text-left">
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-[var(--primary)] mb-4">
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-(--primary) mb-4">
                 Tỷ lệ ĐẬU của bạn
               </p>
               <div

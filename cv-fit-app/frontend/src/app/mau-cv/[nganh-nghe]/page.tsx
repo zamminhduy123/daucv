@@ -1,11 +1,10 @@
 import { Metadata } from 'next';
-import Link from 'next/link';
-import { ArrowRight, FileText, CheckCircle } from 'lucide-react';
-import { LandingNavbar } from '@/components/shared/TopNavbar';
 import TemplateView from '@/components/landing/TemplateView';
 
+import type { TemplateData } from '@/components/landing/TemplateView';
+
 // Mock list of popular industries for Programmatic SEO
-export const nganhNgheList = {
+export const nganhNgheList: Record<string, TemplateData> = {
   'it-phan-mem': {
     name: "IT Phần mềm",
     title: "Mẫu CV chuẩn ATS ngành IT Phần mềm",
@@ -162,10 +161,6 @@ export const nganhNgheList = {
   }
 };
 
-type Props = {
-  params: { 'nganh-nghe': string }
-}
-
 // 1. DYNAMIC METADATA: Extremely important for pSEO!
 export async function generateMetadata({ params }: { params: Promise<{ 'nganh-nghe': string }> }): Promise<Metadata> {
   const awaitedParams = await params;
@@ -240,5 +235,5 @@ export default async function MauCvPage({ params }: { params: Promise<{ 'nganh-n
     }
   };
 
-  return <TemplateView data={data as any} />;
+  return <TemplateView data={data} />;
 }

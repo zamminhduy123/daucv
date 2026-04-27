@@ -14,7 +14,7 @@ export default function FeaturesSection() {
         {/* Card 1: Tối ưu CV với AI */}
         <div className="bg-green-50/50 rounded-3xl p-8 border border-gray-100 flex flex-col h-full">
           <div className="bg-white rounded-xl shadow-sm p-2 w-12 h-12 flex items-center justify-center mb-6">
-            <FileCheck className="text-[var(--primary)]" size={24} />
+            <FileCheck className="text-(--primary)" size={24} />
           </div>
           <h3 className="text-xl font-bold text-[#2F4F4F] mb-3">Tối ưu CV với AI</h3>
           <p className="text-sm text-gray-600 leading-relaxed mb-8">
@@ -53,7 +53,7 @@ export default function FeaturesSection() {
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="flex items-center gap-2">
                     <div className="bg-green-100 rounded-full p-0.5">
-                      <Check size={10} className="text-[var(--primary)]" strokeWidth={4} />
+                      <Check size={10} className="text-(--primary)" strokeWidth={4} />
                     </div>
                     <div className="bg-gray-100 rounded-full h-2 w-full max-w-[80px]"></div>
                   </div>
@@ -102,12 +102,12 @@ export default function FeaturesSection() {
               {/* Skill Item 3 */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-[var(--primary)]"></div>
+                  <div className="w-2 h-2 rounded-full bg-(--primary)"></div>
                   <span className="text-xs font-semibold text-[#2F4F4F]">SQL</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="bg-gray-100 rounded-full h-1.5 w-12"></div>
-                  <span className="bg-green-50 text-[var(--primary)] px-2.5 py-0.5 rounded-full text-[9px] font-bold">Tốt</span>
+                  <span className="bg-green-50 text-(--primary) px-2.5 py-0.5 rounded-full text-[9px] font-bold">Tốt</span>
                 </div>
               </div>
             </div>
@@ -130,7 +130,7 @@ export default function FeaturesSection() {
               {/* Chat Bubble 1: Text */}
               <div className="p-3 bg-white border border-gray-100 rounded-2xl rounded-bl-none shadow-sm max-w-[180px]">
                 <p className="text-[10px] text-[#2F4F4F] leading-relaxed">
-                  <span className="font-bold text-[var(--primary)]">Bé Đậu:</span> Bạn hãy giới thiệu về dự án đáng tự hào nhất của bạn?
+                  <span className="font-bold text-(--primary)">Bé Đậu:</span> Bạn hãy giới thiệu về dự án đáng tự hào nhất của bạn?
                 </p>
               </div>
 
@@ -139,7 +139,7 @@ export default function FeaturesSection() {
                 {[2, 4, 3, 6, 4, 8, 5, 3, 6, 4, 7, 3, 2].map((h, i) => (
                   <div 
                     key={i} 
-                    className="w-1 bg-[var(--primary)] rounded-full" 
+                    className="w-1 bg-(--primary) rounded-full" 
                     style={{ height: `${h * 1.5}px` }}
                   ></div>
                 ))}

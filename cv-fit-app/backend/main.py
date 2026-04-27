@@ -3,9 +3,8 @@ import json
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Literal, Any, Dict
 import pdfplumber
-from google import genai
 from dotenv import load_dotenv
 import io
 
@@ -22,7 +21,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+from services.llm_provider import get_ai_provider, OllamaProvider
+
+def get_llm():
+    return get_ai_provider("ollama")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -58,17 +60,27 @@ class MatchResult(BaseModel):
     missing_skills: List[str]
     tailored_cv: TailoredCV
 
-class ChatMessage(BaseModel):
+class Message(BaseModel):
     role: str   # "user" | "assistant"
     content: str
 
-class InterviewRequest(BaseModel):
+class InterviewChatRequest(BaseModel):
     jd_text: str
     cv_text: str
-    chat_history: List[ChatMessage]
+    chat_history: List[Message]
 
-class InterviewResponse(BaseModel):
-    response: str
+class LiveMetrics(BaseModel):
+    confidence_score: int
+    confidence_feedback: str
+    jd_relevance_score: int
+    jd_relevance_feedback: str
+    tech_vocab_rating: Literal["YẾU", "KHÁ", "TỐT", "XUẤT SẮC"]
+
+class InterviewTurnResponse(BaseModel):
+    ai_feedback: str
+    next_question: str
+    hint_for_user: str
+    metrics: LiveMetrics
 
 # ---------------------------------------------------------------------------
 # Pydantic models – /api/analyze-cv (structured output)
@@ -139,53 +151,51 @@ async def upload_and_match(
 
 
     try:
-        completion = client.models.generate_content(
-            model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
-            contents=f"CV:\n{cv_text}\n\nJob Description:\n{jd_text}",
-            config={
-                "system_instruction": system_prompt,
-                "temperature": 0.3,
-                "response_mime_type": "application/json",
-            }
-        )
-        raw = completion.text or "{}"
-        data = json.loads(raw)
-        return MatchResult(**data)
+        provider = get_llm()
+        data = await provider.generate_structured(system_prompt, f"CV:\n{cv_text}\n\nJob Description:\n{jd_text}", MatchResult)
+        return data
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Gemini error: {e}")
 
 
+class AnalyzeCVRequest(BaseModel):
+    jd_text: str
+    cv_text: str
+
+# ---------------------------------------------------------------------------
+# POST /api/extract-pdf
+# ---------------------------------------------------------------------------
+
+@app.post("/api/extract-pdf")
+async def extract_pdf(file: UploadFile = File(...)):
+    if file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+    try:
+        file_bytes = await file.read()
+        text = extract_text_from_pdf(file_bytes)
+        return {"text": text}
+    except Exception as e:
+        return {"error": str(e)}
+
 # ---------------------------------------------------------------------------
 # POST /api/analyze-cv
 # ---------------------------------------------------------------------------
 
 @app.post("/api/analyze-cv", response_model=CVAnalysisResponse)
-async def analyze_cv(
-    jd_text: str = Form(...),
-    file: Optional[UploadFile] = File(None),
-    cv_text: Optional[str] = Form(None),
-):
+async def analyze_cv(req: AnalyzeCVRequest):
     """
-    Accept an optional PDF CV or raw CV text, and a Job Description. 
+    Accept raw CV text and a Job Description. 
     Return a structured analysis.
     """
-    # 1. Get CV text
-    extracted_text = ""
-    if file:
-        file_bytes = await file.read()
-        try:
-            extracted_text = extract_text_from_pdf(file_bytes)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Không thể đọc file PDF: {e}")
-    elif cv_text:
-        extracted_text = cv_text.strip()
+    extracted_text = req.cv_text.strip()
+    jd_text = req.jd_text
 
     if not extracted_text:
         raise HTTPException(
             status_code=422,
-            detail="Cần cung cấp file PDF hoặc nội dung CV.",
+            detail="Cần cung cấp nội dung CV.",
         )
 
     # 2. Build system prompt
@@ -214,51 +224,18 @@ async def analyze_cv(
 
     # 3. Call Gemini with structured output
     try:
-        completion = client.models.generate_content(
-            model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
-            contents=user_content,
-            config={
-                "system_instruction": system_prompt,
-                "temperature": 0.3,
-                "response_mime_type": "application/json",
-                "response_schema": CVAnalysisResponse,
-            }
-        )
-        parsed = completion.parsed
+        provider = get_llm()
+        parsed = await provider.generate_structured(system_prompt, user_content, CVAnalysisResponse)
         if parsed is None:
             raise Exception("Gemini return empty")
         return parsed
     except Exception as e:
         print(f"Gemini error: {e}. Trying Ollama fallback...")
         # Fallback to Ollama gemma4:e4b
-        import httpx
         try:
-            async with httpx.AsyncClient() as http_client:
-                fallback_prompt = f"""{system_prompt}
-                CRITICAL: Answer ONLY with pure JSON.
-                
-                CV content:
-                {user_content}"""
-                
-                # Use /api/chat if sending messages
-                res = await http_client.post(
-                    "https://divorcee-work-pessimism.ngrok-free.dev/ollama/api/generate",
-                    json={
-                        "model": "gemma4:e4b",
-                        "prompt": fallback_prompt,
-                        "format": CVAnalysisResponse.model_json_schema(),
-                        "stream": False,
-                        "options": {
-                            "temperature": 0.3  # Keep low for consistency
-                        }
-                    },
-                    timeout=300.0
-                )
-                res.raise_for_status()
-                ollama_data = res.json()
-                raw_content = ollama_data.get("response", {})
-                parsed_json = json.loads(raw_content)
-                return CVAnalysisResponse(**parsed_json)
+            provider = OllamaProvider()
+            parsed = await provider.generate_structured(system_prompt, user_content, CVAnalysisResponse)
+            return parsed
         except Exception as ollama_e:
             raise HTTPException(
                 status_code=500, 
@@ -266,43 +243,57 @@ async def analyze_cv(
             )
 
 
-@app.post("/api/interview/chat", response_model=InterviewResponse)
-async def interview_chat(req: InterviewRequest):
+@app.post("/api/interview/chat", response_model=InterviewTurnResponse)
+async def interview_chat(req: InterviewChatRequest):
     """
-    Continue the mock interview. Accepts full chat history and returns the
-    AI interviewer's next message.
+    Stateless mock interview turn processor mapping an InterviewChatRequest to an InterviewTurnResponse.
     """
-    system_prompt = (
-        "Bạn là Bé Đậu - người phỏng vấn AI thông minh và thân thiện. "
-        "Bạn đang giúp ứng viên luyện tập cho vị trí công việc dựa trên JD và CV dưới đây.\n"
-        f"JD:\n{req.jd_text}\n\nCV Ứng viên:\n{req.cv_text}\n\n"
-        "Nguyên tắc:\n"
-        "- Nói chuyện thân thiện, khuyến khích như một người bạn (Career Coach).\n"
-        "- Phỏng vấn NGHIÊM NGẶT bằng tiếng Việt.\n"
-        "- Mỗi lần chỉ đặt MỘT câu hỏi (kỹ thuật hoặc tình huống dựa trên JD).\n"
-        "- Đưa ra nhận xét ngắn gọn về câu trả lời trước đó (khen ngợi hoặc góp ý) trước khi hỏi câu tiếp theo.\n"
-        "- Giữ tông giọng chuyên nghiệp nhưng không gò bó.\n"
-        "- Nếu là tin nhắn đầu tiên, hãy chào mừng ứng viên bằng giọng của Bé Đậu và bắt đầu câu hỏi đầu tiên.\n"
-        "- Sau khoảng 5-6 câu hỏi, hãy đưa ra bản tóm tắt nhận xét và kết thúc buổi phỏng vấn."
-    )
+    system_prompt = f"""You are Bé Đậu, a friendly but rigorous Senior Tech Recruiter in Vietnam. 
+        You are conducting a professional 1-on-1 mock interview with a candidate.
 
+        [CONTEXT]
+        Job Description (JD):\n{req.jd_text}\n
+        Candidate's CV:\n{req.cv_text}\n[RULES]
+        1. Ask ONLY ONE question at a time. Keep it conversational but professional.
+        2. Do NOT break character. Always respond entirely in natural Vietnamese.
+        3. Read the candidate's latest answer in the chat history, then provide your response strictly matching the required JSON schema.
 
+        [OUTPUT FIELDS EXPLANATION]
+        - 'ai_feedback' (String): Brief, constructive micro-feedback on their previous answer. Point out what was good and what was missing. (If this is the first turn, output a warm welcome message here).
+        - 'next_question' (String): The next interview question. Progress logically from introduction -> technical deep-dive (based on CV) -> behavioral (situational).
+        - 'hint_for_user' (String): A short, actionable "cheat" hint on how to answer the 'next_question' (e.g., "Gợi ý: Hãy áp dụng cấu trúc STAR và nhắc đến công nghệ X bạn đã dùng ở công ty cũ.").[METRICS EVALUATION RULES]
+        You must calculate 'metrics' based strictly on the candidate's latest answer:
+        - 'confidence_score' (Integer, Range: 0 to 100): Evaluate textual fluency and decisiveness. 
+        * 90-100: Clear, articulate, straight to the point.
+        * 50-89: Normal speech, but slightly vague.
+        * 0-49: Penalize heavily if the text contains filler words ("ờ", "ừm", "à", "thì là"), stuttering, or is excessively short.
+        - 'confidence_feedback' (String): 1 short sentence explaining why you gave this confidence score.
+        - 'jd_relevance_score' (Integer, Range: 0 to 100): How strongly the candidate's answer demonstrates the specific skills required in the JD. (e.g., 100 if they perfectly map their experience to a JD requirement).
+        - 'jd_relevance_feedback' (String): 1 short sentence explaining the relevance score.
+        - 'tech_vocab_rating' (String): MUST be exactly one of these 4 values:["YẾU", "KHÁ", "TỐT", "XUẤT SẮC"]. Evaluate their accurate use of professional and technical terminology.
+        """
 
     contents = []
     for msg in req.chat_history:
-        # "user" maps to "user", "assistant" maps to "model" for Gemini
         role = "model" if msg.role == "assistant" else "user"
         contents.append({"role": role, "parts": [{"text": msg.content}]})
 
-    try:
-        completion = client.models.generate_content(
-            model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
-            contents=contents,
-            config={
-                "system_instruction": system_prompt,
-                "temperature": 0.7,
-            }
+    if not contents:
+        # First turn logic setup since chat history is empty
+        system_prompt += (
+            "\n\nThis is the very first message of the interview. "
+            "Introduce yourself formally as Bé Đậu, briefly summarize the JD, and ask the first introductory question. "
+            "Leave 'ai_feedback' empty (\"\"), and initialize scores at 100. "
+            "Provide a 'hint_for_user' on how to answer the first question."
         )
-        return InterviewResponse(response=completion.text or "")
+        # Push default startup cue for the LLMs since content is blank 
+        contents = [{"role": "user", "parts": [{"text": "Xin chào, tôi đã sẵn sàng tham gia buổi phỏng vấn."}]}]
+
+    try:
+        provider = get_llm()
+        parsed = await provider.generate_structured(system_prompt, contents, InterviewTurnResponse)
+        if parsed is None:
+            raise Exception("AI returned empty response")
+        return parsed
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Gemini error: {e}")
+        raise HTTPException(status_code=502, detail=f"AI Provider error: {e}")

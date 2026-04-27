@@ -22,7 +22,7 @@ export default function LoadingOverlay() {
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-[100]"
+      className="fixed inset-0 flex items-center justify-center z-100"
       style={{ backgroundColor: "rgba(47,79,79,0.55)", backdropFilter: "blur(6px)" }}
     >
       <div
@@ -53,7 +53,7 @@ export default function LoadingOverlay() {
           style={{ backgroundColor: "rgba(152,193,142,0.2)" }}
         >
           <div
-            className="h-full rounded-full bg-[var(--primary)]"
+            className="h-full rounded-full bg-(--primary)"
             style={{ animation: "loading-bar 2s ease-in-out forwards" }}
           />
         </div>

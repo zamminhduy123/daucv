@@ -10,8 +10,7 @@ import {
   TrendingUp,
   Zap,
   Target,
-  ArrowRight,
-  Download
+  ArrowRight
 } from "lucide-react";
 import { useState } from "react";
 import { LandingNavbar } from "@/components/shared/TopNavbar";
@@ -23,6 +22,7 @@ export type TemplateData = {
   name: string;
   title: string;
   subtitle: string;
+  keywords: string[];
   proTips: Array<{ icon: string; title: string; description: string }>;
   template: {
     name: string;
@@ -35,7 +35,7 @@ export type TemplateData = {
   };
 };
 
-const IconMap: Record<string, any> = {
+const IconMap: Record<string, React.ElementType> = {
   Target: Target,
   Zap: Zap,
   TrendingUp: TrendingUp,
@@ -47,8 +47,8 @@ export default function TemplateView({ data }: { data: TemplateData }) {
 
   const generateCVText = () => {
     const { template } = data;
-    return `${template.name}
-${template.title}
+    return `${template?.name || ""}
+${template?.title || ""}
 ${template.contact}
 
 SUMMARY
@@ -77,8 +77,8 @@ ${template.education}`;
     <div className="min-h-screen bg-[#F9F9F2]">
       {/* Decorative background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-40 right-20 w-96 h-96 bg-[var(--primary)]/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 left-20 w-96 h-96 bg-[var(--primary)]/10 rounded-full blur-3xl" />
+        <div className="absolute top-40 right-20 w-96 h-96 bg-(--primary)/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 left-20 w-96 h-96 bg-(--primary)/10 rounded-full blur-3xl" />
       </div>
 
       <LandingNavbar />
@@ -98,9 +98,9 @@ ${template.education}`;
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.2 }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)]/10 rounded-full border-2 border-[var(--primary)]/20 mb-6"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-(--primary)/10 rounded-full border-2 border-[var(--primary)]/20 mb-6"
                 >
-                  <Sparkles className="w-4 h-4 text-[var(--primary)]" />
+                  <Sparkles className="w-4 h-4 text-(--primary)" />
                   <span className="text-sm font-semibold text-[#2F4F4F]">Mẫu CV được tin dùng bởi 1000+ ứng viên</span>
                 </motion.div>
 
@@ -122,7 +122,7 @@ ${template.education}`;
 
                 <div className="flex flex-wrap gap-4">
                   <Link href="/app">
-                    <button className="group px-8 py-4 bg-[var(--primary)] text-[#2F4F4F] rounded-2xl font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-xl flex items-center gap-2">
+                    <button className="group px-8 py-4 bg-(--primary) text-[#2F4F4F] rounded-2xl font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-xl flex items-center gap-2">
                       Tùy chỉnh với AI
                       <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </button>
@@ -133,7 +133,7 @@ ${template.education}`;
                   >
                     {copied ? (
                       <>
-                        <CheckCircle className="w-5 h-5 text-[var(--primary)]" />
+                        <CheckCircle className="w-5 h-5 text-(--primary)" />
                         Đã copy!
                       </>
                     ) : (
@@ -154,7 +154,7 @@ ${template.education}`;
                 className="flex justify-center lg:justify-end"
               >
                 <div className="relative">
-                  <div className="absolute inset-0 bg-[var(--primary)]/20 rounded-full blur-3xl scale-110" />
+                  <div className="absolute inset-0 bg-(--primary)/20 rounded-full blur-3xl scale-110" />
                   <div className="relative bg-white p-8 rounded-3xl border-2 border-[var(--primary)]/20 shadow-2xl flex flex-col items-center justify-center h-64 w-64">
                     <Image 
                       src="/main-icon.webp" 
@@ -213,11 +213,11 @@ ${template.education}`;
                           whileInView={{ opacity: 1, y: 0 }}
                           viewport={{ once: true }}
                           transition={{ delay: index * 0.1 }}
-                          className="group bg-white p-6 rounded-3xl border-2 border-[var(--primary)]/10 hover:border-[var(--primary)]/30 hover:shadow-lg transition-all duration-300"
+                          className="group bg-white p-6 rounded-3xl border-2 border-[var(--primary)]/10 hover:border-(--primary)/30 hover:shadow-lg transition-all duration-300"
                         >
                           <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0 w-12 h-12 bg-[var(--primary)]/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                              <IconComp className="w-6 h-6 text-[var(--primary)]" />
+                            <div className="flex-shrink-0 w-12 h-12 bg-(--primary)/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <IconComp className="w-6 h-6 text-(--primary)" />
                             </div>
                             <div>
                               <h3 className="font-semibold text-[#2F4F4F] mb-2">{tip.title}</h3>
@@ -266,7 +266,7 @@ ${template.education}`;
                       <h1 className="text-3xl font-bold text-[#2F4F4F] mb-2">
                         {data.template.name}
                       </h1>
-                      <p className="text-xl text-[var(--primary)] font-semibold mb-3">
+                      <p className="text-xl text-(--primary) font-semibold mb-3">
                         {data.template.title}
                       </p>
                       <p className="text-sm text-[#5A6D6D]">
@@ -363,7 +363,7 @@ ${template.education}`;
                 </div>
                 <Link href="/app">
                   <button className="group px-10 py-5 bg-white text-[#2F4F4F] rounded-2xl font-bold hover:scale-105 transition-all shadow-xl hover:shadow-2xl flex items-center gap-3 whitespace-nowrap">
-                    <Sparkles className="w-6 h-6 text-[var(--primary)]" />
+                    <Sparkles className="w-6 h-6 text-(--primary)" />
                     Dùng thử Đậu miễn phí
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </button>

@@ -12,10 +12,10 @@ export default function HeroSection() {
         <div className="z-10 text-center lg:text-left lg:max-w-2xl">
           {/* Badge */}
           <div
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#2F4F4F] rounded-full border border-[var(--primary)]/30 mb-6 lg:mb-8 text-left"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-[#2F4F4F] rounded-full border border-(--primary)/30 mb-6 lg:mb-8 text-left"
             style={{ padding: "0.5rem 1rem", backgroundColor: "rgba(152,193,142,0.15)" }}
           >
-            <span className="text-[var(--primary)] text-base shrink-0">🌱</span>
+            <span className="text-(--primary) text-base shrink-0">🌱</span>
             <span className="leading-tight sm:leading-normal">AI của người Việt, giúp bạn Đậu mọi vòng phỏng vấn</span>
           </div>
 
@@ -25,7 +25,7 @@ export default function HeroSection() {
             style={{ letterSpacing: "-0.03em", fontSize: "clamp(2.5rem, 6vw, 4.5rem)" }}
           >
             Nâng cấp CV.<br />
-            <span className="text-[var(--primary)]">Chốt đơn sự nghiệp.</span>
+            <span className="text-(--primary)">Chốt đơn sự nghiệp.</span>
           </h1>
 
           {/* Subtitle */}
@@ -38,25 +38,25 @@ export default function HeroSection() {
 
           {/* CTA */}
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-center lg:justify-start mb-6">
-            <Link href="/app" className="w-full sm:w-auto group px-6 py-4 lg:px-8 bg-[var(--primary)] text-white rounded-xl font-bold hover:opacity-90 transition-all shadow-md flex justify-center items-center gap-2 text-base lg:text-lg">
-              Bắt đầu miễn phí <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+            <Link href="/app" className="w-full sm:w-auto group px-6 py-4 lg:px-8 bg-(--primary) text-white rounded-xl font-bold hover:opacity-90 transition-all shadow-md flex justify-center items-center gap-2 text-base lg:text-lg">
+              Phân tích CV/JD <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link 
               href="/app" 
               className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-6 py-4 lg:px-8 rounded-xl font-bold bg-white text-[#2F4F4F] border border-gray-200 hover:shadow-md transition-all text-base lg:text-lg"
             >
               <div className="bg-gray-100 rounded-full p-1"><Play size={16} fill="currentColor" /></div>
-              Xem demo
+              Phỏng vấn thử
             </Link>
           </div>
 
           {/* Bullet Points */}
           <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 sm:gap-6 text-sm text-[#5A6D6D] font-medium">
             <span className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-[var(--primary)]" /> Không cần thẻ tín dụng
+              <CheckCircle2 size={16} className="text-(--primary)" /> Hoàn toàn miễn phí
             </span>
             <span className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-[var(--primary)]" /> Miễn phí 3 lượt/ngày
+              <CheckCircle2 size={16} className="text-(--primary)" /> Không lưu trữ dữ liệu người dùng
             </span>
           </div>
         </div>

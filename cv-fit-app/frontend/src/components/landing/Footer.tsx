@@ -18,27 +18,27 @@ export default function Footer() {
         <div className="space-y-4">
           <h4 className="text-[#2F4F4F] font-bold text-sm uppercase tracking-wider">Mẫu CV theo ngành</h4>
           <ul className="space-y-2 text-sm">
-            <li><Link href="/mau-cv/it-phan-mem" className="hover:text-[var(--primary)] transition-colors">IT & Phần mềm</Link></li>
-            <li><Link href="/mau-cv/marketing" className="hover:text-[var(--primary)] transition-colors">Marketing & Truyền thông</Link></li>
-            <li><Link href="/mau-cv/nhan-su-hr" className="hover:text-[var(--primary)] transition-colors">Hành chính Nhân sự</Link></li>
-            <li><Link href="/mau-cv/tai-chinh-ngan-hang" className="hover:text-[var(--primary)] transition-colors">Tài chính Ngân hàng</Link></li>
+            <li><Link href="/mau-cv/it-phan-mem" className="hover:text-(--primary) transition-colors">IT & Phần mềm</Link></li>
+            <li><Link href="/mau-cv/marketing" className="hover:text-(--primary) transition-colors">Marketing & Truyền thông</Link></li>
+            <li><Link href="/mau-cv/nhan-su-hr" className="hover:text-(--primary) transition-colors">Hành chính Nhân sự</Link></li>
+            <li><Link href="/mau-cv/tai-chinh-ngan-hang" className="hover:text-(--primary) transition-colors">Tài chính Ngân hàng</Link></li>
           </ul>
         </div>
 
         <div className="space-y-4">
           <h4 className="text-[#2F4F4F] font-bold text-sm uppercase tracking-wider">Sản phẩm</h4>
           <ul className="space-y-2 text-sm">
-            <li><Link href="/app" className="hover:text-[var(--primary)] transition-colors">Phân tích CV</Link></li>
-            <li><Link href="/interview" className="hover:text-[var(--primary)] transition-colors">Luyện phỏng vấn AI</Link></li>
-            <li><Link href="#" className="hover:text-[var(--primary)] transition-colors">Hướng dẫn sử dụng</Link></li>
+            <li><Link href="/app" className="hover:text-(--primary) transition-colors">Phân tích CV</Link></li>
+            <li><Link href="/interview" className="hover:text-(--primary) transition-colors">Luyện phỏng vấn AI</Link></li>
+            <li><Link href="#" className="hover:text-(--primary) transition-colors">Hướng dẫn sử dụng</Link></li>
           </ul>
         </div>
 
         <div className="space-y-4">
           <h4 className="text-[#2F4F4F] font-bold text-sm uppercase tracking-wider">Công cụ</h4>
           <ul className="space-y-2 text-sm">
-            <li><Link href="#" className="hover:text-[var(--primary)] transition-colors">Kiểm tra điểm ATS</Link></li>
-            <li><Link href="#" className="hover:text-[var(--primary)] transition-colors">Dịch CV sang tiếng Anh</Link></li>
+            <li><Link href="#" className="hover:text-(--primary) transition-colors">Kiểm tra điểm ATS</Link></li>
+            <li><Link href="#" className="hover:text-(--primary) transition-colors">Dịch CV sang tiếng Anh</Link></li>
           </ul>
         </div>
       </div>

@@ -6,18 +6,18 @@ import Link from "next/link";
 import Image from "next/image";
 import { Check, AlertCircle, Download, MessageSquare } from "lucide-react";
 
+interface Experience {
+  company: string;
+  role: string;
+  bullet_points: string[];
+}
+
 interface TailoredCV {
   name: string;
   summary: string;
-  experience: Array<{ company: string; role: string; bullet_points: string[] }>;
+  experience: Experience[];
   education: string;
   skills: string[];
-}
-
-interface MatchResult {
-  match_score: number;
-  missing_skills: string[];
-  tailored_cv: TailoredCV;
 }
 
 function CircleProgress({ score }: { score: number }) {
@@ -40,13 +40,17 @@ function CircleProgress({ score }: { score: number }) {
 
 export default function ResultsPage() {
   const router = useRouter();
-  const [result, setResult] = useState<MatchResult | null>(null);
+
+  const [result] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const raw = sessionStorage.getItem("cvfit_result");
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  });
 
   useEffect(() => {
-    const raw = sessionStorage.getItem("cvfit_result");
-    if (!raw) { router.push("/app"); return; }
-    try { setResult(JSON.parse(raw)); } catch { router.push("/app"); }
-  }, [router]);
+    if (!result) router.push("/app");
+  }, [result, router]);
 
   const handlePrint = () => window.print();
 
@@ -99,10 +103,10 @@ export default function ResultsPage() {
           <div className="no-print" style={{ backgroundColor: "white", borderRadius: 24, padding: "2.5rem", border: "1px solid rgba(178,34,34,0.1)", marginBottom: "2rem", boxShadow: "0 8px 32px rgba(178,34,34,0.03)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
               <AlertCircle size={22} color="#B22222" />
-              <h3 className="font-heading" style={{ fontWeight: 700, color: "#2F4F4F", fontSize: "1.25rem" }}>Kỹ năng bạn cần "xào nấu" lại</h3>
+              <h3 className="font-heading" style={{ fontWeight: 700, color: "#2F4F4F", fontSize: "1.25rem" }}>Kỹ năng bạn cần &#34;xào nấu&#34; lại</h3>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-              {missing_skills.map((skill) => (
+              {missing_skills.map((skill : string) => (
                 <span key={skill} style={{ padding: "0.5rem 1.125rem", borderRadius: 12, backgroundColor: "rgba(178,34,34,0.06)", border: "1px solid rgba(178,34,34,0.15)", color: "#B22222", fontSize: "0.95rem", fontWeight: 600 }}>
                   {skill}
                 </span>
@@ -133,14 +137,14 @@ export default function ResultsPage() {
             {tailored_cv.experience.length > 0 && (
               <div style={{ marginBottom: "2rem" }}>
                 <h2 style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "var(--primary)", marginBottom: "1.5rem" }}>Kinh nghiệm làm việc</h2>
-                {tailored_cv.experience.map((exp, i) => (
+                {tailored_cv.experience.map((exp : Experience, i : number) => (
                   <div key={i} style={{ marginBottom: "2rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                       <h3 style={{ fontWeight: 700, color: "#2F4F4F", fontSize: "1.1rem" }}>{exp.role}</h3>
                       <span style={{ fontSize: "0.95rem", color: "#5A6D6D", fontWeight: 500 }}>{exp.company}</span>
                     </div>
                     <ul style={{ marginTop: "0.75rem", paddingLeft: "1.5rem" }}>
-                      {exp.bullet_points.map((bp, j) => (
+                      {exp.bullet_points.map((bp : string, j : number) => (
                         <li key={j} style={{ color: "#2F4F4F", lineHeight: 1.7, fontSize: "0.95rem", marginBottom: "0.5rem" }}>{bp}</li>
                       ))}
                     </ul>
@@ -154,7 +158,7 @@ export default function ResultsPage() {
                   <div>
                     <h2 style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "var(--primary)", marginBottom: "1rem" }}>Kỹ năng chuyên môn</h2>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                      {tailored_cv.skills.map((s) => (
+                      {tailored_cv.skills.map((s : string) => (
                         <span key={s} style={{ padding: "0.4rem 1rem", borderRadius: 12, backgroundColor: "rgba(152,193,142,0.1)", border: "1px solid rgba(152,193,142,0.2)", color: "#2F4F4F", fontSize: "0.9rem", fontWeight: 500, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                           <Check size={14} color="var(--primary)" strokeWidth={3} />{s}
                         </span>
@@ -182,7 +186,7 @@ export default function ResultsPage() {
           >
             <MessageSquare size={22} /> Luyện tập cùng Bé Đậu
           </Link>
-          <p style={{ marginTop: "1.5rem", fontSize: "1rem", color: "#5A6D6D" }}>Tập dượt trước giờ G với AI chuyên sâu</p>
+          <p style={{ marginTop: "1.5rem", fontSize: "1rem", color: "#5A6D6D" }}>Tập dợt trước giờ G với AI chuyên sâu</p>
         </div>
       </main>
 

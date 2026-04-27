@@ -1,15 +1,18 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, FileText, X, CheckCircle, AlertTriangle, Sparkles, ChevronRight } from "lucide-react";
+import { Upload, FileText, X, CheckCircle, AlertTriangle, Sparkles, Mic, Loader2 } from "lucide-react";
 import type { WorkspaceInputs } from "@/types";
 import { wordCount } from "@/lib/utils";
+import { extractPdfAPI } from "@/lib/api";
 
 interface InputSectionProps {
   inputs: WorkspaceInputs;
   onChange: (patch: Partial<WorkspaceInputs>) => void;
   onAnalyze: () => void;
-  loading: boolean;
+  onInterview: () => void;
+  isAnalyzing: boolean;
+  isStartingInterview: boolean;
   error: string;
 }
 
@@ -25,7 +28,7 @@ interface TextCardProps {
 
 function TextCard({ title, subtitle, children, wordCountText, headerRight, topBadge }: TextCardProps) {
   return (
-    <div className="bg-white rounded-2xl border border-[#2F4F4F]/[0.08] shadow-sm flex flex-col overflow-hidden h-full">
+    <div className="bg-white rounded-2xl border border-[#2F4F4F]/8 shadow-sm flex flex-col overflow-hidden h-full">
       {/* Header — compact */}
       <div className="px-4 py-3 border-b border-[#2F4F4F]/[0.07] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2.5">
@@ -47,7 +50,7 @@ function TextCard({ title, subtitle, children, wordCountText, headerRight, topBa
       <div className="flex flex-col flex-1 overflow-hidden">{children}</div>
 
       {/* Footer */}
-      <div className="px-4 py-1.5 border-t border-[#2F4F4F]/[0.06] bg-[#FAFAFA] shrink-0">
+      <div className="px-4 py-1.5 border-t border-[#2F4F4F]/6 bg-[#FAFAFA] shrink-0">
         <span className="text-[10px] text-[#5A6D6D]">{wordCountText}</span>
       </div>
     </div>
@@ -55,16 +58,36 @@ function TextCard({ title, subtitle, children, wordCountText, headerRight, topBa
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function InputSection({ inputs, onChange, onAnalyze, loading, error }: InputSectionProps) {
+export default function InputSection({ inputs, onChange, onAnalyze, onInterview, isAnalyzing, isStartingInterview, error }: InputSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [isExtractingPDF, setIsExtractingPDF] = useState(false);
+  const [extractError, setExtractError] = useState("");
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     if (file.type !== "application/pdf") {
       onChange({ cvFile: null, cvText: "" });
+      setExtractError("Vui lòng tải lên file PDF.");
       return;
     }
-    onChange({ cvFile: file, cvText: `[PDF đã tải lên: ${file.name}]` });
+    
+    onChange({ cvFile: file });
+    setExtractError("");
+    setIsExtractingPDF(true);
+
+    try {
+      const result = await extractPdfAPI(file);
+      if (result.error) {
+        setExtractError(result.error);
+        onChange({ cvText: `[Lỗi trích xuất: ${result.error}]` });
+      } else {
+        onChange({ cvText: result.text || "" });
+      }
+    } catch (err: any) {
+      setExtractError(err.message || "Lỗi kết nối");
+    } finally {
+      setIsExtractingPDF(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -87,7 +110,7 @@ export default function InputSection({ inputs, onChange, onAnalyze, loading, err
         </h1>
         <p className="text-[#5A6D6D] text-sm mt-0.5">
           Dán JD và CV của bạn vào đây.{" "}
-          <span className="text-[var(--primary)] font-semibold">Bé Đậu sẽ lo phần còn lại.</span>
+          <span className="text-(--primary) font-semibold">Bé Đậu sẽ lo phần còn lại.</span>
         </p>
       </div>
 
@@ -145,10 +168,10 @@ export default function InputSection({ inputs, onChange, onAnalyze, loading, err
                 style={{ backgroundColor: "rgba(152,193,142,0.1)", border: "1px solid rgba(152,193,142,0.3)" }}
               >
                 <span className="flex items-center gap-1.5 text-xs font-semibold text-[#2F4F4F] truncate">
-                  <CheckCircle size={12} color="var(--primary)" />
-                  {inputs.cvFile.name}
+                  {isExtractingPDF ? <Loader2 size={12} className="animate-spin" color="var(--primary)" /> : <CheckCircle size={12} color="var(--primary)" />}
+                  {isExtractingPDF ? "Đang đọc PDF..." : inputs.cvFile.name}
                 </span>
-                <button onClick={clearFile} className="text-[#5A6D6D] hover:text-[#B22222] transition-colors p-0.5 shrink-0">
+                <button onClick={clearFile} className="text-[#5A6D6D] hover:text-[#B22222] transition-colors p-0.5 shrink-0" disabled={isExtractingPDF}>
                   <X size={12} />
                 </button>
               </div>
@@ -189,43 +212,49 @@ export default function InputSection({ inputs, onChange, onAnalyze, loading, err
 
       {/* ── Error + CTA — pinned at bottom, never scrolls away ── */}
       <div className="shrink-0">
-        {error && (
+        {(error || extractError) && (
           <div
             className="flex items-center gap-2.5 rounded-xl px-4 py-3 mb-3 text-sm font-medium text-[#B22222]"
             style={{ backgroundColor: "rgba(178,34,34,0.06)", border: "1px solid rgba(178,34,34,0.2)" }}
           >
             <AlertTriangle size={15} className="shrink-0" />
-            {error}
+            {error || extractError}
           </div>
         )}
 
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-[#5A6D6D]">
-            Phân tích xong trong ~2 giây
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+          {/* Action Card 1: Analyze */}
           <button
             onClick={onAnalyze}
-            disabled={loading}
-            className="inline-flex items-center gap-2 font-heading font-bold text-white rounded-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-            style={{
-              padding: "0.75rem 2rem", fontSize: "1rem",
-              backgroundColor: "var(--primary)",
-              boxShadow: "0 6px 20px rgba(152,193,142,0.35)",
-            }}
-            onMouseOver={(e) => {
-              if (!loading) {
-                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 10px 28px rgba(152,193,142,0.45)";
-              }
-            }}
-            onMouseOut={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 6px 20px rgba(152,193,142,0.35)";
-            }}
+            disabled={isAnalyzing || isStartingInterview}
+            className="flex items-start gap-4 p-4 rounded-2xl bg-white border-2 border-(--primary)/20 hover:border-(--primary) hover:bg-[#F9F9F2] transition-all text-left group shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Sparkles size={18} />
-            Chăm chút CV ✨
-            <ChevronRight size={16} />
+            <div className="w-12 h-12 rounded-full bg-(--primary)/10 text-(--primary) flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              {isAnalyzing ? <Loader2 className="animate-spin" size={24} /> : <Sparkles size={24} />}
+            </div>
+            <div>
+              <h3 className="font-heading font-bold text-[#2F4F4F] text-lg mb-1 group-hover:text-(--primary) transition-colors">
+                {isAnalyzing ? "Đang xử lý..." : "Chăm chút & Tối ưu CV"}
+              </h3>
+              <p className="text-sm text-[#5A6D6D]">AI phân tích và gợi ý sửa CV chuẩn ATS.</p>
+            </div>
+          </button>
+
+          {/* Action Card 2: Interview */}
+          <button
+            onClick={onInterview}
+            disabled={isAnalyzing || isStartingInterview}
+            className="flex items-start gap-4 p-4 rounded-2xl bg-white border-2 border-orange-400/20 hover:border-orange-400 hover:bg-orange-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="w-12 h-12 rounded-full bg-orange-400/10 text-orange-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              {isStartingInterview ? <Loader2 className="animate-spin" size={24} /> : <Mic size={24} />}
+            </div>
+            <div>
+              <h3 className="font-heading font-bold text-[#2F4F4F] text-lg mb-1 group-hover:text-orange-500 transition-colors">
+                {isStartingInterview ? "Đang xử lý..." : "Phỏng vấn 1-1 với Bé Đậu"}
+              </h3>
+              <p className="text-sm text-[#5A6D6D]">Luyện tập trả lời câu hỏi dựa trên chính CV và JD này.</p>
+            </div>
           </button>
         </div>
       </div>

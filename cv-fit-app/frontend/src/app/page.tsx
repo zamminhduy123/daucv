@@ -1,6 +1,5 @@
 import { LandingNavbar } from "@/components/shared/TopNavbar";
 import HeroSection from "@/components/landing/HeroSection";
-import MockupSection from "@/components/landing/MockupSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
 import HowItWorksSection from "@/components/landing/HowItWorksSection";
 import CallToAction from "@/components/landing/CallToAction";
