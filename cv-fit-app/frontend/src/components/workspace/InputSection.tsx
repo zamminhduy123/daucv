@@ -114,8 +114,8 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
         </p>
       </div>
 
-      {/* ── 2-col card grid — grows to fill space ── */}
-      <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
+      {/* ── 2-col card grid — stacks on mobile, side-by-side on larger screens ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
 
         {/* LEFT: JD */}
         <TextCard
@@ -222,21 +222,21 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mt-2">
           {/* Action Card 1: Analyze */}
           <button
             onClick={onAnalyze}
             disabled={isAnalyzing || isStartingInterview}
-            className="flex items-start gap-4 p-4 rounded-2xl bg-white border-2 border-(--primary)/20 hover:border-(--primary) hover:bg-[#F9F9F2] transition-all text-left group shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-start gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-white border-2 border-(--primary)/20 hover:border-(--primary) hover:bg-[#F9F9F2] transition-all text-left group shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <div className="w-12 h-12 rounded-full bg-(--primary)/10 text-(--primary) flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-              {isAnalyzing ? <Loader2 className="animate-spin" size={24} /> : <Sparkles size={24} />}
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-(--primary)/10 text-(--primary) flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              {isAnalyzing ? <Loader2 className="animate-spin w-5 h-5 md:w-6 md:h-6" /> : <Sparkles className="w-5 h-5 md:w-6 md:h-6" />}
             </div>
             <div>
-              <h3 className="font-heading font-bold text-[#2F4F4F] text-lg mb-1 group-hover:text-(--primary) transition-colors">
+              <h3 className="font-heading font-bold text-[#2F4F4F] text-base md:text-lg mb-0.5 md:mb-1 group-hover:text-(--primary) transition-colors">
                 {isAnalyzing ? "Đang xử lý..." : "Chăm chút & Tối ưu CV"}
               </h3>
-              <p className="text-sm text-[#5A6D6D]">AI phân tích và gợi ý sửa CV chuẩn ATS.</p>
+              <p className="text-xs md:text-sm text-[#5A6D6D]">AI phân tích và gợi ý sửa CV chuẩn ATS.</p>
             </div>
           </button>
 
@@ -244,16 +244,16 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
           <button
             onClick={onInterview}
             disabled={isAnalyzing || isStartingInterview}
-            className="flex items-start gap-4 p-4 rounded-2xl bg-white border-2 border-orange-400/20 hover:border-orange-400 hover:bg-orange-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-start gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-white border-2 border-orange-400/20 hover:border-orange-400 hover:bg-orange-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <div className="w-12 h-12 rounded-full bg-orange-400/10 text-orange-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-              {isStartingInterview ? <Loader2 className="animate-spin" size={24} /> : <Mic size={24} />}
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-orange-400/10 text-orange-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              {isStartingInterview ? <Loader2 className="animate-spin w-5 h-5 md:w-6 md:h-6" /> : <Mic className="w-5 h-5 md:w-6 md:h-6" />}
             </div>
             <div>
-              <h3 className="font-heading font-bold text-[#2F4F4F] text-lg mb-1 group-hover:text-orange-500 transition-colors">
+              <h3 className="font-heading font-bold text-[#2F4F4F] text-base md:text-lg mb-0.5 md:mb-1 group-hover:text-orange-500 transition-colors">
                 {isStartingInterview ? "Đang xử lý..." : "Phỏng vấn 1-1 với Bé Đậu"}
               </h3>
-              <p className="text-sm text-[#5A6D6D]">Luyện tập trả lời câu hỏi dựa trên chính CV và JD này.</p>
+              <p className="text-xs md:text-sm text-[#5A6D6D]">Luyện tập trả lời câu hỏi dựa trên CV và JD.</p>
             </div>
           </button>
         </div>
