@@ -5,13 +5,14 @@ import asyncio
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from typing import List, Optional, Literal, Any, Dict
 import pdfplumber
 from dotenv import load_dotenv
 import io
 import edge_tts
 import tempfile
+from openai import AsyncOpenAI
 
 load_dotenv()
 
@@ -26,35 +27,72 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from services.llm_provider import get_ai_provider, OllamaProvider
+# ---------------------------------------------------------------------------
+# LLM Unified Fallback Configuration
+# ---------------------------------------------------------------------------
 
-async def generate_with_retry_and_fallback(system_prompt: str, content: Any, response_model: type, max_retries: int = 2):
+PROVIDERS = [
+    {
+        "name": "Gemini",
+        "client": AsyncOpenAI(api_key=os.getenv("GEMINI_API_KEY", "dummy"), base_url="https://generativelanguage.googleapis.com/v1beta/openai/"),
+        "model": "gemini-2.5-flash"
+    },
+    {
+        "name": "Groq",
+        "client": AsyncOpenAI(api_key=os.getenv("GROQ_API_KEY", "dummy"), base_url="https://api.groq.com/openai/v1"),
+        "model": "llama-3.3-70b-versatile"
+    },
+    {
+        "name": "OpenRouter",
+        "client": AsyncOpenAI(api_key=os.getenv("OPENROUTER_API_KEY", "dummy"), base_url="https://openrouter.ai/api/v1"),
+        "model": "google/gemini-2.5-flash"
+    }
+]
+
+async def call_llm_with_fallback(system_prompt: str, user_input: Any, response_model: type, max_retries: int = 1):
     """
-    Tries multiple providers in order. For each provider, retries up to `max_retries` times.
-    If a provider fails all retries, it switches to the next one.
+    Tries multiple providers in a waterfall logic. 
+    If a provider fails, switches to the next one.
     """
-    providers = ["gemini", "ollama"]
+    if "JSON" not in system_prompt.upper():
+        system_prompt += "\n\nYou must return a valid JSON object matching the exact requested schema."
+
+    messages = [{"role": "system", "content": system_prompt}]
+    
+    if isinstance(user_input, str):
+        messages.append({"role": "user", "content": user_input})
+    elif isinstance(user_input, list):
+        messages.extend(user_input)
+
     last_error = None
     
-    for provider_name in providers:
-        try:
-            provider = get_ai_provider(provider_name)
-        except Exception as e:
-            logging.error(f"Failed to load provider {provider_name}: {e}")
-            continue
-            
+    for provider in PROVIDERS:
+        client: AsyncOpenAI = provider["client"]
+        model: str = provider["model"]
+        name: str = provider["name"]
+        
         for attempt in range(max_retries):
             try:
-                result = await provider.generate_structured(system_prompt, content, response_model)
-                if result is not None:
-                    return result
-                raise Exception(f"{provider_name} returned None")
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                    temperature=0.7
+                )
+                
+                content = response.choices[0].message.content
+                if not content:
+                    raise ValueError("Empty response content")
+                
+                parsed = response_model.model_validate_json(content)
+                return parsed
+                
             except Exception as e:
-                last_error = e
-                logging.warning(f"Attempt {attempt + 1}/{max_retries} with {provider_name} failed: {e}")
+                last_error = str(e)
+                logging.warning(f"Provider {name} attempt {attempt + 1} failed: {last_error}. Switching to next...")
                 await asyncio.sleep(1) # wait before retry
                 
-    raise HTTPException(status_code=502, detail=f"All AI providers failed. Last error: {last_error}")
+    raise HTTPException(status_code=503, detail=f"All AI providers are currently overloaded. Last error: {last_error}")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -181,7 +219,7 @@ async def upload_and_match(
 
 
     try:
-        data = await generate_with_retry_and_fallback(system_prompt, f"CV:\n{cv_text}\n\nJob Description:\n{jd_text}", MatchResult)
+        data = await call_llm_with_fallback(system_prompt, f"CV:\n{cv_text}\n\nJob Description:\n{jd_text}", MatchResult)
         return data
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
@@ -255,7 +293,7 @@ async def analyze_cv(req: AnalyzeCVRequest):
 
     # 3. Call Language Model with structured output
     try:
-        parsed = await generate_with_retry_and_fallback(system_prompt, user_content, CVAnalysisResponse)
+        parsed = await call_llm_with_fallback(system_prompt, user_content, CVAnalysisResponse)
         return parsed
     except HTTPException:
         raise
@@ -298,8 +336,7 @@ async def interview_chat(req: InterviewChatRequest):
 
     contents = []
     for msg in req.chat_history:
-        role = "model" if msg.role == "assistant" else "user"
-        contents.append({"role": role, "parts": [{"text": msg.content}]})
+        contents.append({"role": "assistant" if msg.role == "assistant" else "user", "content": msg.content})
 
     if not contents:
         # First turn logic setup since chat history is empty
@@ -310,10 +347,10 @@ async def interview_chat(req: InterviewChatRequest):
             "Provide a 'hint_for_user' on how to answer the first question."
         )
         # Push default startup cue for the LLMs since content is blank 
-        contents = [{"role": "user", "parts": [{"text": "Xin chào, tôi đã sẵn sàng tham gia buổi phỏng vấn."}]}]
+        contents = [{"role": "user", "content": "Xin chào, tôi đã sẵn sàng tham gia buổi phỏng vấn."}]
 
     try:
-        parsed = await generate_with_retry_and_fallback(system_prompt, contents, InterviewTurnResponse)
+        parsed = await call_llm_with_fallback(system_prompt, contents, InterviewTurnResponse)
         return parsed
     except HTTPException:
         raise
