@@ -1,5 +1,7 @@
 import os
 import json
+import logging
+import asyncio
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,8 +28,33 @@ app.add_middleware(
 
 from services.llm_provider import get_ai_provider, OllamaProvider
 
-def get_llm():
-    return get_ai_provider("ollama")
+async def generate_with_retry_and_fallback(system_prompt: str, content: Any, response_model: type, max_retries: int = 2):
+    """
+    Tries multiple providers in order. For each provider, retries up to `max_retries` times.
+    If a provider fails all retries, it switches to the next one.
+    """
+    providers = ["gemini", "ollama"]
+    last_error = None
+    
+    for provider_name in providers:
+        try:
+            provider = get_ai_provider(provider_name)
+        except Exception as e:
+            logging.error(f"Failed to load provider {provider_name}: {e}")
+            continue
+            
+        for attempt in range(max_retries):
+            try:
+                result = await provider.generate_structured(system_prompt, content, response_model)
+                if result is not None:
+                    return result
+                raise Exception(f"{provider_name} returned None")
+            except Exception as e:
+                last_error = e
+                logging.warning(f"Attempt {attempt + 1}/{max_retries} with {provider_name} failed: {e}")
+                await asyncio.sleep(1) # wait before retry
+                
+    raise HTTPException(status_code=502, detail=f"All AI providers failed. Last error: {last_error}")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -154,13 +181,14 @@ async def upload_and_match(
 
 
     try:
-        provider = get_llm()
-        data = await provider.generate_structured(system_prompt, f"CV:\n{cv_text}\n\nJob Description:\n{jd_text}", MatchResult)
+        data = await generate_with_retry_and_fallback(system_prompt, f"CV:\n{cv_text}\n\nJob Description:\n{jd_text}", MatchResult)
         return data
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Gemini error: {e}")
+        raise HTTPException(status_code=502, detail=f"LLM error: {e}")
 
 
 class AnalyzeCVRequest(BaseModel):
@@ -225,25 +253,17 @@ async def analyze_cv(req: AnalyzeCVRequest):
 
     user_content = f"CV của ứng viên:\n{extracted_text}\n\nMô tả Công việc (JD):\n{jd_text}"
 
-    # 3. Call Gemini with structured output
+    # 3. Call Language Model with structured output
     try:
-        provider = get_llm()
-        parsed = await provider.generate_structured(system_prompt, user_content, CVAnalysisResponse)
-        if parsed is None:
-            raise Exception("Gemini return empty")
+        parsed = await generate_with_retry_and_fallback(system_prompt, user_content, CVAnalysisResponse)
         return parsed
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Gemini error: {e}. Trying Ollama fallback...")
-        # Fallback to Ollama gemma4:e4b
-        try:
-            provider = OllamaProvider()
-            parsed = await provider.generate_structured(system_prompt, user_content, CVAnalysisResponse)
-            return parsed
-        except Exception as ollama_e:
-            raise HTTPException(
-                status_code=500, 
-                detail=f"Gemini error: {e}. Ollama fallback error: {ollama_e}"
-            )
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Analysis failed: {e}"
+        )
 
 
 @app.post("/api/interview/chat", response_model=InterviewTurnResponse)
@@ -293,11 +313,10 @@ async def interview_chat(req: InterviewChatRequest):
         contents = [{"role": "user", "parts": [{"text": "Xin chào, tôi đã sẵn sàng tham gia buổi phỏng vấn."}]}]
 
     try:
-        provider = get_llm()
-        parsed = await provider.generate_structured(system_prompt, contents, InterviewTurnResponse)
-        if parsed is None:
-            raise Exception("AI returned empty response")
+        parsed = await generate_with_retry_and_fallback(system_prompt, contents, InterviewTurnResponse)
         return parsed
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI Provider error: {e}")
 
