@@ -44,3 +44,16 @@ export async function sendInterviewChatAPI(jdText: string, cvText: string, chatH
   }
   return res.json();
 }
+
+export async function generateTTSAPI(text: string) {
+  const res = await fetch(`${API_URL}/api/interview/tts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
+  return res.blob();
+}

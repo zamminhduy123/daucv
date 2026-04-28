@@ -1,5 +1,7 @@
+"use client";
+import { useState } from "react";
 import Image from "next/image";
-import { Coffee } from "lucide-react";
+import { Coffee, QrCode } from "lucide-react";
 
 interface SupportCardProps {
   compact?: boolean;
@@ -7,6 +9,7 @@ interface SupportCardProps {
 }
 
 export default function SupportCard({ compact = false, mini = false }: SupportCardProps) {
+  const [showQR, setShowQR] = useState(false);
   const isCompactMode = compact || mini;
 
   const wrapperClass = mini
@@ -38,28 +41,42 @@ export default function SupportCard({ compact = false, mini = false }: SupportCa
       <div className={`grid items-center ${mini ? "grid-cols-[1fr_auto] gap-2.5" : compact ? "grid-cols-1 gap-3 md:grid-cols-[1.3fr_0.7fr]" : "grid-cols-1 gap-6 md:grid-cols-[1.15fr_0.85fr]"}`}>
         <div className="text-left">
           <h3 className={titleClass}>
-            Tiếp thêm may mắn cho Đậu?
+            {showQR ? "Quét mã để mời Đậu nhé!" : "Tiếp thêm may mắn cho Đậu?"}
           </h3>
           <p className={descriptionClass}>
-            {mini
-              ? "Bé Đậu vừa đồng hành xong câu đầu tiên cùng bạn — nếu thấy hữu ích, mời Đậu một bát chè đỏ nhé!"
-              : "Bé Đậu đã nỗ lực hết mình để giúp bạn có một CV “nét”. Nếu bạn thấy hữu ích, hãy tặng Admin một bát Chè Đậu Đỏ để giữ lấy may mắn cho vòng phỏng vấn sắp tới nhé!"}
+            {showQR 
+              ? "Cảm ơn bạn rất nhiều! Sự ủng hộ của bạn là động lực để Bé Đậu ngày càng thông minh hơn."
+              : mini
+                ? "Bé Đậu vừa đồng hành xong câu đầu tiên cùng bạn — nếu thấy hữu ích, mời Đậu một bát chè đỏ nhé!"
+                : "Bé Đậu đã nỗ lực hết mình để giúp bạn có một CV “nét”. Nếu bạn thấy hữu ích, hãy tặng Admin một bát Chè Đậu Đỏ để giữ lấy may mắn cho vòng phỏng vấn sắp tới nhé!"}
           </p>
 
-          <button className={buttonClass}>
-            <Coffee className={mini ? "h-4 w-4" : "h-5 w-5"} />
-            Tặng Chè Đậu Đỏ (20k) 🍵
+          <button 
+            className={buttonClass}
+            onClick={() => setShowQR(!showQR)}
+          >
+            {showQR ? (
+              <>
+                <Coffee className={mini ? "h-4 w-4" : "h-5 w-5"} />
+                Quay lại
+              </>
+            ) : (
+              <>
+                <QrCode className={mini ? "h-4 w-4" : "h-5 w-5"} />
+                Tặng Chè Đậu Đỏ (20k) 🍵
+              </>
+            )}
           </button>
         </div>
 
-        <div className={`relative mx-auto ${mini ? "w-16 sm:w-20" : `w-full ${isCompactMode ? "max-w-56 md:max-w-72" : "max-w-90 md:max-w-120"}`}`}>
+        <div className={`relative mx-auto transition-all duration-500 ${showQR ? "scale-105" : ""} ${mini ? "w-16 sm:w-20" : `w-full ${isCompactMode ? "max-w-56 md:max-w-72" : "max-w-90 md:max-w-120"}`}`}>
           <Image
-            src="/redbean.webp"
-            alt="Bé Đậu và bát chè đậu đỏ"
+            src={showQR ? "/qr.webp" : "/redbean.webp"}
+            alt={showQR ? "Mã QR chuyển khoản" : "Bé Đậu và bát chè đậu đỏ"}
             width={900}
             height={600}
             priority={false}
-            className="h-auto w-full object-contain"
+            className={`h-auto w-full object-contain transition-opacity duration-300 ${showQR ? "rounded-lg" : ""}`}
           />
         </div>
       </div>

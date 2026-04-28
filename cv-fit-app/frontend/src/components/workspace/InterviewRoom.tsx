@@ -15,10 +15,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { PhoneOff, Target, Sparkles, BrainCircuit, Activity, Zap, Lightbulb, AudioLines, Send, X } from "lucide-react";
+import { PhoneOff, Target, Sparkles, BrainCircuit, Activity, Zap, Lightbulb, AudioLines, Send, X, Volume2, VolumeX } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useInterviewApi, Message } from "@/hooks/useInterviewApi";
 import SupportCard from "@/components/workspace/SupportCard";
+import { useTTS } from "@/hooks/useTTS";
 
 // Initial Mock Data
 interface InterviewRoomProps {
@@ -39,6 +40,7 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
   ] : [];
 
   const { messages, loading, liveMetrics, sendMessage } = useInterviewApi(initialMessages, initialState?.metrics);
+  const { voiceEnabled, setVoiceEnabled, speak, stopSpeaking } = useTTS();
 
   const {
     isListening,
@@ -54,6 +56,16 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Speak assistant's latest question out loud when it arrives (Vietnamese)
+  useEffect(() => {
+    const latestAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+    if (latestAssistant?.content) {
+      speak(latestAssistant.content);
+    }
+  }, [messages, speak]);
+
+  // Clean up on unmount handled by hook
 
   const userMessagesCount = messages.filter((msg) => msg.role === "user").length;
   const assistantMessagesCount = messages.filter((msg) => msg.role === "assistant").length;
@@ -115,7 +127,7 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
             >
               <X size={14} />
             </button>
-            <SupportCard mini />
+            <SupportCard compact />
           </div>
         </div>
       )}
@@ -173,6 +185,20 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
               )}
             </div>
           ))}
+
+          {loading && (
+            <div className="flex flex-col items-start mr-auto max-w-[85%] animate-in fade-in slide-in-from-left-2 duration-300">
+              <div className="p-3 md:p-4 rounded-xl md:rounded-2xl bg-[#E8EFD5] text-[#2F4F4F] rounded-tl-sm border border-(--primary)/20 shadow-sm flex items-center gap-3">
+                <div className="flex gap-1.5">
+                  <span className="w-2 h-2 bg-[#2F4F4F]/40 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                  <span className="w-2 h-2 bg-[#2F4F4F]/40 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                  <span className="w-2 h-2 bg-[#2F4F4F]/40 rounded-full animate-bounce"></span>
+                </div>
+                <span className="text-sm font-medium italic opacity-80">Bé Đậu đang suy nghĩ...</span>
+              </div>
+            </div>
+          )}
+
           <div ref={bottomRef} />
           <div className="h-24 md:h-28 shrink-0" />
         </div>
@@ -200,7 +226,7 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
               <button
                 onClick={toggleMic}
                 disabled={!hasBrowserSupport}
-                className={`relative h-12 rounded-2xl border-2 flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`relative h-12 rounded-lg border-2 flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                   isListening
                     ? "w-30 px-3 border-[#2E74C8] bg-[#EEF5FF] text-[#1E4F8D]"
                     : "w-12 border-transparent bg-[#70B147] text-white hover:bg-[#63A03F]"
@@ -212,7 +238,7 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
                     isListening ? "opacity-0 scale-90" : "opacity-100 scale-100"
                   }`}
                 >
-                  <AudioLines size={20} className={isListening ? "text-[#1E4F8D]" : "text-white"} />
+                  <AudioLines size={18} className={isListening ? "text-[#1E4F8D]" : "text-white"} />
                 </span>
 
                 <span
@@ -229,14 +255,25 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
                 </span>
               </button>
             </div>
-            <button
-              type="button"
-              className="h-12 w-12  rounded-lg text-[#45484D] hover:bg-black/5 transition-colors flex items-center justify-center"
-              title="Gửi"
-              onClick={handleSendMessage}
-            >
-              <Send size={20}/>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setVoiceEnabled((v) => !v)}
+                title={voiceEnabled ? "Tắt tiếng đọc" : "Bật tiếng đọc"}
+                className="h-12 w-12 rounded-lg bg-white/90 flex items-center justify-center shadow-sm hover:bg-white transition-colors"
+              >
+                {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              </button>
+
+              <button
+                type="button"
+                className="h-12 w-12  rounded-lg text-[#45484D] hover:bg-black/5 transition-colors flex items-center justify-center border-[1.5px] border-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Gửi"
+                onClick={handleSendMessage}
+              >
+                <Send size={20}/>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -330,8 +367,8 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(47,79,79,0.1); border-radius: 10px; }
-        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(47,79,79,0.2); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(47, 79, 79, 0.1); border-radius: 10px; }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(47, 79, 79, 0.2); }
         
         @keyframes pulse-wave {
           0% { box-shadow: 0 0 0 0 rgba(178, 34, 34, 0.4); }

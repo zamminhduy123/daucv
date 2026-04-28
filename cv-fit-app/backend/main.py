@@ -1,12 +1,15 @@
 import os
 import json
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Literal, Any, Dict
 import pdfplumber
 from dotenv import load_dotenv
 import io
+import edge_tts
+import tempfile
 
 load_dotenv()
 
@@ -297,3 +300,22 @@ async def interview_chat(req: InterviewChatRequest):
         return parsed
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI Provider error: {e}")
+
+class TTSRequest(BaseModel):
+    text: str
+
+@app.post("/api/interview/tts")
+async def generate_tts(req: TTSRequest):
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty.")
+        
+    try:
+        # Note: vi-VN-HoaiMyNeural seems to have downtime/restrictions causing NoAudioReceived
+        # using vi-VN-NamMinhNeural as it successfully generates audio
+        communicate = edge_tts.Communicate(req.text, "vi-VN-NamMinhNeural")
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
+            tmp_path = tmp_file.name
+        await communicate.save(tmp_path)
+        return FileResponse(tmp_path, media_type="audio/mpeg")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

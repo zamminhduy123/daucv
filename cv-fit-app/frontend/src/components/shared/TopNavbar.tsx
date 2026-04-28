@@ -56,7 +56,7 @@ export function LandingNavbar() {
     >
       <Logo size="md" />
       <nav className="hidden md:flex gap-8 text-sm font-semibold">
-        {["Lợi ích", "Cách hoạt động", "Tính năng"].map((item) => (
+        {["Lợi ích", "Tính năng"].map((item) => (
           <a
             key={item}
             href={`#${item.toLowerCase().replace(" ", "-")}`}

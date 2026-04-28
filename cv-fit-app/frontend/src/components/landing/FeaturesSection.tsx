@@ -4,7 +4,7 @@ import Image from 'next/image';
 
 export default function FeaturesSection() {
   return (
-    <section id="features" className="max-w-7xl mx-auto px-6 py-12">
+    <section id="tính-năng" className="max-w-7xl mx-auto px-6 py-12">
       <div className="flex flex-col items-center justify-center mb-4">
         <h2 className='font-heading font-bold text-[#2F4F4F] text-3xl md:text-4xl mb-4'>Đậu đồng hành với bạn mọi lúc</h2>
         <p className='text-sm text-gray-600 leading-relaxed'>Từ chỉnh sửa CV đến khi bạn nhận được offer!</p>

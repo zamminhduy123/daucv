@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function WhySection() {
   return (
-    <section id="tai-sao-can-dau" className="max-w-7xl mx-auto px-4 sm:px-6 py-16 md:py-20">
+    <section id="lợi-ích" className="max-w-7xl mx-auto px-4 sm:px-6 py-16 md:py-20">
       <div className="mb-12 text-center">
         <Leaf className="mx-auto h-6 w-6 text-(--primary) mb-2" />
         <h2 className='font-heading font-bold text-[#2F4F4F] text-3xl md:text-4xl mb-4'>Tại sao bạn cần Đậu?</h2>
@@ -40,7 +40,7 @@ export default function WhySection() {
 
           <div className="absolute top-7 right-6">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28">
-              <Image src="/cry.webp" alt="Bé Đậu phân tích CV" fill className="object-contain" />
+              <Image src="/crywhy.webp" alt="Bé Đậu phân tích CV" fill className="object-contain" />
             </div>
           </div>
 
