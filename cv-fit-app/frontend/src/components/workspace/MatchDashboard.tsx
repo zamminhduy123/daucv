@@ -98,7 +98,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
               </motion.div>
             </div>
 
-            <div className="mt-6 p-4 bg-(--primary)/5 rounded-2xl">
+            <div className="mt-2 p-4 bg-(--primary)/5 rounded-2xl">
               <p className="text-sm text-[#2F4F4F]/70">
                 <strong>✅ Rất tốt!</strong> Tone giọng và điểm tác động của cấu trúc nội dung hiện tại đạt chuẩn chuyên nghiệp.
               </p>
@@ -137,7 +137,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
             </div>
 
             {result.missing_keywords.length > 0 && (
-              <div className="mt-6 p-4 bg-[#B22222]/5 rounded-2xl">
+              <div className="mt-2 p-4 bg-[#B22222]/5 rounded-2xl">
                 <p className="text-sm text-[#2F4F4F]/70">
                   <strong>⚠️ Lưu ý:</strong> JD yêu cầu những kỹ năng này nhưng chưa thấy trong CV của bạn.
                 </p>

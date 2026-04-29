@@ -38,8 +38,8 @@ export default function SupportCard({ compact = false, mini = false }: SupportCa
 
   return (
     <div className={wrapperClass}>
-      <div className={`grid items-center ${mini ? "grid-cols-[1fr_auto] gap-2.5" : compact ? "grid-cols-1 gap-3 md:grid-cols-[1.3fr_0.7fr]" : "grid-cols-1 gap-6 md:grid-cols-[1.15fr_0.85fr]"}`}>
-        <div className="text-left">
+      <div className={`grid items-center justify-items-center sm:justify-items-start ${mini ? "grid-cols-1 sm:grid-cols-[1fr_auto] gap-4 sm:gap-2.5" : compact ? "grid-cols-1 gap-5 sm:gap-3 md:grid-cols-[1.3fr_0.7fr]" : "grid-cols-1 gap-6 md:grid-cols-[1.15fr_0.85fr]"}`}>
+        <div className="text-center sm:text-left flex flex-col items-center sm:items-start">
           <h3 className={titleClass}>
             {showQR ? "Quét mã để mời Đậu nhé!" : "Tiếp thêm may mắn cho Đậu?"}
           </h3>
@@ -63,7 +63,7 @@ export default function SupportCard({ compact = false, mini = false }: SupportCa
             ) : (
               <>
                 <QrCode className={mini ? "h-4 w-4" : "h-5 w-5"} />
-                Tặng Chè Đậu Đỏ (20k) 🍵
+                Tặng Chè Đậu Đỏ 🍵
               </>
             )}
           </button>
