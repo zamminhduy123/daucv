@@ -160,12 +160,35 @@ class SuggestedEdit(BaseModel):
     upgraded_text: str    # Rewritten, metric-driven replacement
     reason: str           # Short explanation in Vietnamese
 
+class PrioritizedKeyword(BaseModel):
+    keyword: str
+    priority: Literal["High", "Medium", "Low"]
+
+class EvidenceAnalysis(BaseModel):
+    claim: str              # e.g. "Scalable system delivery", "MLOps experience"
+    evidence_strength: Literal["Strong", "Medium", "Weak", "Missing"]
+    comment: str            # e.g. "Supported by 8M+ MAU", "Not visible in current CV"
+
 class CVAnalysisResponse(BaseModel):
-    match_score: int               # 0 to 100
-    impact_score: int              # 1 to 10
-    tone: str                      # Short phrase in Vietnamese e.g. "Tự tin, Chuyên nghiệp"
-    missing_keywords: List[str]    # Up to 5 missing keywords
+    match_score: int               # 0 to 100 - overall match
+    match_headline: str            # e.g. "Rất phù hợp — Khả năng lọt vào vòng phỏng vấn cao."
+    match_summary: str             # 2-3 sentences explaining the score and what to focus on
+
+    # 6 sub-scores (all 0 to 100)
+    technical_match: int
+    experience_relevance: int
+    keyword_coverage: int
+    impact_evidence: int
+    tone_quality: int
+    ats_readiness: int
+
+    missing_keywords: List[str]           # Up to 5 missing keywords
     suggested_edits: List[SuggestedEdit]  # 3 to 5 high-impact bullet rewrites
+
+    # NEW: Widgets data
+    cv_strengths: List[str]                          # 3-4 bullet points of what the CV does well
+    prioritized_keywords: List[PrioritizedKeyword]   # Missing keywords with priority levels
+    evidence_analysis: List[EvidenceAnalysis]         # 4-5 items evaluating claims vs evidence
 
 
 # ---------------------------------------------------------------------------
@@ -273,19 +296,37 @@ async def analyze_cv(req: AnalyzeCVRequest):
         "Nhiệm vụ: Phân tích CV ứng viên dựa trên Mô tả Công việc (JD) được cung cấp và trả về kết quả phân tích.\n\n"
         "QUY TẮC BẮT BUỘC VỀ NGÔN NGỮ:\n"
         "- BƯỚC 1: Xác định ngôn ngữ chính của CV ứng viên (Tiếng Anh hoặc Tiếng Việt).\n"
-        "- BƯỚC 2: TẤT CẢ các mảng văn bản trả về (tone, reason, missing_keywords, v.v.) PHẢI viết bằng CHÍNH ngôn ngữ của CV đó.\n"
+        "- BƯỚC 2: TẤT CẢ các mảng văn bản trả về PHẢI viết bằng CHÍNH ngôn ngữ của CV đó.\n"
         "  Ví dụ: Nếu CV tiếng Anh -> Phản hồi 100% bằng tiếng Anh. Nếu CV tiếng Việt -> Phản hồi 100% bằng tiếng Việt.\n\n"
-        "Cấu trúc dữ liệu:\n"
-        "- match_score (0-100): đánh giá mức độ phù hợp tổng thể của CV với JD.\n"
-        "- impact_score (1-10): đánh giá mức độ ấn tượng và tác động của các thành tích trong CV.\n"
-        "- tone: cụm từ ngắn mô tả giọng văn (VD: \"Confident & Professional\" hoặc \"Chuyên nghiệp, Tập trung vào kết quả\").\n"
-        "- missing_keywords: tối đa 5 từ khóa quan trọng có trong JD nhưng THIẾU trong CV.\n"
-        "- suggested_edits: từ 3 đến 5 đề xuất chỉnh sửa cụ thể cho các bullet point YẾU NHẤT.\n"
+        "Cấu trúc JSON cần trả về (TẤT CẢ điểm số đều từ 0 đến 100):\n"
+        "- match_score (0-100): Đánh giá mức độ phù hợp TỔNG THỂ của CV với JD.\n"
+        "- match_headline: Câu tiêu đề ngắn gọn mô tả kết quả (VD: \"Rất phù hợp — Khả năng lọt vào vòng phỏng vấn cao.\" hoặc \"Cần cải thiện — CV chưa bám sát yêu cầu JD.\").\n"
+        "- match_summary: 2-3 câu giải thích điểm số tổng thể và những điểm cần tập trung cải thiện nhất.\n"
+        "- technical_match (0-100): Mức độ khớp về kỹ năng kỹ thuật / chuyên môn giữa CV và JD.\n"
+        "- experience_relevance (0-100): Mức độ liên quan của kinh nghiệm làm việc với vị trí trong JD.\n"
+        "- keyword_coverage (0-100): Tỷ lệ từ khóa quan trọng trong JD xuất hiện trong CV.\n"
+        "- impact_evidence (0-100): Mức độ định lượng kết quả (metrics, số liệu cụ thể) trong các thành tích.\n"
+        "- tone_quality (0-100): Chất lượng và tính chuyên nghiệp của giọng văn trong CV.\n"
+        "- ats_readiness (0-100): Mức độ chuẩn định dạng ATS (không có bảng phức tạp, font chuẩn, heading rõ ràng).\n"
+        "- missing_keywords: Mảng tối đa 5 từ khóa quan trọng có trong JD nhưng THIẾU trong CV.\n"
+        "- suggested_edits: Từ 3 đến 5 đề xuất chỉnh sửa cụ thể cho các bullet point YẾU NHẤT.\n"
         "  Với mỗi đề xuất:\n"
         "  + section: tên phần (VD: \"Experience\", \"Kinh nghiệm làm việc\")\n"
         "  + original_text: trích dẫn CHÍNH XÁC đoạn gốc cần cải thiện\n"
         "  + upgraded_text: phiên bản viết lại (cùng ngôn ngữ với CV)\n"
-        "  + reason: giải thích ngắn gọn tại sao cần thay đổi (cùng ngôn ngữ với CV)\n"
+        "  + reason: giải thích ngắn gọn tại sao cần thay đổi (cùng ngôn ngữ với CV)\n\n"
+        "- cv_strengths: Mảng 3-4 điểm sáng / ưu điểm nổi bật của CV hiện tại (VD: \"Strong production engineering experience\", \"Professional and concise language\").\n"
+        "- prioritized_keywords: Mảng từ khóa quan trọng CẦN BỔ SUNG, mỗi item gồm:\n"
+        "  + keyword: tên từ khóa\n"
+        "  + priority: PHẢI là một trong [\"High\", \"Medium\", \"Low\"] — \"High\" nếu từ khóa xuất hiện nhiều lần trong JD hoặc là yêu cầu bắt buộc, \"Low\" nếu chỉ là nice-to-have.\n"
+        "- evidence_analysis: Mảng 4-5 năng lực/claim mà ứng viên thể hiện hoặc cần thể hiện, mỗi item gồm:\n"
+        "  + claim: Năng lực / skill / claim được đánh giá (VD: \"Scalable system delivery\", \"MLOps experience\")\n"
+        "  + evidence_strength: PHẢI là một trong [\"Strong\", \"Medium\", \"Weak\", \"Missing\"]\n"
+        "    * \"Strong\": Có số liệu cụ thể, metrics, context rõ ràng hỗ trợ claim.\n"
+        "    * \"Medium\": Có nhắc đến nhưng thiếu định lượng hoặc context cụ thể.\n"
+        "    * \"Weak\": Nhắc đến mơ hồ, không có bằng chứng thực tế.\n"
+        "    * \"Missing\": Hoàn toàn không tìm thấy bằng chứng nào trong CV.\n"
+        "  + comment: Nhận xét ngắn gọn giải thích đánh giá (VD: \"Supported by 8M+ MAU metrics\", \"No leadership evidence found\")\n\n"
         "Hãy trung thực, mang tính xây dựng và cung cấp kết quả ở định dạng JSON hợp lệ duy nhất."
     )
 

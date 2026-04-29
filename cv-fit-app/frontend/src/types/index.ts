@@ -39,10 +39,35 @@ export interface SuggestedEdit {
 
 export interface CVAnalysisResponse {
   match_score: number;
-  impact_score: number;
-  tone: string;
+  match_headline: string;
+  match_summary: string;
+
+  // 6 sub-scores (0-100)
+  technical_match: number;
+  experience_relevance: number;
+  keyword_coverage: number;
+  impact_evidence: number;
+  tone_quality: number;
+  ats_readiness: number;
+
   missing_keywords: string[];
   suggested_edits: SuggestedEdit[];
+
+  // New widgets data
+  cv_strengths: string[];
+  prioritized_keywords: PrioritizedKeyword[];
+  evidence_analysis: EvidenceAnalysis[];
+}
+
+export interface PrioritizedKeyword {
+  keyword: string;
+  priority: "High" | "Medium" | "Low";
+}
+
+export interface EvidenceAnalysis {
+  claim: string;
+  evidence_strength: "Strong" | "Medium" | "Weak" | "Missing";
+  comment: string;
 }
 
 // ─── Dashboard metric card ────────────────────────────────────────────────────

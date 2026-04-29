@@ -1,151 +1,313 @@
+"use client";
+
 import type { CVAnalysisResponse } from "@/types";
-import { TrendingUp, CheckCircle, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import {
+  Code2,
+  Briefcase,
+  Tags,
+  BarChart2,
+  Pen,
+  ShieldCheck,
+  Sparkles,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  HelpCircle,
+  ClipboardCheck,
+} from "lucide-react";
+
+const SUB_SCORES = [
+  {
+    key: "technical_match" as const,
+    label: "Kỹ năng chuyên môn",
+    icon: Code2,
+    iconBg: "bg-green-50",
+    iconColor: "text-green-600",
+  },
+  {
+    key: "experience_relevance" as const,
+    label: "Kinh nghiệm liên quan",
+    icon: Briefcase,
+    iconBg: "bg-blue-50",
+    iconColor: "text-blue-600",
+  },
+  {
+    key: "keyword_coverage" as const,
+    label: "Độ phủ từ khóa",
+    icon: Tags,
+    iconBg: "bg-yellow-50",
+    iconColor: "text-yellow-600",
+  },
+  {
+    key: "impact_evidence" as const,
+    label: "Định lượng kết quả",
+    icon: BarChart2,
+    iconBg: "bg-orange-50",
+    iconColor: "text-orange-600",
+  },
+  {
+    key: "tone_quality" as const,
+    label: "Giọng văn (tone)",
+    icon: Pen,
+    iconBg: "bg-purple-50",
+    iconColor: "text-purple-600",
+  },
+  {
+    key: "ats_readiness" as const,
+    label: "ATS score",
+    icon: ShieldCheck,
+    iconBg: "bg-teal-50",
+    iconColor: "text-teal-600",
+  },
+] as const;
+
+// SVG circular progress ring
+function CircularScore({ score }: { score: number }) {
+  const radius = 57;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDash = (score / 100) * circumference;
+
+  return (
+    <div className="relative w-full aspect-square">
+      <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+        {/* Background ring */}
+        <circle
+          cx="60"
+          cy="60"
+          r={radius}
+          strokeWidth="5"
+          fill="none"
+          className="stroke-gray-100"
+        />
+        {/* Progress ring */}
+        <circle
+          cx="60"
+          cy="60"
+          r={radius}
+          strokeWidth="5"
+          fill="none"
+          stroke="var(--primary)"
+          strokeLinecap="round"
+          strokeDasharray={`${strokeDash} ${circumference}`}
+          style={{ transition: "stroke-dasharray 1s ease" }}
+        />
+      </svg>
+      {/* Center text — number + label stacked */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+        <div className="flex items-baseline gap-0.5">
+          <span className="text-5xl font-semibold text-[#1F2E2E] leading-none">{score}</span>
+          <span className="text-xl font-bold text-[#1F2E2E] leading-none">%</span>
+        </div>
+        <span className="text-xs font-semibold text-gray-400 tracking-wide mt-1">JD Match</span>
+      </div>
+    </div>
+  );
+}
 
 export default function MatchDashboard({ result }: { result: CVAnalysisResponse }) {
+
   return (
     <div>
-      {/* Title */}
+      {/* Page title */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-6"
+        className="text-center mb-8"
       >
-        <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 700, color: '#2F4F4F' }} className="mb-1">
+        <h1
+          style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 700, color: "#2F4F4F" }}
+          className="mb-1"
+        >
           Kết quả phân tích
         </h1>
-        <p className="text-lg text-[#2F4F4F]/70">
-          Dựa trên JD và nội dung CV của bạn
-        </p>
+        <p className="text-lg text-[#2F4F4F]/70">Dựa trên JD và nội dung CV của bạn</p>
       </motion.div>
 
-      {/* Match Score Card */}
+      {/* Main Card */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="mb-8"
+        className="bg-white border border-gray-100 rounded-[2rem] p-6 md:p-8 shadow-sm flex flex-col xl:flex-row gap-8 items-center w-full mb-8"
       >
-        <div className="bg-linear-to-br from-(--primary) to-(--primary)/80 rounded-3xl p-12 text-center relative overflow-hidden shadow-xl">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+        {/* LEFT — Circular score, fills the column */}
+        <div className="xl:w-[20%] w-full max-w-[200px] mx-auto xl:mx-0 flex-shrink-0">
+          <CircularScore score={result.match_score} />
+        </div>
 
-          <div className="relative z-10">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-              className="mb-1"
-            >
-              <div className="inline-block p-8 bg-white/20 backdrop-blur-sm rounded-full">
-                <TrendingUp className="w-16 h-16 text-white" />
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-            >
-              <div style={{ fontSize: '4rem', fontWeight: 700 }} className="text-white mb-2">
-                {result.match_score}%
-              </div>
-              <h2 className="text-2xl font-semibold text-white/90 mb-3">
-                Độ phù hợp với JD
-              </h2>
-              <p className="text-white/80 text-lg max-w-2xl mx-auto">
-                {result.match_score >= 80 
-                  ? "Tuyệt vời! CV của bạn có khả năng cao lọt vào vòng phỏng vấn." 
-                  : "CV của bạn khá ổn! Hãy điều chỉnh thêm từ khóa để cải thiện độ khớp nhé."}
-              </p>
-            </motion.div>
+        {/* RIGHT — Headline spanning above summary + 6 cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 flex-1 text-left">
+          {/* Summary + 6 cards side by side */}
+          <div className="flex flex-col gap-2 items-start mt-4">
+            {/* Headline spans full width */}
+            <h2 className="text-xl lg:max-w-[90%] font-bold text-[#2F4F4F] leading-tight">
+              {result.match_headline}
+            </h2>
+            {/* Summary text */}
+            <p className="text-xs text-gray-500 leading-relaxed flex-shrink-0 text-justify lg:max-w-[80%]">
+              {result.match_summary}
+            </p>
+          </div>
+          {/* 6 mini-score cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 mt-4 lg:mt-0 gap-3 flex-1 w-full">
+            {SUB_SCORES.map(({ key, label, icon: Icon, iconBg, iconColor }, i) => (
+              <motion.div
+                key={key}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 + i * 0.05 }}
+                className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col items-start gap-2 shadow-sm"
+              >
+                <div className="flex items-center gap-2 w-full">
+                  <div className={`${iconBg} rounded-lg p-1.5 flex-shrink-0`}>
+                    <Icon size={14} className={iconColor} />
+                  </div>
+                  <span className="text-xl font-bold text-[#2F4F4F] leading-none">
+                    {result[key] ?? 0}%
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 font-medium leading-tight">{label}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </motion.div>
 
-      {/* Metrics Grid */}
-      <div className="grid lg:grid-cols-2 gap-8 mb-8">
-        {/* Good Metrics */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <div className="flex flex-col items-left justify-between bg-white rounded-3xl p-8 border-2 border-(--primary)/10 h-full">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-(--primary)/10 rounded-xl flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-(--primary)" />
+      {/* ── 2-Column Grid: Strengths & Prioritized Keywords ── */}
+      {((result.cv_strengths?.length ?? 0) > 0 || (result.prioritized_keywords?.length ?? 0) > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Card A — CV Strengths */}
+          {result.cv_strengths?.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm"
+            >
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center">
+                  <Sparkles size={16} className="text-green-600" />
+                </div>
+                <h2 className="text-base font-bold text-[#2F4F4F]">Điểm sáng của CV</h2>
               </div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Điểm sáng của CV</h2>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.3 }}
-                className="px-4 py-2 bg-(--primary)/10 text-[#2F4F4F] rounded-xl border-2 border-(--primary)/20 font-medium"
-              >
-                Tác động: {result.impact_score}/10
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.35 }}
-                className="px-4 py-2 bg-(--primary)/10 text-[#2F4F4F] rounded-xl border-2 border-(--primary)/20 font-medium"
-              >
-                Giọng văn: {result.tone}
-              </motion.div>
-            </div>
-
-            <div className="mt-2 p-4 bg-(--primary)/5 rounded-2xl">
-              <p className="text-sm text-[#2F4F4F]/70">
-                <strong>✅ Rất tốt!</strong> Tone giọng và điểm tác động của cấu trúc nội dung hiện tại đạt chuẩn chuyên nghiệp.
-              </p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Missing Keywords */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <div className="bg-white rounded-3xl p-8 border-2 border-[#B22222]/10 h-full">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-[#B22222]/10 rounded-xl flex items-center justify-center">
-                <AlertCircle className="w-6 h-6 text-[#B22222]" />
+              <div className="flex flex-col gap-3">
+                {result.cv_strengths.map((s, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <CheckCircle size={15} className="text-green-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm text-gray-700 leading-relaxed">{s}</span>
+                  </div>
+                ))}
               </div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Từ khóa cần bổ sung</h2>
-            </div>
+            </motion.div>
+          )}
 
-            <div className="flex flex-wrap gap-3">
-              {result.missing_keywords.length > 0 ? result.missing_keywords.map((kw, index) => (
-                <motion.div
-                  key={kw}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.4 + index * 0.05 }}
-                  className="px-4 py-2 bg-[#B22222]/10 text-[#B22222] rounded-xl border-2 border-[#B22222]/20 font-medium"
-                >
-                  {kw}
-                </motion.div>
-              )) : (
-                 <div className="text-sm text-[#5A6D6D]">Không phát hiện từ khóa quan trọng nào bị thiếu.</div>
-              )}
-            </div>
-
-            {result.missing_keywords.length > 0 && (
-              <div className="mt-2 p-4 bg-[#B22222]/5 rounded-2xl">
-                <p className="text-sm text-[#2F4F4F]/70">
-                  <strong>⚠️ Lưu ý:</strong> JD yêu cầu những kỹ năng này nhưng chưa thấy trong CV của bạn.
+          {/* Card B — Prioritized Keywords */}
+          {result.prioritized_keywords?.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm flex flex-col"
+            >
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center">
+                  <AlertTriangle size={16} className="text-orange-600" />
+                </div>
+                <h2 className="text-base font-bold text-[#2F4F4F]">Từ khóa cần bổ sung</h2>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-4 flex-1">
+                {result.prioritized_keywords.map(({ keyword, priority }, i) => {
+                  const badgeStyle =
+                    priority === "High"
+                      ? "bg-red-50 text-red-600"
+                      : priority === "Medium"
+                        ? "bg-orange-50 text-orange-600"
+                        : "bg-green-50 text-green-600";
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5"
+                    >
+                      <span className="text-sm text-gray-700 font-medium">{keyword}</span>
+                      <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${badgeStyle}`}>
+                        {priority}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="bg-yellow-50/50 border border-yellow-100 p-3 rounded-xl flex gap-2 mt-auto">
+                <AlertTriangle size={14} className="text-yellow-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-yellow-800 leading-relaxed">
+                  Chỉ thêm những từ khóa này nếu bạn thực sự có kinh nghiệm liên quan.
                 </p>
               </div>
-            )}
+            </motion.div>
+          )}
+        </div>
+      )}
+
+      {/* ── Evidence Strength Table ── */}
+      {result.evidence_analysis?.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm mb-8 w-full overflow-x-auto"
+        >
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
+              <ClipboardCheck size={16} className="text-blue-600" />
+            </div>
+            <h2 className="text-base font-bold text-[#2F4F4F]">Phân tích Bằng chứng Năng lực</h2>
           </div>
+
+          <table className="w-full text-left min-w-[500px]">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3 pr-4">
+                  Năng lực / Claim
+                </th>
+                <th className="text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3 pr-4">
+                  Độ rõ ràng
+                </th>
+                <th className="text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3">
+                  Nhận xét
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.evidence_analysis.map(({ claim, evidence_strength, comment }, i) => {
+                const strengthConfig = {
+                  Strong: { color: "text-green-600", icon: CheckCircle, label: "Strong" },
+                  Medium: { color: "text-orange-500", icon: HelpCircle, label: "Medium" },
+                  Weak: { color: "text-red-500", icon: AlertTriangle, label: "Weak" },
+                  Missing: { color: "text-red-600", icon: XCircle, label: "Missing" },
+                }[evidence_strength] ?? { color: "text-gray-400", icon: HelpCircle, label: evidence_strength };
+
+                const StrengthIcon = strengthConfig.icon;
+
+                return (
+                  <tr
+                    key={i}
+                    className="border-b border-gray-50 last:border-0"
+                  >
+                    <td className="py-3 pr-4 text-sm font-medium text-[#2F4F4F]">{claim}</td>
+                    <td className="py-3 pr-4">
+                      <span className={`flex items-center gap-1.5 text-sm font-semibold ${strengthConfig.color}`}>
+                        <StrengthIcon size={14} />
+                        {strengthConfig.label}
+                      </span>
+                    </td>
+                    <td className="py-3 text-sm text-gray-500">{comment}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </motion.div>
-      </div>
+      )}
     </div>
   );
 }

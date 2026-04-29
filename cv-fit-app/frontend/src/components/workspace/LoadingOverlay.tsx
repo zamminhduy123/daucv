@@ -10,7 +10,7 @@ const MESSAGES = [
   "Sắp xong rồi ✨",
 ];
 
-export default function LoadingOverlay() {
+export default function LoadingOverlay({messages = MESSAGES} : {messages?: string[]}) {
   const [dots, setDots] = useState(0);
   const [msgIdx, setMsgIdx] = useState(0);
 

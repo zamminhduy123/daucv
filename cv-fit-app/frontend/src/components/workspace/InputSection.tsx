@@ -79,7 +79,7 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
       const result = await extractPdfAPI(file);
       if (result.error) {
         setExtractError(result.error);
-        onChange({ cvText: `[Lỗi trích xuất: ${result.error}]` });
+        onChange({ cvFile: null, cvText: `[Lỗi trích xuất: ${result.error}]` });
       } else {
         onChange({ cvText: result.text || "" });
       }

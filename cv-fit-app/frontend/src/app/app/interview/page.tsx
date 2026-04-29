@@ -9,6 +9,13 @@ import { sendInterviewChatAPI } from "@/lib/api";
 
 const EMPTY_INPUTS: WorkspaceInputs = { jdText: "", cvText: "", cvFile: null };
 
+const INTERVIEW_LOADING_MESSAGES = [
+  "Nhận diện ngành nghề...",
+  "Đối chiếu với kinh nghiệm...",
+  "Chọn lọc kỹ năng trọng tâm...",
+  "Sắp xong rồi ✨",
+]
+
 export default function InterviewPage() {
   const [currentView, setCurrentView] = useState<"input" | "interview">("input");
   const [inputs, setInputs] = useState<WorkspaceInputs>(EMPTY_INPUTS);
@@ -44,7 +51,7 @@ export default function InterviewPage() {
 
   return (
     <div className="relative">
-      {isStarting && <LoadingOverlay />}
+      {isStarting && <LoadingOverlay messages={INTERVIEW_LOADING_MESSAGES} />}
 
       {currentView === "input" && (
         <InputSection

@@ -65,11 +65,13 @@ export default function AnalyzerPage() {
       )}
 
       {currentView === "results" && (
-        <div className="flex flex-col gap-8 pb-12">
+        <div className="flex flex-col pb-12">
           {analysisResult && (
             <>
               <MatchDashboard result={analysisResult} />
-              <DiffViewer edits={analysisResult.suggested_edits} />
+              <div id="diff-viewer">
+                <DiffViewer edits={analysisResult.suggested_edits} />
+              </div>
             </>
           )}
           <SupportCard compact />
@@ -77,7 +79,7 @@ export default function AnalyzerPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="flex flex-wrap gap-4 justify-center"
+            className="flex flex-wrap gap-4 justify-center mt-4"
           >
             <button
               onClick={handleExportPDF}
