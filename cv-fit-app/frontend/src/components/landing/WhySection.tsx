@@ -40,7 +40,7 @@ export default function WhySection() {
 
           <div className="absolute top-7 right-6">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28">
-              <Image src="/crywhy.webp" alt="Bé Đậu phân tích CV" fill className="object-contain" />
+              <Image src="/cry.webp" alt="Bé Đậu phân tích CV" fill className="object-contain" />
             </div>
           </div>
 
