@@ -34,15 +34,26 @@ const TONES = ["Chuyên nghiệp", "Ngắn gọn", "Tự tin"];
 
 export default function WriterPage() {
   const router = useRouter();
-  const { cvText, jdText, hasData } = useWorkspace();
+  const { cvText, jdText, hasData, cache, setCachedWriter } = useWorkspace();
 
   const [writingType, setWritingType] = useState("email");
   const [tone, setTone] = useState("Chuyên nghiệp");
   const [customPrompt, setCustomPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [result, setResult] = useState<WriterResult | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+
+  // Derive cache key from current settings
+  const cacheKey = `${writingType}:${tone}`;
+  const [result, setResult] = useState<WriterResult | null>(
+    cache.writerResults[cacheKey] ?? null
+  );
+
+  // Reload cached result when type/tone changes
+  useEffect(() => {
+    const cached = cache.writerResults[cacheKey];
+    setResult(cached ?? null);
+  }, [cacheKey, cache.writerResults]);
 
   // Route guard
   useEffect(() => {
@@ -62,6 +73,7 @@ export default function WriterPage() {
         custom_prompt: writingType === "custom" ? customPrompt : undefined,
       });
       setResult(data);
+      setCachedWriter(cacheKey, data); // Save to cache
     } catch (err: unknown) {
       console.error(err);
       setError("Lỗi tạo nội dung. Vui lòng thử lại!");

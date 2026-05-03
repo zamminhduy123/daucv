@@ -16,10 +16,12 @@ const INTERVIEW_LOADING_MESSAGES = [
 
 export default function InterviewPage() {
   const router = useRouter();
-  const { cvText, jdText, hasData } = useWorkspace();
+  const { cvText, jdText, hasData, cache, setCachedInterview } = useWorkspace();
 
   const [isStarting, setIsStarting] = useState(false);
-  const [interviewState, setInterviewState] = useState<unknown>(null);
+  const [interviewState, setInterviewState] = useState<unknown>(
+    cache.interviewState // Initialize from cache
+  );
   const [error, setError] = useState("");
   const hasTriggered = useRef(false);
 
@@ -30,7 +32,7 @@ export default function InterviewPage() {
     }
   }, [hasData, router]);
 
-  // Auto-start interview on mount (only once)
+  // Auto-start interview on mount (only once, skip if cached)
   useEffect(() => {
     if (!hasData || hasTriggered.current || interviewState) return;
     hasTriggered.current = true;
@@ -41,6 +43,7 @@ export default function InterviewPage() {
       try {
         const data = await sendInterviewChatAPI(jdText, cvText, []);
         setInterviewState(data);
+        setCachedInterview(data); // Save to cache
       } catch (err: unknown) {
         console.error(err);
         setError("Lỗi bắt đầu phỏng vấn. Vui lòng thử lại!");
@@ -50,7 +53,7 @@ export default function InterviewPage() {
     };
 
     startInterview();
-  }, [hasData, cvText, jdText, interviewState]);
+  }, [hasData, cvText, jdText, interviewState, setCachedInterview]);
 
   const handleBack = () => {
     router.push("/app/setup");

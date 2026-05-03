@@ -15,10 +15,12 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 
 export default function AnalyzerPage() {
   const router = useRouter();
-  const { cvText, jdText, hasData } = useWorkspace();
+  const { cvText, jdText, hasData, cache, setCachedAnalysis } = useWorkspace();
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<CVAnalysisResponse | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<CVAnalysisResponse | null>(
+    cache.analyzerResult // Initialize from cache
+  );
   const [error, setError] = useState("");
   const hasTriggered = useRef(false);
 
@@ -29,7 +31,7 @@ export default function AnalyzerPage() {
     }
   }, [hasData, router]);
 
-  // Auto-analyze on mount (only once)
+  // Auto-analyze on mount (only once, skip if cached)
   useEffect(() => {
     if (!hasData || hasTriggered.current || analysisResult) return;
     hasTriggered.current = true;
@@ -40,6 +42,7 @@ export default function AnalyzerPage() {
       try {
         const data = await analyzeCVAPI(cvText, jdText);
         setAnalysisResult(data);
+        setCachedAnalysis(data); // Save to cache
       } catch (err: unknown) {
         console.error(err);
         setError("Lỗi từ server. Vui lòng thử lại!");
@@ -49,7 +52,7 @@ export default function AnalyzerPage() {
     };
 
     runAnalysis();
-  }, [hasData, cvText, jdText, analysisResult]);
+  }, [hasData, cvText, jdText, analysisResult, setCachedAnalysis]);
 
   const handleExportPDF = () => window.print();
   const handleReanalyze = async () => {
