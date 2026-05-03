@@ -57,3 +57,25 @@ export async function generateTTSAPI(text: string) {
   }
   return res.blob();
 }
+
+export interface WriterPayload {
+  cv_text: string;
+  jd_text: string;
+  writing_type: string;
+  tone: string;
+  custom_prompt?: string;
+}
+
+export async function generateWritingAPI(payload: WriterPayload) {
+  const res = await fetch(`${API_URL}/api/writer/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
+  return res.json();
+}
+

@@ -416,3 +416,86 @@ async def generate_tts(req: TTSRequest):
         return FileResponse(tmp_path, media_type="audio/mpeg")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ---------------------------------------------------------------------------
+# POST /api/writer/generate — Writing Assistant
+# ---------------------------------------------------------------------------
+
+class WriterRequest(BaseModel):
+    cv_text: str
+    jd_text: str
+    writing_type: str       # "email", "linkedin", "zalo", "custom"
+    tone: str               # e.g. "Chuyên nghiệp", "Ngắn gọn", "Tự tin"
+    custom_prompt: Optional[str] = None
+
+class WriterResponse(BaseModel):
+    subject_line: str       # Catchy subject line (empty if not applicable)
+    content: str            # Main generated letter/message
+    tips: List[str]         # 1-2 quick actionable tips
+
+@app.post("/api/writer/generate", response_model=WriterResponse)
+async def writer_generate(req: WriterRequest):
+    """
+    Generate an application email, cover letter, LinkedIn message, Zalo message,
+    or custom writing based on the user's CV and JD.
+    """
+    if not req.cv_text.strip() or not req.jd_text.strip():
+        raise HTTPException(status_code=422, detail="CV and JD are both required.")
+
+    type_labels = {
+        "email": "Email ứng tuyển (Application Email)",
+        "linkedin": "Tin nhắn LinkedIn cho nhà tuyển dụng",
+        "zalo": "Tin nhắn Zalo ngắn gọn cho HR",
+        "custom": "Nội dung tùy chỉnh theo yêu cầu người dùng",
+    }
+    type_desc = type_labels.get(req.writing_type, req.writing_type)
+
+    system_prompt = (
+        "Bạn là một chuyên gia Tư vấn Nghề nghiệp (Career Coach) tại Việt Nam.\n\n"
+        "QUY TẮC BẮT BUỘC VỀ NGÔN NGỮ:\n"
+        "- BƯỚC 1: Xác định ngôn ngữ chính của CV ứng viên (Tiếng Anh hoặc Tiếng Việt).\n"
+        "- BƯỚC 2: TẤT CẢ nội dung trả về PHẢI viết bằng CHÍNH ngôn ngữ của CV đó.\n\n"
+        f"Nhiệm vụ: Viết một {type_desc} với giọng văn '{req.tone}' dựa trên CV và JD bên dưới.\n\n"
+        "QUY TẮC QUAN TRỌNG:\n"
+        "- KHÔNG bịa đặt kinh nghiệm hoặc kỹ năng mà CV không có.\n"
+        "- Nội dung phải BÁM SÁT các yêu cầu trong JD.\n"
+        "- Giữ ngắn gọn, chuyên nghiệp, và phù hợp với kênh giao tiếp.\n"
+    )
+
+    if req.writing_type == "zalo":
+        system_prompt += (
+            "- Tin nhắn Zalo phải NGẮN (dưới 150 từ), thân thiện nhưng chuyên nghiệp.\n"
+            "- subject_line trả về chuỗi rỗng vì Zalo không có tiêu đề.\n"
+        )
+    elif req.writing_type == "linkedin":
+        system_prompt += (
+            "- Tin nhắn LinkedIn phải ngắn gọn (dưới 200 từ), chuyên nghiệp.\n"
+            "- subject_line trả về chuỗi rỗng.\n"
+        )
+    elif req.writing_type == "email":
+        system_prompt += (
+            "- Email cần có subject_line hấp dẫn và chuyên nghiệp.\n"
+            "- Nội dung email đầy đủ: lời chào, giới thiệu bản thân, lý do ứng tuyển, điểm mạnh phù hợp JD, lời kết.\n"
+        )
+
+    if req.writing_type == "custom" and req.custom_prompt:
+        system_prompt += f"\nYÊU CẦU BỔ SUNG TỪ NGƯỜI DÙNG:\n{req.custom_prompt}\n"
+
+    system_prompt += (
+        "\nCấu trúc JSON cần trả về:\n"
+        "- subject_line: Tiêu đề email (để rỗng nếu là tin nhắn Zalo/LinkedIn)\n"
+        "- content: Nội dung chính của thư/tin nhắn\n"
+        "- tips: Mảng 1-2 lời khuyên ngắn gọn (VD: 'Nhớ đính kèm link Portfolio vào cuối email.')\n"
+        "Chỉ trả về JSON hợp lệ duy nhất."
+    )
+
+    user_content = f"CV của ứng viên:\n{req.cv_text}\n\nMô tả Công việc (JD):\n{req.jd_text}"
+
+    try:
+        parsed = await call_llm_with_fallback(system_prompt, user_content, WriterResponse)
+        return parsed
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Writer generation failed: {e}")
+

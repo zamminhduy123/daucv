@@ -1,4 +1,4 @@
-import { Sparkles, HelpCircle, ArrowDown } from "lucide-react";
+import { Pen, ArrowRight, ArrowDown } from "lucide-react";
 import type { SuggestedEdit } from "@/types";
 import { motion } from "framer-motion";
 
@@ -10,59 +10,68 @@ export default function DiffViewer({ edits }: { edits: SuggestedEdit[] }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className="mt-8 mb-8"
+      className="mb-8"
     >
-      <div className="bg-white rounded-3xl p-4 sm:p-8 border-2 border-(--primary)/10 shadow-sm">
+      <div className="bg-white border border-gray-100 rounded-3xl p-6 md:p-8 shadow-sm">
+        {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-(--primary)/10 rounded-xl flex items-center justify-center">
-            <Sparkles className="w-6 h-6 text-(--primary)" />
+          <div className="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center">
+            <Pen size={16} className="text-purple-500" />
           </div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#2F4F4F' }}>Gợi ý cải thiện</h2>
+          <h2 className="text-base font-bold text-[#2F4F4F]">Suggested Rewrite</h2>
         </div>
 
-        <div className="space-y-6">
+        {/* Edit entries */}
+        <div className="flex flex-col gap-5">
           {edits.map((entry, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 + index * 0.1 }}
-              className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col mb-6"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 + index * 0.08 }}
+              className="flex flex-col gap-4"
             >
-              <div className="flex flex-col md:grid md:grid-cols-2 md:divide-x divide-gray-100">
-                {/* Original */}
-                <div className="flex flex-col bg-red-50/30 p-4 sm:p-6 relative">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    Bản gốc
-                  </div>
-                  <p className="text-sm text-gray-500 line-through opacity-80 leading-relaxed">
+              {/* Side-by-side cards */}
+              <div className="flex flex-col md:flex-row md:items-stretch gap-2">
+                {/* Original card */}
+                <div className="flex-1 border border-gray-100 rounded-2xl p-5 bg-gray-50">
+                  <span className="text-[11px] uppercase tracking-wider text-gray-700 mb-2.5 block font-bold">
+                    Original
+                  </span>
+                  <p className="text-sm text-gray-500 leading-relaxed">
                     {entry.original_text}
                   </p>
-                  
-                  {/* Mobile Mobile Visual Connector */}
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-10 w-8 h-8 bg-white border border-gray-100 rounded-full flex items-center justify-center text-gray-400 shadow-sm md:hidden">
-                    <ArrowDown size={14} />
+                </div>
+
+                {/* Arrow connector */}
+                <div className="flex items-center justify-center flex-shrink-0">
+                  {/* Desktop horizontal arrow */}
+                  <div className="hidden md:flex w-8 h-8 items-center justify-center">
+                    <ArrowRight size={18} className="text-green-400" />
+                  </div>
+                  {/* Mobile vertical arrow */}
+                  <div className="flex md:hidden w-8 h-8 items-center justify-center mx-auto">
+                    <ArrowDown size={18} className="text-green-400" />
                   </div>
                 </div>
 
-                {/* Upgraded */}
-                <div className="flex flex-col bg-green-50/30 p-4 sm:p-6 pt-8 md:pt-6">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
-                    Bản nâng cấp
-                  </div>
+                {/* Improved card */}
+                <div className="flex-1 bg-green-50/60 border border-green-100 rounded-2xl p-5">
+                  <span className="inline-block text-[11px] font-semibold uppercase tracking-wider text-green-600 bg-green-100/80 px-2 py-0.5 rounded mb-2.5">
+                    Edit Suggestion
+                  </span>
                   <p
-                    className="text-sm text-gray-800 leading-relaxed [&>strong]:font-semibold [&>strong]:text-brand-text [&>strong]:bg-green-100/50 [&>strong]:px-1 [&>strong]:rounded"
+                    className="text-sm text-gray-800 font-semibold leading-relaxed [&>strong]:font-bold [&>strong]:text-[#2F4F4F]"
                     dangerouslySetInnerHTML={{ __html: entry.upgraded_text }}
                   />
+                  {/* Reason — inline under improved text */}
+                  {entry.reason && (
+                    <p className="mt-3 text-xs text-gray-400 leading-relaxed">
+                      <span className="font-semibold text-gray-500">Why this is better:</span>{" "}
+                      {entry.reason}
+                    </p>
+                  )}
                 </div>
-              </div>
-
-              {/* Insight Footer */}
-              <div className="bg-slate-50 border-t border-gray-100 p-4 sm:px-6 sm:py-4 flex items-start gap-3 w-full">
-                <HelpCircle size={16} className="shrink-0 mt-0.5 text-gray-400" />
-                <p className="text-sm text-gray-600 leading-relaxed">{entry.reason}</p>
               </div>
             </motion.div>
           ))}

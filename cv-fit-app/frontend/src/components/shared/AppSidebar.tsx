@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { FileText, Mic, LayoutTemplate, Clock, QrCode, Coffee } from "lucide-react";
+import { FileText, Mic, LayoutTemplate, Clock, QrCode, Coffee, PenLine, PenTool } from "lucide-react";
 
 const NAV_ITEMS = [
+  { label: "Nhập CV & JD", icon: PenLine, href: "/app/setup" },
   { label: "Phân tích CV", icon: FileText, href: "/app/analyzer" },
   { label: "Phỏng vấn 1-1", icon: Mic, href: "/app/interview" },
+  { label: "Trợ lý Viết", icon: PenTool, href: "/app/writer" },
   { label: "Thư viện Mẫu CV", icon: LayoutTemplate, href: "/app/templates" },
   { label: "Lịch sử", icon: Clock, href: "/app/history" },
 ];
