@@ -14,6 +14,13 @@ import {
   ChevronDown,
   Leaf,
   ChevronRight,
+  Target,
+  FileDown,
+  LayoutTemplate,
+  User,
+  PenTool,
+  GraduationCap,
+  ListChecks,
 } from "lucide-react";
 import { LandingNavbar } from "@/components/shared/TopNavbar";
 import Footer from "@/components/landing/Footer";
@@ -46,42 +53,90 @@ export const metadata: Metadata = {
 ───────────────────────────────────────────── */
 const faqItems = [
   {
-    icon: FileText,
-    question: "Có nên dùng chung 1 CV để rải cho nhiều công ty không?",
+    icon: Target,
+    question: "CV tailored (tinh chỉnh theo JD) là gì và vì sao cần thiết?",
     answer:
-      "Không nên. Hơn 70% doanh nghiệp hiện nay dùng hệ thống ATS để quét từ khóa. Việc dùng chung 1 CV sẽ khiến bạn dễ bị loại ngay từ vòng đầu vì không khớp từ khóa của từng JD cụ thể. Hãy dùng Bé Đậu để tinh chỉnh CV khớp 100% với từng JD chỉ trong vài giây.",
+      "CV tailored là CV được điều chỉnh nội dung (từ khóa, kỹ năng, kinh nghiệm) sao cho khớp nhất với mô tả công việc (JD) của vị trí bạn đang ứng tuyển. Việc gửi 1 CV chung cho mọi công ty dễ khiến bạn bị loại vì thiếu từ khóa. Đậu giúp bạn tự động so sánh CV với JD và gợi ý tinh chỉnh chỉ trong vài giây, giúp tăng gấp 3 lần tỷ lệ được gọi phỏng vấn.",
     summary:
-      "Mỗi JD cần một CV riêng. Dùng Đậu để tinh chỉnh nhanh — không cần viết lại từ đầu.",
+      "CV tailored là CV 'đo ni đóng giày' cho từng JD. Dùng Đậu để tối ưu nhanh chóng.",
   },
   {
     icon: Search,
     question: "CV chuẩn ATS là gì và làm sao để kiểm tra?",
     answer:
-      "CV chuẩn ATS là CV được thiết kế tối giản, không dùng bảng biểu phức tạp, cột nhiều tầng, đồ họa hay hình ảnh che khuất chữ. Hệ thống ATS cần đọc được văn bản thuần. Bạn có thể tải CV lên Daucv.com để AI chấm điểm \"Chuẩn ATS\" miễn phí — kết quả trả về ngay lập tức.",
+      "CV chuẩn ATS là CV được thiết kế tối giản, dễ đọc bởi phần mềm lọc hồ sơ tự động (Applicant Tracking System). Nó không chứa bảng biểu phức tạp, đồ họa che khuất chữ. Hơn 70% doanh nghiệp đang dùng ATS. Bạn có thể tải CV lên Đậu để AI chấm điểm 'Chuẩn ATS' miễn phí và biết ngay CV của mình có dễ đọc với máy không.",
     summary:
-      "CV chuẩn ATS = tối giản, text-based. Kiểm tra ngay tại Daucv.com, miễn phí.",
+      "CV chuẩn ATS = thiết kế tối giản, text-based. Đậu giúp bạn chấm điểm ATS miễn phí.",
   },
   {
     icon: Shield,
     question: "Tại sao CV của tôi hay bị loại ở vòng gửi hồ sơ?",
     answer:
-      "Thường do hai nguyên nhân chính: (1) thiếu từ khóa chuyên môn mà nhà tuyển dụng tìm kiếm, hoặc (2) viết kinh nghiệm chung chung, không có số liệu định lượng. Đậu sẽ phân tích CV của bạn so với JD, phát hiện từ khóa thiếu và gợi ý cách viết lại theo chuẩn thực chiến.",
+      "Thường do hai nguyên nhân chính: (1) thiếu từ khóa chuyên môn mà JD yêu cầu, (2) viết kinh nghiệm chung chung, không có số liệu định lượng (ví dụ: 'tăng trưởng doanh thu' thay vì 'tăng 20% doanh thu'). Đậu sẽ phân tích CV, phát hiện lỗ hổng từ khóa và gợi ý cách viết lại theo chuẩn thực chiến.",
     summary:
-      "Thiếu từ khóa + thiếu số liệu = bị loại sớm. Đậu giúp bạn vá đúng chỗ.",
+      "Thiếu từ khóa và thiếu số liệu định lượng là lý do chính. Đậu giúp bạn vá đúng những lỗ hổng này.",
   },
   {
     icon: Languages,
     question: "Nên viết CV bằng tiếng Anh hay tiếng Việt?",
     answer:
-      "Nguyên tắc vàng: JD viết bằng tiếng nào, CV nộp bằng tiếng đó. Nếu JD song ngữ, ưu tiên tiếng Anh để thể hiện năng lực. Daucv.com hỗ trợ phân tích và tối ưu CV bằng cả tiếng Anh và tiếng Việt với độ chính xác như nhau.",
+      "Nguyên tắc vàng: JD viết bằng tiếng nào, CV nộp bằng tiếng đó. Nếu JD song ngữ, ưu tiên tiếng Anh để thể hiện năng lực. Đậu (daucv.com) hỗ trợ phân tích, chấm điểm và tối ưu CV bằng cả tiếng Anh và tiếng Việt với độ chính xác cao.",
     summary:
-      "JD tiếng nào, CV tiếng đó. Đậu hỗ trợ cả Anh lẫn Việt.",
+      "JD tiếng nào, CV tiếng đó. Đậu hỗ trợ cả Anh lẫn Việt hoàn hảo.",
+  },
+  {
+    icon: FileDown,
+    question: "File CV nên dùng PDF hay Word để qua ATS?",
+    answer:
+      "Bạn luôn nên lưu và gửi CV dưới dạng PDF (trừ khi nhà tuyển dụng đặc biệt yêu cầu file Word). PDF giúp giữ nguyên định dạng, font chữ trên mọi thiết bị và hệ thống của nhà tuyển dụng. Hệ thống phân tích của Đậu xử lý file PDF rất mượt mà.",
+    summary:
+      "Luôn ưu tiên xuất và gửi CV bằng file PDF để không bị lỗi hiển thị.",
+  },
+  {
+    icon: LayoutTemplate,
+    question: "CV thiết kế quá đẹp, nhiều hình ảnh có dễ qua vòng ATS không?",
+    answer:
+      "Không hẳn. CV quá nhiều cột, bảng biểu phức tạp, dùng ảnh hoặc infographic thay cho chữ có thể khiến hệ thống ATS đọc sai hoặc bỏ sót thông tin quan trọng. Đẹp là tốt, nhưng phải 'dễ đọc' với máy. Bạn nên ưu tiên cấu trúc rõ ràng, chuyên nghiệp.",
+    summary:
+      "Đừng hy sinh tính dễ đọc để lấy thiết kế phức tạp. Hãy dùng bố cục rõ ràng.",
+  },
+  {
+    icon: ListChecks,
+    question: "Có cần điều chỉnh cả phần kỹ năng (skills) theo từng JD không?",
+    answer:
+      "Chắc chắn rồi! Mỗi vị trí sẽ ưu tiên những công cụ và kỹ năng khác nhau. Ví dụ: Data Analyst có thể yêu cầu SQL, Python; nhưng công ty khác lại yêu cầu PowerBI. Đậu sẽ quét JD và đối chiếu với CV của bạn để chỉ ra ngay những kỹ năng bạn đang thiếu cần bổ sung.",
+    summary:
+      "Phần kỹ năng cũng cần match 100% với yêu cầu của JD. Đậu sẽ chỉ ra kỹ năng bạn đang thiếu.",
+  },
+  {
+    icon: User,
+    question: "Tại Việt Nam, CV có bắt buộc phải có ảnh chân dung không?",
+    answer:
+      "Tùy thuộc vào ngành nghề. Tại Việt Nam, ảnh CV vẫn được ưa chuộng trong các ngành dịch vụ, tư vấn, sale, marketing. Tuy nhiên, với khối IT, kỹ thuật, data hoặc các công ty đa quốc gia, ảnh là không bắt buộc. Nếu dùng, hãy chọn ảnh rõ mặt, trang phục lịch sự.",
+    summary:
+      "Tùy ngành nghề và văn hóa công ty. Khối kỹ thuật/IT hoặc công ty quốc tế thường không cần ảnh.",
+  },
+  {
+    icon: PenTool,
+    question: "Công cụ AI của Đậu có 'bịa' kinh nghiệm viết CV thay tôi không?",
+    answer:
+      "Tuyệt đối không. Đậu không tự sáng tác kinh nghiệm giả. AI của chúng tôi hoạt động bằng cách đọc kinh nghiệm bạn đã có, sau đó đề xuất cách diễn đạt chuyên nghiệp hơn, thêm động từ mạnh, và lồng ghép từ khóa từ JD sao cho thật tự nhiên và thuyết phục nhất.",
+    summary:
+      "Đậu tối ưu cách bạn kể câu chuyện năng lực của mình, chứ không tạo ra thông tin giả.",
+  },
+  {
+    icon: GraduationCap,
+    question: "Sinh viên mới ra trường (Fresher) chưa có kinh nghiệm thì viết CV thế nào?",
+    answer:
+      "Hãy tập trung vào học vấn, đồ án tốt nghiệp, các dự án bài tập lớn, hoạt động ngoại khóa, kỹ năng mềm và chứng chỉ liên quan. Đậu sẽ giúp bạn 'dịch' những trải nghiệm học tập này thành những kỹ năng thực tế mà nhà tuyển dụng đang tìm kiếm.",
+    summary:
+      "Nhấn mạnh vào dự án môn học, hoạt động ngoại khóa và tiềm năng học hỏi.",
   },
   {
     icon: Mic,
-    question: "Làm sao để hết run khi phỏng vấn?",
+    question: "Làm sao để hết run khi đi phỏng vấn thực tế?",
     answer:
-      "Cách duy nhất là luyện tập thực tế, lặp đi lặp lại. Tính năng \"Phỏng vấn 1-1\" của Đậu cho phép bạn thực hành trả lời bằng giọng nói theo câu hỏi sát với JD thực tế, sau đó nhận phân tích chi tiết về nội dung, ngôn ngữ và độ tự tin ngay lập tức.",
+      "Cách duy nhất là luyện tập thực tế, lặp đi lặp lại. Tính năng 'Phỏng vấn 1-1' của Đậu cho phép bạn thực hành trả lời bằng giọng nói theo các câu hỏi bám sát JD thực tế, sau đó nhận phân tích chi tiết về nội dung, ngôn ngữ và độ tự tin ngay lập tức.",
     summary:
       "Luyện thật nhiều trước khi chiến. Đậu là người phỏng vấn thử không phán xét bạn.",
   },
@@ -154,14 +209,12 @@ export default function QnAPage() {
 
           {/* Headline */}
           <h1 className="font-heading text-5xl md:text-6xl font-extrabold text-[#2F4F4F] leading-tight mb-2">
-            Tất tần tật những điều bạn cần biết về{" "}
-            <span className="text-[#5A9E40]">Đậu</span>
+            Giải đáp về CV & <span className="text-[#5A9E40]">Ứng dụng Đậu</span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-lg text-gray-500 leading-relaxed">
-            Giải đáp các thắc mắc phổ biến về công cụ AI tinh chỉnh CV và
-            luyện phỏng vấn 1-1.
+            Mọi thắc mắc của bạn về kiến thức CV chuẩn ATS và cách dùng AI của Đậu để chốt deal sự nghiệp đều được giải đáp tại đây.
           </p>
         </div>
 
