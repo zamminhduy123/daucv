@@ -55,12 +55,24 @@ export function LandingNavbar() {
       className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-12 py-6 lg:py-8"
     >
       <Logo size="md" />
-      <nav className="hidden md:flex gap-8 text-sm font-semibold">
+      <nav className="hidden md:flex gap-4 lg:gap-8 text-sm font-semibold">
+        <Link 
+          href="/" 
+          className="hover-elevate px-3 py-2 rounded-xl text-[#2F4F4F] no-underline"
+        >
+          Trang chủ
+        </Link>
+        <Link 
+          href="/qna" 
+          className="hover-elevate px-3 py-2 rounded-xl text-[#2F4F4F] no-underline"
+        >
+          Hỏi đáp
+        </Link>
         {["Lợi ích", "Tính năng"].map((item) => (
           <a
             key={item}
-            href={`#${item.toLowerCase().replace(" ", "-")}`}
-            className="hover-elevate px-3 py-2 rounded-xl text-[#2F4F4F] no-underline"
+            href={`/#${item.toLowerCase().replace(" ", "-")}`}
+            className="hover-elevate px-3 py-2 rounded-xl text-[#2F4F4F]/60 hover:text-[#2F4F4F] no-underline transition-colors"
           >
             {item}
           </a>
