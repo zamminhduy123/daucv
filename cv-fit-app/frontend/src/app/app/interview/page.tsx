@@ -19,7 +19,7 @@ export default function InterviewPage() {
   const { cvText, jdText, hasData, cache, setCachedInterview } = useWorkspace();
 
   const [isStarting, setIsStarting] = useState(false);
-  const [interviewState, setInterviewState] = useState<unknown>(
+  const [interviewState, setInterviewState] = useState<any>(
     cache.interviewState // Initialize from cache
   );
   const [error, setError] = useState("");
@@ -81,7 +81,7 @@ export default function InterviewPage() {
         </div>
       )}
 
-      {interviewState && !isStarting && (
+      {!!interviewState && !isStarting && (
         <InterviewRoom
           cvText={cvText}
           jdText={jdText}

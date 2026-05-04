@@ -13,7 +13,7 @@ interface WriterResult {
 
 interface WorkspaceCache {
   analyzerResult: CVAnalysisResponse | null;
-  interviewState: unknown;
+  interviewState: any;
   writerResults: Record<string, WriterResult>; // keyed by "type:tone" for multi-variant caching
 }
 
@@ -41,7 +41,7 @@ interface WorkspaceContextType extends WorkspaceState {
   // Cache accessors
   cache: WorkspaceCache;
   setCachedAnalysis: (result: CVAnalysisResponse) => void;
-  setCachedInterview: (state: unknown) => void;
+  setCachedInterview: (state: any) => void;
   setCachedWriter: (key: string, result: WriterResult) => void;
   clearCache: () => void;
 }
@@ -105,7 +105,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     []
   );
   const setCachedInterview = useCallback(
-    (interviewState: unknown) => setCache((c) => ({ ...c, interviewState })),
+    (interviewState: any) => setCache((c) => ({ ...c, interviewState })),
     []
   );
   const setCachedWriter = useCallback(
