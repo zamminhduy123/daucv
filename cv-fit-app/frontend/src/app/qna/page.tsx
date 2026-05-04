@@ -28,14 +28,14 @@ import {
    SEO Metadata
 ───────────────────────────────────────────── */
 export const metadata: Metadata = {
-  title: "Hỏi Đáp & Cẩm Nang CV — Đậu (dau.ai)",
+  title: "Hỏi Đáp & Cẩm Nang CV — Đậu (daucv.com)",
   description:
     "Mọi thắc mắc của bạn về ATS, CV chuẩn, phỏng vấn và hành trình tìm việc đều được giải đáp tại đây. Cẩm nang CV chuẩn ATS từ Đậu.",
   openGraph: {
-    title: "Trạm Hỏi Đáp & Cẩm Nang CV — Đậu (dau.ai)",
+    title: "Trạm Hỏi Đáp & Cẩm Nang CV — Đậu (daucv.com)",
     description:
       "Giải đáp mọi thắc mắc về CV, ATS, phỏng vấn và hành trình tìm việc.",
-    url: "https://dau.ai/qna",
+    url: "https://daucv.com/qna",
     type: "website",
     locale: "vi_VN",
   },

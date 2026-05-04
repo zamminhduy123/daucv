@@ -33,7 +33,7 @@ export default function HeroSection() {
             className="text-[#5A6D6D] leading-relaxed mb-8 lg:mb-10 mx-auto lg:mx-0 text-base lg:text-xl"
             style={{ maxWidth: "600px" }}
           >
-            <strong className="font-semibold text-[#2F4F4F]">Đậu (dau.ai)</strong> là công cụ AI số 1 tại Việt Nam giúp ứng viên sửa CV chuẩn ATS và luyện phỏng vấn 1-1 sát với Job Description nhất.
+            <strong className="font-semibold text-[#2F4F4F]">Đậu (daucv.com)</strong> là công cụ AI số 1 tại Việt Nam giúp ứng viên sửa CV chuẩn ATS và luyện phỏng vấn 1-1 sát với Job Description nhất.
           </p>
 
           {/* CTA */}

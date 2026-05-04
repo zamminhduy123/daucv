@@ -26,3 +26,4 @@ Thumbs.db
 .idea/
 .gemini/
 resource/
+cv-fit-app/frontend/package-lock.json

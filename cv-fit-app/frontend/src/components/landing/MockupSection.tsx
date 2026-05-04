@@ -51,7 +51,7 @@ export default function MockupSection() {
               ))}
             </div>
             <div className="flex-1 max-w-[400px] mx-auto bg-white rounded-md text-[10px] sm:text-xs text-center text-[#5A6D6D] py-1 px-3 truncate">
-              dau.ai/results
+              daucv.com/results
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://dau.ai'; // Update this when you have your production domain
+  const baseUrl = 'https://daucv.com'; // Update this when you have your production domain
 
   return [
     {
