@@ -1,4 +1,6 @@
 import React from 'react';
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -6,7 +8,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 
-const faqData = [
+export const faqData = [
   {
     question: "Có nên dùng chung 1 CV để rải cho nhiều công ty không?",
     answer: "Không nên. Hơn 70% doanh nghiệp hiện nay dùng hệ thống ATS để quét từ khóa. Việc dùng chung 1 CV sẽ khiến bạn dễ bị loại. Hãy dùng Bé Đậu để tinh chỉnh CV khớp 100% với từng JD chỉ trong vài giây."
@@ -29,7 +31,14 @@ const faqData = [
   }
 ];
 
-export function FAQSection() {
+interface FAQSectionProps {
+  /** Show the "Câu hỏi thường gặp" heading. Defaults to true. */
+  showTitle?: boolean;
+  /** Show the "Xem thêm" link to /qna. Defaults to true. */
+  showViewMore?: boolean;
+}
+
+export function FAQSection({ showTitle = true, showViewMore = true }: FAQSectionProps) {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -50,9 +59,11 @@ export function FAQSection() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <div className="max-w-3xl mx-auto py-20 px-6">
-        <h2 className="text-3xl font-bold text-center text-brand-text mb-12">
-          Câu hỏi thường gặp
-        </h2>
+        {showTitle && (
+          <h2 className="text-3xl font-bold text-center text-brand-text mb-12">
+            Câu hỏi thường gặp
+          </h2>
+        )}
         <Accordion type="single" collapsible className="space-y-4">
           {faqData.map((faq, index) => (
             <AccordionItem
@@ -69,6 +80,22 @@ export function FAQSection() {
             </AccordionItem>
           ))}
         </Accordion>
+
+        {/* Link to full Q&A knowledge base */}
+        {showViewMore && (
+          <div className="mt-10 text-center">
+            <Link
+              href="/qna"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[var(--primary)] hover:text-[var(--primary-dark)] transition-colors group"
+            >
+              Xem thêm cẩm nang & giải đáp thắc mắc 📚
+              <ArrowRight
+                size={16}
+                className="transition-transform group-hover:translate-x-1"
+              />
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );
