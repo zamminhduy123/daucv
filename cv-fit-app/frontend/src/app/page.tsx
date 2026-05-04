@@ -5,6 +5,7 @@ import FeaturesSection from "@/components/landing/FeaturesSection";
 import HowItWorksSection from "@/components/landing/HowItWorksSection";
 import CallToAction from "@/components/landing/CallToAction";
 import Footer from "@/components/landing/Footer";
+import { FAQSection } from "@/components/landing/FAQSection";
 
 /**
  * Landing page — Server Component.
@@ -14,15 +15,15 @@ export default function LandingPage() {
   return (
   <main className="min-h-screen bg-(--bg) text-[#2F4F4F]">
       <LandingNavbar />
-
       <HeroSection />
-  <div className="bg-white mx-auto max-w-[95%] rounded-3xl -mt-12 z-100 relative p-0">
+      <div className="bg-white mx-auto max-w-[95%] rounded-3xl -mt-12 z-100 relative p-0">
         <WhySection />
         <FeaturesSection />
         {/* <MockupSection /> */}
         <HowItWorksSection />
-        <CallToAction />
       </div>
+      <FAQSection />
+      <CallToAction />  
       <Footer />
     </main>
   );

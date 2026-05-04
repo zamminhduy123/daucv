@@ -3,7 +3,7 @@ import { ChevronRight } from "lucide-react";
 
 export default function CallToAction() {
   return (
-    <section className="max-w-7xl mx-auto text-center px-4 sm:px-6 lg:px-12 py-20 lg:py-32">
+    <section className="max-w-7xl mx-auto text-center px-4 sm:px-6 lg:px-12 py-20 lg:py-32 fade-up bg-white">
       <h2
         className="font-heading font-bold leading-tight text-[#2F4F4F] mb-6 md:mb-10"
         style={{ fontSize: "clamp(2.5rem,6vw,5rem)" }}

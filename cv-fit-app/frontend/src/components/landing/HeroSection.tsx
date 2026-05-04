@@ -15,7 +15,7 @@ export default function HeroSection() {
             className="inline-flex items-center gap-2 text-sm font-semibold text-[#2F4F4F] rounded-full border border-(--primary)/30 mb-6 lg:mb-8 text-left"
             style={{ padding: "0.5rem 1rem", backgroundColor: "rgba(152,193,142,0.15)" }}
           >
-            <span className="text-(--primary) text-base shrink-0">🌱</span>
+            <span className="text-(--primary) text-base shrink-0 mr-2 sm:mr-0">🌱</span>
             <span className="leading-tight sm:leading-normal">AI của người Việt, giúp bạn Đậu mọi vòng phỏng vấn</span>
           </div>
 
