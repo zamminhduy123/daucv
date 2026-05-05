@@ -162,11 +162,24 @@ class TurnAnalysis(BaseModel):
     feedback: str                   # What they did well and what they missed
     ideal_answer_snippet: str       # "Ví dụ cách trả lời ghi điểm: ..."
 
+class SubScore(BaseModel):
+    category: str # "Kỹ năng chuyên môn", "Giải quyết vấn đề", "Kiến thức ngành", "Giao tiếp", "Thái độ & Hành vi"
+    score: int # 0-100
+    label: str # "Xuất sắc", "Tốt", "Khá", "Cần cố gắng"
+
+class AIFeedbackSummary(BaseModel):
+    positive: str # "Great logical thinking..."
+    warning: str # "Try to communicate your thought process more clearly."
+    actionable: str # "Practice more system design concepts."
+
 class FinalInterviewReport(BaseModel):
     overall_score: int              # 0-100
     overall_feedback: str           # 2-3 sentences summarizing performance
+    sub_scores: List[SubScore]      # Exactly 5 items matching the categories above
     key_strengths: List[str]        # 2-3 bullet points
     areas_for_improvement: List[str] # 2-3 bullet points
+    top_topics_covered: List[str]   # e.g., ["React", "State Management", "Behavioral"]
+    ai_feedback_summary: AIFeedbackSummary
     turn_by_turn_analysis: List[TurnAnalysis]
 
 class InterviewFinishRequest(BaseModel):
@@ -471,8 +484,17 @@ async def interview_finish(req: InterviewFinishRequest):
             * 40-64: Average — noticeable weaknesses.
             * 0-39: Below expectations — needs significant improvement.
         - 'overall_feedback' (String): 2-3 sentences summarizing the candidate's performance.
+        - 'sub_scores' (Array of Objects): Exactly 5 items for these categories: "Kỹ năng chuyên môn", "Giải quyết vấn đề", "Kiến thức ngành", "Giao tiếp", "Thái độ & Hành vi". Each object has:
+            * 'category' (String): The category name.
+            * 'score' (Integer, 0-100): Score for this category.
+            * 'label' (String): "Xuất sắc", "Tốt", "Khá", or "Cần cố gắng" based on the score.
         - 'key_strengths' (Array of Strings): 2-3 bullet points highlighting what the candidate did well.
         - 'areas_for_improvement' (Array of Strings): 2-3 bullet points on what needs work.
+        - 'top_topics_covered' (Array of Strings): List 3-5 main topics discussed (e.g., ["React", "State Management", "Behavioral"]).
+        - 'ai_feedback_summary' (Object): Containing exactly 3 fields:
+            * 'positive' (String): e.g. "Great logical thinking and coding approach."
+            * 'warning' (String): e.g. "Try to communicate your thought process more clearly."
+            * 'actionable' (String): e.g. "Practice more system design and scalability concepts."
         - 'turn_by_turn_analysis' (Array of Objects): Output exactly as an array of JSON objects. For EACH question-answer pair in the chat, create an object with:
             * 'question' (String): The interviewer's question.
             * 'user_answer' (String): The candidate's answer (summarized if long).

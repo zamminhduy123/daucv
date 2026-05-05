@@ -23,6 +23,7 @@ import { useTTS } from "@/hooks/useTTS";
 import { finishInterviewAPI } from "@/lib/api";
 import InterviewReport, { FinalInterviewReport } from "./InterviewReport";
 import LoadingOverlay from "./LoadingOverlay";
+import { useWorkspace } from "@/context/WorkspaceContext";
 
 // Initial Mock Data
 interface InterviewRoomProps {
@@ -35,19 +36,28 @@ interface InterviewRoomProps {
 }
 
 export default function InterviewRoom({ cvText, jdText, initialState, totalQuestions, onBack }: InterviewRoomProps) {
+  const { setCachedInterview } = useWorkspace();
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showSupportPopup, setShowSupportPopup] = useState(false);
   const [hasShownSupportPopup, setHasShownSupportPopup] = useState(false);
   
-  const initialMessages: Message[] = initialState?.next_question ? [
-    { role: "assistant" as const, content: initialState.next_question, hint_for_user: initialState.hint_for_user }
-  ] : [];
+  const isResuming = !!initialState?.messages;
 
-  const { messages, loading, liveMetrics, sendMessage, setMessages } = useInterviewApi(initialMessages, initialState?.metrics);
+  const initialMessages: Message[] = isResuming 
+    ? initialState.messages
+    : initialState?.next_question ? [
+        { role: "assistant" as const, content: initialState.next_question, hint_for_user: initialState.hint_for_user }
+      ] : [];
+
+  const { messages, loading, liveMetrics, sendMessage, setMessages } = useInterviewApi(
+    initialMessages, 
+    isResuming ? initialState.liveMetrics : initialState?.metrics
+  );
+  
   const { voiceEnabled, setVoiceEnabled, speak, stopSpeaking, isSpeaking, isLoading: isLoadingTTS } = useTTS();
-  const [currentQuestion, setCurrentQuestion] = useState(1);
+  const [currentQuestion, setCurrentQuestion] = useState(isResuming ? initialState.currentQuestion : 1);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [report, setReport] = useState<FinalInterviewReport | null>(null);
+  const [report, setReport] = useState<FinalInterviewReport | null>(isResuming ? initialState.report : null);
   const prevMessagesLength = useRef(messages.length);
 
   const {
@@ -64,6 +74,19 @@ export default function InterviewRoom({ cvText, jdText, initialState, totalQuest
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Sync state to Workspace cache so it persists when switching tabs
+  useEffect(() => {
+    if (messages.length > 0) {
+      setCachedInterview({
+        ...initialState,
+        messages,
+        currentQuestion,
+        liveMetrics,
+        report
+      });
+    }
+  }, [messages, currentQuestion, liveMetrics, report, setCachedInterview, initialState]);
 
   // Speak assistant's latest question out loud when it arrives (Vietnamese)
   useEffect(() => {
@@ -158,14 +181,14 @@ export default function InterviewRoom({ cvText, jdText, initialState, totalQuest
 
   if (report) {
     return (
-      <div className="h-[calc(100vh-100px)] overflow-y-auto bg-[#F9F9F2]">
+      <>
         <InterviewReport report={report} onRetry={resetInterview} onHome={endInterview} />
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="h-[calc(100vh-100px)] py-1 md:py-2 px-1 w-full bg-[#F9F9F2] text-[#2F4F4F] font-sans overflow-hidden flex flex-col gap-3">
+    <div className="h-screen py-1 md:py-2 px-1 w-full bg-[#F9F9F2] text-[#2F4F4F] font-sans overflow-hidden flex flex-col gap-3">
       {isGeneratingReport && <LoadingOverlay messages={["Đang tổng hợp kết quả...", "Phân tích điểm mạnh, điểm yếu...", "Đánh giá mức độ phù hợp JD...", "Sắp xong rồi! 🚀"]} />}
 
       {showSupportPopup && (
