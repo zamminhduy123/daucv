@@ -29,7 +29,13 @@ export function useInterviewApi(initialMessages: Message[], initialMetrics?: Liv
   const [loading, setLoading] = useState(false);
   const [liveMetrics, setLiveMetrics] = useState<LiveMetrics>(initialMetrics || INITIAL_METRICS);
 
-  const sendMessage = async (userText: string, jdText: string = "", cvText: string = "") => {
+  const sendMessage = async (
+    userText: string, 
+    jdText: string = "", 
+    cvText: string = "",
+    currentQuestion: number = 1,
+    totalQuestions: number = 5
+  ) => {
     if (!userText.trim() || loading) return;
 
     // Optimistically add user message
@@ -46,7 +52,9 @@ export function useInterviewApi(initialMessages: Message[], initialMetrics?: Liv
       const data = await sendInterviewChatAPI(
         proxyJdText,
         proxyCvText,
-        newHistory.map(m => ({ role: m.role, content: m.content }))
+        newHistory.map(m => ({ role: m.role, content: m.content })),
+        currentQuestion,
+        totalQuestions
       );
       
       // We take the AI's feedback on the user's message and attach it to the history
@@ -72,6 +80,7 @@ export function useInterviewApi(initialMessages: Message[], initialMetrics?: Liv
 
   return {
     messages,
+    setMessages,
     loading,
     liveMetrics,
     sendMessage

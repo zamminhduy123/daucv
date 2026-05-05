@@ -20,6 +20,9 @@ import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useInterviewApi, Message } from "@/hooks/useInterviewApi";
 import SupportCard from "@/components/workspace/SupportCard";
 import { useTTS } from "@/hooks/useTTS";
+import { finishInterviewAPI } from "@/lib/api";
+import InterviewReport, { FinalInterviewReport } from "./InterviewReport";
+import LoadingOverlay from "./LoadingOverlay";
 
 // Initial Mock Data
 interface InterviewRoomProps {
@@ -27,10 +30,11 @@ interface InterviewRoomProps {
   jdText: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialState: any;
+  totalQuestions: number;
   onBack: () => void;
 }
 
-export default function InterviewRoom({ cvText, jdText, initialState, onBack }: InterviewRoomProps) {
+export default function InterviewRoom({ cvText, jdText, initialState, totalQuestions, onBack }: InterviewRoomProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showSupportPopup, setShowSupportPopup] = useState(false);
   const [hasShownSupportPopup, setHasShownSupportPopup] = useState(false);
@@ -39,8 +43,12 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
     { role: "assistant" as const, content: initialState.next_question, hint_for_user: initialState.hint_for_user }
   ] : [];
 
-  const { messages, loading, liveMetrics, sendMessage } = useInterviewApi(initialMessages, initialState?.metrics);
-  const { voiceEnabled, setVoiceEnabled, speak, stopSpeaking } = useTTS();
+  const { messages, loading, liveMetrics, sendMessage, setMessages } = useInterviewApi(initialMessages, initialState?.metrics);
+  const { voiceEnabled, setVoiceEnabled, speak, stopSpeaking, isSpeaking, isLoading: isLoadingTTS } = useTTS();
+  const [currentQuestion, setCurrentQuestion] = useState(1);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [report, setReport] = useState<FinalInterviewReport | null>(null);
+  const prevMessagesLength = useRef(messages.length);
 
   const {
     isListening,
@@ -59,10 +67,15 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
 
   // Speak assistant's latest question out loud when it arrives (Vietnamese)
   useEffect(() => {
-    const latestAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-    if (latestAssistant?.content) {
-      speak(latestAssistant.content);
+    // Only auto-speak if a NEW assistant message was added
+    // This prevents re-speaking when switching tabs/remounting
+    if (messages.length > prevMessagesLength.current) {
+      const latestAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+      if (latestAssistant?.content) {
+        speak(latestAssistant.content);
+      }
     }
+    prevMessagesLength.current = messages.length;
   }, [messages, speak]);
 
   // Clean up on unmount handled by hook
@@ -82,15 +95,41 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
   }, [assistantMessagesCount, hasShownSupportPopup, loading, userMessagesCount]);
 
   // Handle actual API Call
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     const textToSend = transcript.trim();
-    if (!textToSend || loading) return;
+    if (!textToSend || loading || isGeneratingReport) return;
     
     // reset input
     setTranscript("");
     
-    // call the custom hook function
-    sendMessage(textToSend, jdText, cvText);
+    if (currentQuestion >= totalQuestions) {
+      // This is the answer to the final question
+      setIsGeneratingReport(true);
+      
+      // Add user message to UI immediately
+      const finalMsg: Message = { role: "user", content: textToSend };
+      const fullHistory = [...messages, finalMsg];
+      setMessages(fullHistory);
+
+      try {
+        const data = await finishInterviewAPI(
+          jdText, 
+          cvText, 
+          fullHistory.map(m => ({ role: m.role, content: m.content }))
+        );
+        setReport(data);
+      } catch (err) {
+        console.error(err);
+        alert("Lỗi khi tạo báo cáo kết quả. Vui lòng thử lại!");
+      } finally {
+        setIsGeneratingReport(false);
+      }
+    } else {
+      // Call the custom hook function with the next question number
+      const nextQ = currentQuestion + 1;
+      sendMessage(textToSend, jdText, cvText, nextQ, totalQuestions);
+      setCurrentQuestion(nextQ);
+    }
   };
 
   const toggleMic = () => {
@@ -109,12 +148,25 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
     onBack();
   };
 
+  const resetInterview = () => {
+    onBack(); // Just go back to setup to restart for now
+  };
+
   const latestHint = (messages.length > 0 && messages[messages.length - 1].role === "assistant")
     ? messages[messages.length - 1].hint_for_user || "Đang đợi câu hỏi..."
     : "Đang đợi câu hỏi...";
 
+  if (report) {
+    return (
+      <div className="h-[calc(100vh-100px)] overflow-y-auto bg-[#F9F9F2]">
+        <InterviewReport report={report} onRetry={resetInterview} onHome={endInterview} />
+      </div>
+    );
+  }
+
   return (
     <div className="h-[calc(100vh-100px)] py-1 md:py-2 px-1 w-full bg-[#F9F9F2] text-[#2F4F4F] font-sans overflow-hidden flex flex-col gap-3">
+      {isGeneratingReport && <LoadingOverlay messages={["Đang tổng hợp kết quả...", "Phân tích điểm mạnh, điểm yếu...", "Đánh giá mức độ phù hợp JD...", "Sắp xong rồi! 🚀"]} />}
 
       {showSupportPopup && (
         <div className="shrink-0 w-full px-1">
@@ -144,19 +196,34 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
             </div>
             <div className="min-w-0">
               <p className="text-[11px] md:text-xs font-semibold text-(--primary) uppercase tracking-wider truncate">
-                {isListening ? "Bé Đậu đang nghe..." : loading ? "Bé Đậu đang nghĩ..." : "Bé Đậu đang sẵn sàng"}
+                {isListening 
+                  ? "Bé Đậu đang nghe..." 
+                  : loading 
+                    ? "Bé Đậu đang nghĩ..." 
+                    : isLoadingTTS
+                      ? "Bé Đậu đang chuẩn bị giọng nói..."
+                      : isSpeaking
+                        ? "Bé Đậu đang nói..."
+                        : "Bé Đậu đang sẵn sàng"}
               </p>
-              <p className="text-[11px] text-[#5A6D6D] truncate lg:hidden">
-                {latestHint}
-              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <div className="text-[10px] md:text-[11px] text-gray-500 font-medium">Câu hỏi {currentQuestion} / {totalQuestions}</div>
+                <div className="w-24 md:w-32 h-1.5 bg-gray-100 rounded-full overflow-hidden shrink-0">
+                  <div 
+                    className="h-full bg-(--primary) transition-all duration-300" 
+                    style={{ width: `${(currentQuestion / totalQuestions) * 100}%` }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
           <button
             onClick={endInterview}
-            className="lg:hidden p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0 flex items-center gap-2 text-sm font-medium border border-transparent hover:border-red-100"
             title="Kết thúc"
           >
+            <span className="hidden md:inline">Thoát</span>
             <PhoneOff size={18} />
           </button>
         </header>
@@ -167,13 +234,23 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
             <div key={idx} className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} max-w-[90%] md:max-w-[85%] ${msg.role === "user" ? "ml-auto" : "mr-auto"}`}>
               {/* Chat Bubble */}
               <div 
-                className={`p-3 md:p-4 rounded-xl md:rounded-2xl text-[0.92rem] md:text-[1rem] leading-relaxed shadow-sm
+                className={`p-3 md:p-4 rounded-xl md:rounded-2xl text-[0.92rem] md:text-[1rem] leading-relaxed shadow-sm relative group
                   ${msg.role === "assistant" 
                     ? "bg-[#E8EFD5] text-[#2F4F4F] rounded-tl-sm border border-(--primary)/20" 
                     : "bg-white text-[#2F4F4F] rounded-tr-sm border border-gray-200"
                   }`}
               >
                 {msg.content}
+                
+                {msg.role === "assistant" && (
+                  <button
+                    onClick={() => speak(msg.content)}
+                    className="absolute -right-8 top-1/2 -translate-y-1/2 p-1.5 text-[#5A6D6D] hover:text-(--primary) opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Nghe lại"
+                  >
+                    <Volume2 size={16} />
+                  </button>
+                )}
               </div>
 
               {/* Unique 2026 AI Insiinterght Card for User Messages */}
@@ -228,8 +305,8 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
                 disabled={!hasBrowserSupport}
                 className={`relative h-12 rounded-lg border-2 flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                   isListening
-                    ? "w-30 px-3 border-[#2E74C8] bg-[#EEF5FF] text-[#1E4F8D]"
-                    : "w-12 border-transparent bg-[#70B147] text-white hover:bg-[#63A03F]"
+                    ? "w-30 border-[#2E74C8] bg-[#EEF5FF] text-[#1E4F8D]"
+                    : "w-20 border-transparent bg-[#70B147] text-white hover:bg-[#63A03F]"
                 }`}
                 title={!hasBrowserSupport ? "Trình duyệt không hỗ trợ nhận diện giọng nói" : isListening ? "Dừng ghi âm" : "Bật ghi âm"}
               >
@@ -239,6 +316,7 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
                   }`}
                 >
                   <AudioLines size={18} className={isListening ? "text-[#1E4F8D]" : "text-white"} />
+                  <span className="text-xs font-semibold leading-none ml-2">Nói</span>
                 </span>
 
                 <span
@@ -246,12 +324,12 @@ export default function InterviewRoom({ cvText, jdText, initialState, onBack }: 
                     isListening ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
                   }`}
                 >
-                  <span className="flex items-end gap-1 h-5" aria-hidden>
+                  <span className="flex items-end gap-2 h-3" aria-hidden>
                     <span className="speak-bar" />
                     <span className="speak-bar" />
                     <span className="speak-bar" />
                   </span>
-                  <span className="text-base font-semibold leading-none">Stop</span>
+                  <span className="text-xs font-semibold leading-none">Dừng</span>
                 </span>
               </button>
             </div>

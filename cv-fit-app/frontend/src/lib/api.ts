@@ -1,5 +1,10 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+export async function pingAPI() {
+  const res = await fetch(`${API_URL}/`);
+  return res.json();
+}
+
 export async function extractPdfAPI(file: File) {
   const formData = new FormData();
   formData.append("file", file);
@@ -28,8 +33,33 @@ export async function analyzeCVAPI(cvText: string, jdText: string) {
   return res.json();
 }
 
-export async function sendInterviewChatAPI(jdText: string, cvText: string, chatHistory: Array<{role: string, content: string}>) {
+export async function sendInterviewChatAPI(
+  jdText: string, 
+  cvText: string, 
+  chatHistory: Array<{role: string, content: string}>,
+  currentQuestion: number = 1,
+  totalQuestions: number = 5
+) {
   const res = await fetch(`${API_URL}/api/interview/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jd_text: jdText,
+      cv_text: cvText,
+      chat_history: chatHistory,
+      current_question: currentQuestion,
+      total_questions: totalQuestions
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
+  return res.json();
+}
+
+export async function finishInterviewAPI(jdText: string, cvText: string, chatHistory: Array<{role: string, content: string}>) {
+  const res = await fetch(`${API_URL}/api/interview/finish`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

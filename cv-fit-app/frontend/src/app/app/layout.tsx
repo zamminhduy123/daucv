@@ -5,6 +5,8 @@ import MobileTopNav from "@/components/shared/MobileTopNav";
 import { WorkspaceProvider, useWorkspace } from "@/context/WorkspaceContext";
 import { FileText, Briefcase, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { pingAPI } from "@/lib/api";
 
 function TopBar() {
   const { cvFileName, jdText, hasData } = useWorkspace();
@@ -43,6 +45,11 @@ function TopBar() {
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    // Ping backend to wake up Render instance
+    pingAPI().catch(() => {}); 
+  }, []);
+
   return (
     <WorkspaceProvider>
       <div className="h-screen w-full flex overflow-hidden">

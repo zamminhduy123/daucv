@@ -18,6 +18,10 @@ load_dotenv()
 
 app = FastAPI(title="CVFit API", version="1.0.0")
 
+@app.get("/")
+async def health_check():
+    return {"status": "ok", "message": "CVFit API is running"}
+
 # Allow Next.js frontend (dev and prod)
 app.add_middleware(
     CORSMiddleware,
@@ -136,6 +140,8 @@ class InterviewChatRequest(BaseModel):
     jd_text: str
     cv_text: str
     chat_history: List[Message]
+    current_question: int = 1      # e.g., 1
+    total_questions: int = 5       # e.g., 5
 
 class LiveMetrics(BaseModel):
     confidence_score: int
@@ -149,6 +155,24 @@ class InterviewTurnResponse(BaseModel):
     next_question: str
     hint_for_user: str
     metrics: LiveMetrics
+
+class TurnAnalysis(BaseModel):
+    question: str
+    user_answer: str
+    feedback: str                   # What they did well and what they missed
+    ideal_answer_snippet: str       # "Ví dụ cách trả lời ghi điểm: ..."
+
+class FinalInterviewReport(BaseModel):
+    overall_score: int              # 0-100
+    overall_feedback: str           # 2-3 sentences summarizing performance
+    key_strengths: List[str]        # 2-3 bullet points
+    areas_for_improvement: List[str] # 2-3 bullet points
+    turn_by_turn_analysis: List[TurnAnalysis]
+
+class InterviewFinishRequest(BaseModel):
+    jd_text: str
+    cv_text: str
+    chat_history: List[Message]
 
 # ---------------------------------------------------------------------------
 # Pydantic models – /api/analyze-cv (structured output)
@@ -349,30 +373,46 @@ async def analyze_cv(req: AnalyzeCVRequest):
 async def interview_chat(req: InterviewChatRequest):
     """
     Stateless mock interview turn processor mapping an InterviewChatRequest to an InterviewTurnResponse.
+    Supports bounded interviews with question progress tracking.
     """
+    # --- Dynamic question strategy based on progress ---
+    question_strategy = ""
+    if req.current_question == 1:
+        question_strategy = "Ask an introductory/ice-breaker question to warm up the candidate. Keep it light but professional."
+    elif req.current_question == req.total_questions:
+        question_strategy = "This is the FINAL question. Ask a wrap-up or high-level culture-fit question (e.g., career goals, team values, why this company)."
+    else:
+        question_strategy = "Deep dive into a specific technical or situational requirement from the JD. Challenge the candidate."
+
     system_prompt = f"""You are Bé Đậu, a friendly but rigorous Senior Tech Recruiter in Vietnam. 
         You are conducting a professional 1-on-1 mock interview with a candidate.
 
         [CONTEXT]
         Job Description (JD):\n{req.jd_text}\n
-        Candidate's CV:\n{req.cv_text}\n[RULES]
+        Candidate's CV:\n{req.cv_text}\n
+        [INTERVIEW PROGRESS]
+        You are currently asking question {req.current_question} out of {req.total_questions}.
+        Question strategy: {question_strategy}
+
+        [RULES]
         1. Ask ONLY ONE question at a time. Keep it conversational but professional.
         2. Do NOT break character. Always respond entirely in natural Vietnamese.
         3. Read the candidate's latest answer in the chat history, then provide your response strictly matching the required JSON schema.
+        4. Follow the [INTERVIEW PROGRESS] question strategy strictly.
 
         [OUTPUT FIELDS EXPLANATION]
         - 'ai_feedback' (String): Brief, constructive micro-feedback on their previous answer. Point out what was good and what was missing. (If this is the first turn, output a warm welcome message here).
-        - 'next_question' (String): The next interview question. Progress logically from introduction -> technical deep-dive (based on CV) -> behavioral (situational).
-        - 'hint_for_user' (String): A short, actionable "cheat" hint on how to answer the 'next_question' (e.g., "Gợi ý: Hãy áp dụng cấu trúc STAR và nhắc đến công nghệ X bạn đã dùng ở công ty cũ.").[METRICS EVALUATION RULES]
-        You must calculate 'metrics' based strictly on the candidate's latest answer:
-        - 'confidence_score' (Integer, Range: 0 to 100): Evaluate textual fluency and decisiveness. 
-        * 90-100: Clear, articulate, straight to the point.
-        * 50-89: Normal speech, but slightly vague.
-        * 0-49: Penalize heavily if the text contains filler words ("ờ", "ừm", "à", "thì là"), stuttering, or is excessively short.
-        - 'confidence_feedback' (String): 1 short sentence explaining why you gave this confidence score.
-        - 'jd_relevance_score' (Integer, Range: 0 to 100): How strongly the candidate's answer demonstrates the specific skills required in the JD. (e.g., 100 if they perfectly map their experience to a JD requirement).
-        - 'jd_relevance_feedback' (String): 1 short sentence explaining the relevance score.
-        - 'tech_vocab_rating' (String): MUST be exactly one of these 4 values:["YẾU", "KHÁ", "TỐT", "XUẤT SẮC"]. Evaluate their accurate use of professional and technical terminology.
+        - 'next_question' (String): The next interview question. Follow the strategy in [INTERVIEW PROGRESS].
+        - 'hint_for_user' (String): A short, actionable "cheat" hint on how to answer the 'next_question' (e.g., "Gợi ý: Hãy áp dụng cấu trúc STAR và nhắc đến công nghệ X bạn đã dùng ở công ty cũ.").
+        - 'metrics' (Object): MUST contain the following fields based strictly on the candidate's latest answer. Output exactly as a nested JSON object:
+            * 'confidence_score' (Integer, Range: 0 to 100): Evaluate textual fluency and decisiveness.
+                - 90-100: Clear, articulate, straight to the point.
+                - 50-89: Normal speech, but slightly vague.
+                - 0-49: Penalize heavily if the text contains filler words ("ờ", "ừm", "à", "thì là"), stuttering, or is excessively short.
+            * 'confidence_feedback' (String): 1 short sentence explaining why you gave this confidence score.
+            * 'jd_relevance_score' (Integer, Range: 0 to 100): How strongly the candidate's answer demonstrates the specific skills required in the JD.
+            * 'jd_relevance_feedback' (String): 1 short sentence explaining the relevance score.
+            * 'tech_vocab_rating' (String): MUST be exactly one of these 4 values:["YẾU", "KHÁ", "TỐT", "XUẤT SẮC"]. Evaluate their accurate use of professional terminology.
         """
 
     contents = []
@@ -397,6 +437,60 @@ async def interview_chat(req: InterviewChatRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI Provider error: {e}")
+
+
+# ---------------------------------------------------------------------------
+# POST /api/interview/finish — Final Assessment Report
+# ---------------------------------------------------------------------------
+
+@app.post("/api/interview/finish", response_model=FinalInterviewReport)
+async def interview_finish(req: InterviewFinishRequest):
+    """
+    Takes the completed chat history and generates a comprehensive
+    Final Assessment report with per-turn analysis.
+    """
+    if not req.chat_history:
+        raise HTTPException(status_code=422, detail="Chat history is empty. Cannot generate report.")
+
+    system_prompt = f"""You are a Senior Tech Recruiter conducting a post-interview evaluation.
+        The mock interview has ENDED. Your task is to review the ENTIRE conversation and generate a comprehensive assessment report.
+
+        [CONTEXT]
+        Job Description (JD):\n{req.jd_text}\n
+        Candidate's CV:\n{req.cv_text}\n
+        [EVALUATION INSTRUCTIONS]
+        1. Review every question-answer pair in the chat history.
+        2. Evaluate the candidate's performance AGAINST the JD requirements and their CV claims.
+        3. Be honest, constructive, and specific.
+        4. Respond ENTIRELY in Vietnamese.
+
+        [OUTPUT JSON SCHEMA]
+        - 'overall_score' (Integer, 0-100): Overall interview performance score.
+            * 85-100: Excellent — candidate clearly demonstrates fit.
+            * 65-84: Good — solid answers but some gaps.
+            * 40-64: Average — noticeable weaknesses.
+            * 0-39: Below expectations — needs significant improvement.
+        - 'overall_feedback' (String): 2-3 sentences summarizing the candidate's performance.
+        - 'key_strengths' (Array of Strings): 2-3 bullet points highlighting what the candidate did well.
+        - 'areas_for_improvement' (Array of Strings): 2-3 bullet points on what needs work.
+        - 'turn_by_turn_analysis' (Array of Objects): Output exactly as an array of JSON objects. For EACH question-answer pair in the chat, create an object with:
+            * 'question' (String): The interviewer's question.
+            * 'user_answer' (String): The candidate's answer (summarized if long).
+            * 'feedback' (String): What they did well and what they missed.
+            * 'ideal_answer_snippet' (String): "Ví dụ cách trả lời ghi điểm: ..." — a model answer snippet.
+        """
+
+    contents = []
+    for msg in req.chat_history:
+        contents.append({"role": "assistant" if msg.role == "assistant" else "user", "content": msg.content})
+
+    try:
+        parsed = await call_llm_with_fallback(system_prompt, contents, FinalInterviewReport)
+        return parsed
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Final assessment generation failed: {e}")
 
 class TTSRequest(BaseModel):
     text: str

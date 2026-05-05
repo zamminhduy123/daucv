@@ -4,6 +4,7 @@ import { generateTTSAPI } from "@/lib/api";
 export function useTTS() {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastSpokenRef = useRef<string | null>(null);
 
@@ -19,13 +20,15 @@ export function useTTS() {
     if (typeof window === "undefined" || !voiceEnabled) return;
     
     const cleanText = text.trim();
-    if (!cleanText || lastSpokenRef.current === cleanText) return;
+    if (!cleanText) return;
     
+    // lastSpokenRef is no longer strictly used for blocking to allow manual replay, 
+    // but we can still use it for tracking if needed.
     lastSpokenRef.current = cleanText;
 
     try {
       stopSpeaking();
-      setIsSpeaking(true);
+      setIsLoading(true);
 
       const blob = await generateTTSAPI(cleanText);
       const url = URL.createObjectURL(blob);
@@ -37,9 +40,12 @@ export function useTTS() {
         setIsSpeaking(false);
       };
 
+      setIsLoading(false);
+      setIsSpeaking(true);
       await audio.play();
     } catch (err) {
       console.error("TTS Hook Error:", err);
+      setIsLoading(false);
       setIsSpeaking(false);
     }
   };
@@ -62,6 +68,7 @@ export function useTTS() {
     voiceEnabled,
     setVoiceEnabled,
     isSpeaking,
+    isLoading,
     speak,
     stopSpeaking
   };
