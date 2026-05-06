@@ -38,7 +38,8 @@ export async function sendInterviewChatAPI(
   cvText: string, 
   chatHistory: Array<{role: string, content: string}>,
   currentQuestion: number = 1,
-  totalQuestions: number = 5
+  totalQuestions: number = 5,
+  interviewType: string = "general"
 ) {
   const res = await fetch(`${API_URL}/api/interview/chat`, {
     method: "POST",
@@ -48,7 +49,8 @@ export async function sendInterviewChatAPI(
       cv_text: cvText,
       chat_history: chatHistory,
       current_question: currentQuestion,
-      total_questions: totalQuestions
+      total_questions: totalQuestions,
+      interview_type: interviewType
     }),
   });
 
@@ -58,7 +60,12 @@ export async function sendInterviewChatAPI(
   return res.json();
 }
 
-export async function finishInterviewAPI(jdText: string, cvText: string, chatHistory: Array<{role: string, content: string}>) {
+export async function finishInterviewAPI(
+  jdText: string,
+  cvText: string,
+  chatHistory: Array<{role: string, content: string}>,
+  interviewType: string = "general"
+) {
   const res = await fetch(`${API_URL}/api/interview/finish`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -66,6 +73,7 @@ export async function finishInterviewAPI(jdText: string, cvText: string, chatHis
       jd_text: jdText,
       cv_text: cvText,
       chat_history: chatHistory,
+      interview_type: interviewType
     }),
   });
 

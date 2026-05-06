@@ -36,11 +36,19 @@ export interface FinalInterviewReport {
 
 interface InterviewReportProps {
   report: FinalInterviewReport;
+  interviewType?: string;
   onRetry: () => void;
   onHome: () => void;
 }
 
-export default function InterviewReport({ report, onRetry, onHome }: InterviewReportProps) {
+export default function InterviewReport({ report, interviewType = "general", onRetry, onHome }: InterviewReportProps) {
+  const ROUND_LABELS: Record<string, string> = {
+    hr: "Vòng Nhân sự (HR Screening)",
+    technical: "Vòng Chuyên môn (Technical)",
+    manager: "Vòng Quản lý (Line Manager)",
+    general: "Phỏng vấn Tổng hợp",
+  };
+  const roundLabel = ROUND_LABELS[interviewType] ?? ROUND_LABELS.general;
   // Score color logic
   let scoreColor = "text-[#98C18E]";
   let scoreStroke = "stroke-[#98C18E]";
@@ -85,7 +93,7 @@ export default function InterviewReport({ report, onRetry, onHome }: InterviewRe
         <div>
           <div className="flex items-center gap-3 mb-2">
             <h1 className="text-2xl md:text-3xl font-extrabold text-[#2F4F4F]">Báo cáo Phỏng vấn</h1>
-            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200">Hoàn thành</span>
+            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200">{roundLabel} • Hoàn thành</span>
           </div>
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 font-medium mt-4">
             <span className="flex items-center gap-1.5"><Calendar size={16} /> {today}</span>

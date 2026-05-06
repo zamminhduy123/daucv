@@ -34,7 +34,8 @@ export function useInterviewApi(initialMessages: Message[], initialMetrics?: Liv
     jdText: string = "", 
     cvText: string = "",
     currentQuestion: number = 1,
-    totalQuestions: number = 5
+    totalQuestions: number = 5,
+    interviewType: string = "general"
   ) => {
     if (!userText.trim() || loading) return;
 
@@ -54,7 +55,8 @@ export function useInterviewApi(initialMessages: Message[], initialMetrics?: Liv
         proxyCvText,
         newHistory.map(m => ({ role: m.role, content: m.content })),
         currentQuestion,
-        totalQuestions
+        totalQuestions,
+        interviewType
       );
       
       // We take the AI's feedback on the user's message and attach it to the history

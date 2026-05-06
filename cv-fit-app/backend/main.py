@@ -142,6 +142,7 @@ class InterviewChatRequest(BaseModel):
     chat_history: List[Message]
     current_question: int = 1      # e.g., 1
     total_questions: int = 5       # e.g., 5
+    interview_type: str = "general"  # "hr", "technical", "manager", "general"
 
 class LiveMetrics(BaseModel):
     confidence_score: int
@@ -165,7 +166,7 @@ class TurnAnalysis(BaseModel):
 class SubScore(BaseModel):
     category: str # "Kỹ năng chuyên môn", "Giải quyết vấn đề", "Kiến thức ngành", "Giao tiếp", "Thái độ & Hành vi"
     score: int # 0-100
-    label: str # "Xuất sắc", "Tốt", "Khá", "Cần cố gắng"
+    label: str # "Xuất sắc", "Tốt", "Khá", "Cần cố gắng"    
 
 class AIFeedbackSummary(BaseModel):
     positive: str # "Great logical thinking..."
@@ -186,6 +187,7 @@ class InterviewFinishRequest(BaseModel):
     jd_text: str
     cv_text: str
     chat_history: List[Message]
+    interview_type: str = "general"  # "hr", "technical", "manager", "general"
 
 # ---------------------------------------------------------------------------
 # Pydantic models – /api/analyze-cv (structured output)
@@ -388,6 +390,15 @@ async def interview_chat(req: InterviewChatRequest):
     Stateless mock interview turn processor mapping an InterviewChatRequest to an InterviewTurnResponse.
     Supports bounded interviews with question progress tracking.
     """
+    # --- Dynamic persona based on interview type ---
+    persona_instructions = {
+        "hr": "Act as an HR Recruiter. Focus strictly on behavioral questions, culture fit, soft skills, CV gaps, teamwork, and salary expectations. DO NOT ask deep technical coding questions.",
+        "technical": "Act as a Senior Technical Interviewer. Focus strictly on the hard skills, frameworks, and tools mentioned in the JD and CV. Ask scenario-based technical questions and evaluate their problem-solving logic.",
+        "manager": "Act as a Line Manager / Head of Department. Focus on project ownership, how they handle pressure/conflicts, business impact, and their long-term career vision.",
+        "general": "Act as a comprehensive interviewer covering a mix of introduction, technical skills, and behavioral traits."
+    }
+    active_persona = persona_instructions.get(req.interview_type, persona_instructions["general"])
+
     # --- Dynamic question strategy based on progress ---
     question_strategy = ""
     if req.current_question == 1:
@@ -399,6 +410,9 @@ async def interview_chat(req: InterviewChatRequest):
 
     system_prompt = f"""You are Bé Đậu, a friendly but rigorous Senior Tech Recruiter in Vietnam. 
         You are conducting a professional 1-on-1 mock interview with a candidate.
+
+        [INTERVIEWER PERSONA — FOLLOW STRICTLY]
+        {active_persona}
 
         [CONTEXT]
         Job Description (JD):\n{req.jd_text}\n
@@ -465,17 +479,28 @@ async def interview_finish(req: InterviewFinishRequest):
     if not req.chat_history:
         raise HTTPException(status_code=422, detail="Chat history is empty. Cannot generate report.")
 
+    # Round label for evaluation context
+    round_labels = {
+        "hr": "Vòng Nhân sự (HR Screening)",
+        "technical": "Vòng Chuyên môn (Technical)",
+        "manager": "Vòng Quản lý (Line Manager)",
+        "general": "Phỏng vấn Tổng hợp"
+    }
+    round_label = round_labels.get(req.interview_type, round_labels["general"])
+
     system_prompt = f"""You are a Senior Tech Recruiter conducting a post-interview evaluation.
         The mock interview has ENDED. Your task is to review the ENTIRE conversation and generate a comprehensive assessment report.
 
         [CONTEXT]
         Job Description (JD):\n{req.jd_text}\n
         Candidate's CV:\n{req.cv_text}\n
+        Interview Round: {round_label}
         [EVALUATION INSTRUCTIONS]
         1. Review every question-answer pair in the chat history.
         2. Evaluate the candidate's performance AGAINST the JD requirements and their CV claims.
-        3. Be honest, constructive, and specific.
-        4. Respond ENTIRELY in Vietnamese.
+        3. Judge the candidate through the lens of a "{round_label}" interviewer — weight the relevant competencies accordingly.
+        4. Be honest, constructive, and specific.
+        5. Respond ENTIRELY in Vietnamese.
 
         [OUTPUT JSON SCHEMA]
         - 'overall_score' (Integer, 0-100): Overall interview performance score.

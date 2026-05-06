@@ -73,8 +73,58 @@ class OllamaProvider(BaseAIProvider):
             parsed_json = json.loads(raw_content)
             return response_model(**parsed_json)
 
+class QwenProvider(BaseAIProvider):
+    def __init__(self):
+        self.endpoint = os.getenv("QWEN_ENDPOINT")
+        self.api_key = os.getenv("QWEN_API_KEY")
+        self.model_name = os.getenv("QWEN_MODEL", "Qwen3.6-35B-A3B-UD-Q4_K_M")
+
+    async def generate_structured(self, system_prompt: str, user_content: Any, response_model: type[BaseModel], temperature: float = 0.3) -> BaseModel:
+        async with httpx.AsyncClient() as http_client:
+            messages = [{"role": "system", "content": f"{system_prompt}\n\nCRITICAL: Answer ONLY with valid JSON exactly matching the schema."}]
+            
+            if isinstance(user_content, list):
+                for msg in user_content:
+                    if "role" in msg and "parts" in msg:
+                        role = "assistant" if msg["role"] == "model" else "user"
+                        messages.append({"role": role, "content": msg["parts"][0]["text"]})
+                    elif "role" in msg and "content" in msg:
+                        messages.append(msg)
+            else:
+                messages.append({"role": "user", "content": user_content})
+
+            res = await http_client.post(
+                self.endpoint,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": self.model_name,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "response_format": {"type": "json_object"}
+                },
+                timeout=300.0
+            )
+            res.raise_for_status()
+            data = res.json()
+            raw_content = data["choices"][0]["message"]["content"]
+            
+            # Fallback to extract JSON if markdown wrapped
+            import re
+            json_str = raw_content
+            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)```', raw_content)
+            if json_match:
+                json_str = json_match.group(1)
+                
+            parsed_json = json.loads(json_str)
+            return response_model(**parsed_json)
+
 def get_ai_provider(provider_name: str = None) -> BaseAIProvider:
     provider_name = provider_name or os.getenv("AI_PROVIDER", "gemini")
     if provider_name.lower() == "ollama":
         return OllamaProvider()
+    elif provider_name.lower() == "qwen":
+        return QwenProvider()
     return GeminiProvider()

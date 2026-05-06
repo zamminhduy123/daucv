@@ -32,10 +32,11 @@ interface InterviewRoomProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialState: any;
   totalQuestions: number;
+  interviewType: string;
   onBack: () => void;
 }
 
-export default function InterviewRoom({ cvText, jdText, initialState, totalQuestions, onBack }: InterviewRoomProps) {
+export default function InterviewRoom({ cvText, jdText, initialState, totalQuestions, interviewType, onBack }: InterviewRoomProps) {
   const { setCachedInterview } = useWorkspace();
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showSupportPopup, setShowSupportPopup] = useState(false);
@@ -138,7 +139,8 @@ export default function InterviewRoom({ cvText, jdText, initialState, totalQuest
         const data = await finishInterviewAPI(
           jdText, 
           cvText, 
-          fullHistory.map(m => ({ role: m.role, content: m.content }))
+          fullHistory.map(m => ({ role: m.role, content: m.content })),
+          interviewType
         );
         setReport(data);
       } catch (err) {
@@ -150,7 +152,7 @@ export default function InterviewRoom({ cvText, jdText, initialState, totalQuest
     } else {
       // Call the custom hook function with the next question number
       const nextQ = currentQuestion + 1;
-      sendMessage(textToSend, jdText, cvText, nextQ, totalQuestions);
+      sendMessage(textToSend, jdText, cvText, nextQ, totalQuestions, interviewType);
       setCurrentQuestion(nextQ);
     }
   };
@@ -182,7 +184,7 @@ export default function InterviewRoom({ cvText, jdText, initialState, totalQuest
   if (report) {
     return (
       <>
-        <InterviewReport report={report} onRetry={resetInterview} onHome={endInterview} />
+        <InterviewReport report={report} interviewType={interviewType} onRetry={resetInterview} onHome={endInterview} />
       </>
     );
   }
