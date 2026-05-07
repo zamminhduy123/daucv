@@ -1,4 +1,3 @@
-import React from 'react';
 import Link from 'next/link';
 import { ArrowRight, FileText, Search, Shield, Languages, Mic } from 'lucide-react';
 import {
@@ -8,38 +7,47 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 
+/* ─── 5 homepage questions — short answers (40–80 words) + deep-link to /qna ─── */
 export const faqData = [
-  {
-    icon: FileText,
-    question: "Có nên dùng chung 1 CV để rải cho nhiều công ty không?",
-    answer: "Không nên. Hơn 70% doanh nghiệp hiện nay dùng hệ thống ATS để quét từ khóa. Việc dùng chung 1 CV sẽ khiến bạn dễ bị loại. Hãy dùng Bé Đậu để tinh chỉnh CV khớp 100% với từng JD chỉ trong vài giây."
-  },
   {
     icon: Search,
     question: "CV chuẩn ATS là gì và làm sao để kiểm tra?",
-    answer: "CV chuẩn ATS là CV được thiết kế tối giản, không dùng bảng biểu phức tạp hay đồ họa che khuất chữ. Bạn có thể tải CV lên Daucv.com để AI chấm điểm 'Chuẩn ATS' miễn phí."
+    answer: "CV chuẩn ATS là CV có định dạng dễ đọc với hệ thống tuyển dụng tự động và có nội dung khớp với Job Description. Tránh bảng biểu phức tạp, icon đồ họa và chữ nhúng trong ảnh. Bạn có thể kiểm tra bằng cách so sánh từ khóa, kỹ năng và kinh nghiệm trong CV với JD.",
+    deepLink: "/qna#cv-chuan-ats-la-gi",
+    deepLinkText: "Xem giải thích đầy đủ về CV chuẩn ATS",
+  },
+  {
+    icon: FileText,
+    question: "Có nên dùng một CV để ứng tuyển nhiều công ty không?",
+    answer: "Không nên. Mỗi JD thường yêu cầu những kỹ năng và từ khóa khác nhau. Nếu CV quá chung chung, hệ thống ATS sẽ không thấy đủ tín hiệu phù hợp. Cách tốt hơn là giữ một CV gốc rồi tinh chỉnh summary, kỹ năng và kinh nghiệm theo từng JD. Đậu làm việc này chỉ trong vài giây.",
+    deepLink: "/qna#mot-cv-nhieu-cong-ty",
+    deepLinkText: "Xem hướng dẫn tối ưu CV theo từng JD",
   },
   {
     icon: Shield,
     question: "Tại sao CV của tôi hay bị loại ở vòng gửi hồ sơ?",
-    answer: "Thường do thiếu từ khóa chuyên môn hoặc viết kinh nghiệm không có số liệu định lượng. Đậu sẽ giúp bạn phát hiện từ khóa thiếu và gợi ý cách viết chuẩn thực chiến."
+    answer: "Hai nguyên nhân phổ biến nhất: thiếu từ khóa chuyên môn mà JD yêu cầu, và viết kinh nghiệm chung chung không có số liệu định lượng. Đậu phân tích CV, phát hiện lỗ hổng từ khóa và gợi ý cách viết lại theo chuẩn thực chiến.",
+    deepLink: "/qna#loi-dinh-dang-cv",
+    deepLinkText: "Xem các lỗi phổ biến khiến CV bị loại",
   },
   {
     icon: Languages,
     question: "Nên viết CV bằng tiếng Anh hay tiếng Việt?",
-    answer: "Nguyên tắc vàng: JD viết bằng tiếng nào, CV nộp bằng tiếng đó. Daucv.com hỗ trợ tối ưu bằng cả tiếng Anh và tiếng Việt."
+    answer: "Nguyên tắc vàng: JD viết bằng tiếng nào, CV nộp bằng tiếng đó. Nếu JD song ngữ, ưu tiên tiếng Anh để thể hiện năng lực. Đậu hỗ trợ phân tích và tối ưu CV bằng cả tiếng Anh lẫn tiếng Việt với độ chính xác cao.",
+    deepLink: "/qna#ho-tro-tieng-anh",
+    deepLinkText: "Xem Đậu hỗ trợ CV tiếng Anh thế nào",
   },
   {
     icon: Mic,
     question: "Làm sao để hết run khi phỏng vấn?",
-    answer: "Cách duy nhất là luyện tập thực tế. Tính năng 'Phỏng vấn 1-1' của Đậu cho phép bạn thực hành trả lời bằng giọng nói và nhận chấm điểm độ tự tin ngay lập tức."
-  }
+    answer: "Cách duy nhất hiệu quả là luyện tập thực tế nhiều lần. Tính năng luyện phỏng vấn 1-1 của Đậu cho phép bạn thực hành trả lời bằng giọng nói theo câu hỏi bám sát JD thực tế, sau đó nhận đánh giá về nội dung, ngôn ngữ và độ tự tin ngay lập tức.",
+    deepLink: "/qna#het-run-phong-van",
+    deepLinkText: "Xem cách luyện phỏng vấn với AI",
+  },
 ];
 
 interface FAQSectionProps {
-  /** Show the "Câu hỏi thường gặp" heading. Defaults to true. */
   showTitle?: boolean;
-  /** Show the "Xem thêm" link to /qna. Defaults to true. */
   showViewMore?: boolean;
 }
 
@@ -47,14 +55,11 @@ export function FAQSection({ showTitle = true, showViewMore = true }: FAQSection
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    "mainEntity": faqData.map((faq) => ({
+    mainEntity: faqData.map((faq) => ({
       "@type": "Question",
-      "name": faq.question,
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": faq.answer
-      }
-    }))
+      name: faq.question,
+      acceptedAnswer: { "@type": "Answer", text: faq.answer },
+    })),
   };
 
   return (
@@ -70,7 +75,7 @@ export function FAQSection({ showTitle = true, showViewMore = true }: FAQSection
           </h2>
         )}
         <Accordion type="single" collapsible className="space-y-4">
-          {faqData.map(({ icon: Icon, question, answer }, index) => (
+          {faqData.map(({ icon: Icon, question, answer, deepLink, deepLinkText }, index) => (
             <AccordionItem
               key={index}
               value={`item-${index}`}
@@ -80,14 +85,22 @@ export function FAQSection({ showTitle = true, showViewMore = true }: FAQSection
                 <Icon size={20} className="text-[#5A9E40] shrink-0" strokeWidth={2.5} />
                 <span className="flex-1">{question}</span>
               </AccordionTrigger>
-              <AccordionContent className="text-gray-600 leading-relaxed pb-6 pl-9 md:pl-[3.25rem] text-sm md:text-base">
-                {answer}
+              <AccordionContent className="text-gray-600 leading-relaxed pb-5 pl-9 md:pl-[3.25rem] text-sm md:text-base">
+                <p>{answer}</p>
+                {/* Deep-link to /qna anchor */}
+                <Link
+                  href={deepLink}
+                  className="inline-flex items-center gap-1.5 mt-3 text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-dark)] transition-colors group"
+                >
+                  {deepLinkText}
+                  <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
+                </Link>
               </AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
 
-        {/* Link to full Q&A knowledge base */}
+        {/* View more link */}
         {showViewMore && (
           <div className="mt-10 text-center">
             <Link
@@ -95,10 +108,7 @@ export function FAQSection({ showTitle = true, showViewMore = true }: FAQSection
               className="inline-flex items-center gap-2 text-sm font-medium text-[var(--primary)] hover:text-[var(--primary-dark)] transition-colors group"
             >
               Xem thêm cẩm nang & giải đáp thắc mắc 📚
-              <ArrowRight
-                size={16}
-                className="transition-transform group-hover:translate-x-1"
-              />
+              <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
         )}
