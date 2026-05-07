@@ -16,7 +16,7 @@ export default function HeroSection() {
             style={{ padding: "0.5rem 1rem", backgroundColor: "rgba(152,193,142,0.15)" }}
           >
             <span className="text-(--primary) text-base shrink-0 mr-2 sm:mr-0">🌱</span>
-            <span className="leading-tight sm:leading-normal">AI của người Việt, giúp bạn Đậu mọi vòng phỏng vấn</span>
+            <span className="leading-tight sm:leading-normal">Công cụ AI giúp bạn tối ưu CV và luyện phỏng vấn</span>
           </div>
 
           {/* H1 */}
@@ -33,7 +33,7 @@ export default function HeroSection() {
             className="text-[#5A6D6D] leading-relaxed mb-8 lg:mb-10 mx-auto lg:mx-0 text-base lg:text-xl"
             style={{ maxWidth: "600px" }}
           >
-            <strong className="font-semibold text-[#2F4F4F]">Đậu (daucv.com)</strong> là công cụ AI số 1 tại Việt Nam giúp ứng viên sửa CV chuẩn ATS và luyện phỏng vấn 1-1 sát với Job Description nhất.
+            Tải CV và Job Description để Đậu phân tích độ phù hợp, gợi ý sửa CV chuẩn ATS, tìm kỹ năng còn thiếu và luyện phỏng vấn 1-1 bằng AI.
           </p>
 
           {/* CTA */}

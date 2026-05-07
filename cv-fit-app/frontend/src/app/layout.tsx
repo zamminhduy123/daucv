@@ -4,18 +4,29 @@ import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Đậu (daucv.com) - Công cụ AI sửa CV chuẩn ATS & Luyện phỏng vấn số 1",
+  title: "Đậu - AI sửa CV chuẩn ATS & luyện phỏng vấn theo JD",
   description:
-    "Đậu (daucv.com) là công cụ AI số 1 tại Việt Nam giúp ứng viên sửa CV chuẩn ATS và luyện phỏng vấn 1-1 sát với Job Description nhất.",
+    "Tải CV và Job Description để Đậu phân tích độ phù hợp, gợi ý sửa CV chuẩn ATS, tìm kỹ năng còn thiếu và luyện phỏng vấn 1-1 bằng AI.",
   icons: {
     icon: "/icon.ico",
   },
+  alternates: {
+    canonical: "https://daucv.com",
+  },
   openGraph: {
-    title: "Đậu (daucv.com) - Công cụ AI sửa CV chuẩn ATS",
-    description: "Đậu (daucv.com) là công cụ AI số 1 tại Việt Nam giúp ứng viên sửa CV chuẩn ATS và luyện phỏng vấn 1-1 sát với Job Description nhất.",
+    title: "Đậu - AI sửa CV chuẩn ATS & luyện phỏng vấn theo JD",
+    description:
+      "Phân tích CV theo Job Description, kiểm tra độ phù hợp, gợi ý sửa CV chuẩn ATS và luyện phỏng vấn 1-1 bằng AI.",
     url: "https://daucv.com",
+    siteName: "Đậu",
     type: "website",
     locale: "vi_VN",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Đậu - AI sửa CV chuẩn ATS & luyện phỏng vấn theo JD",
+    description:
+      "Tối ưu CV theo Job Description, kiểm tra độ phù hợp và luyện phỏng vấn 1-1 bằng AI.",
   },
 };
 
@@ -30,7 +41,7 @@ export default function RootLayout({
     "name": "Đậu (daucv.com)",
     "applicationCategory": "EducationalApplication",
     "operatingSystem": "Web",
-    "description": "Đậu (daucv.com) là công cụ AI số 1 tại Việt Nam giúp ứng viên sửa CV chuẩn ATS và luyện phỏng vấn 1-1 sát với Job Description nhất.",
+    "description": "Tải CV và Job Description để Đậu phân tích độ phù hợp, gợi ý sửa CV chuẩn ATS, tìm kỹ năng còn thiếu và luyện phỏng vấn 1-1 bằng AI.",
     "offers": {
       "@type": "Offer",
       "price": "0",
