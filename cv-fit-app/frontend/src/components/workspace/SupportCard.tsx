@@ -77,6 +77,7 @@ export default function SupportCard({ compact = false, mini = false }: SupportCa
             height={600}
             priority={false}
             className={`h-auto w-full object-contain transition-opacity duration-300 ${showQR ? "rounded-lg" : ""}`}
+            loading="eager"
           />
         </div>
       </div>

@@ -108,7 +108,6 @@ export default function SetupPage() {
   };
 
   const handleSave = (targetRoute: string) => {
-    if (!localJd.trim()) { setError("Bạn chưa dán JD vào nhé!"); return; }
     if (!localCv.trim()) { setError("Bạn chưa có nội dung CV — dán text hoặc tải PDF!"); return; }
     setError("");
 
@@ -116,7 +115,7 @@ export default function SetupPage() {
     updateWorkspace({
       cvText: localCv,
       cvFileName: cvFile ? cvFile.name : cvFileName,
-      jdText: localJd,
+      jdText: localJd || "",
     });
 
     // Navigate to the chosen tool
@@ -124,7 +123,7 @@ export default function SetupPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 h-[calc(100vh-160px)]">
+    <div className="flex flex-col gap-4 h-full">
 
       {/* ── Compact page header ── */}
       <div className="shrink-0">
@@ -245,21 +244,21 @@ export default function SetupPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mt-2">
+        <div className="grid grid-cols-2 gap-2 md:gap-4 mt-2">
           {/* Action Card 1: Analyze */}
           <button
             onClick={() => handleSave("/app/analyzer")}
             disabled={isExtractingPDF}
-            className="flex items-start gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-white border-2 border-(--primary)/20 hover:border-(--primary) hover:bg-[#F9F9F2] transition-all text-left group shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex flex-row items-center md:items-center gap-1.5 md:gap-4 p-2 md:p-4 rounded-xl md:rounded-2xl bg-white border-2 border-(--primary)/20 hover:border-(--primary) hover:bg-[#F9F9F2] transition-all text-center md:text-left group shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-(--primary)/10 text-(--primary) flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-              <Sparkles className="w-5 h-5 md:w-6 md:h-6" />
+            <div className="w-8 h-8 md:w-12 md:h-12 rounded-full bg-(--primary)/10 text-(--primary) flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              <Sparkles className="w-4 h-4 md:w-6 md:h-6" />
             </div>
-            <div>
-              <h3 className="font-heading font-bold text-[#2F4F4F] text-base md:text-lg mb-0.5 md:mb-1 group-hover:text-(--primary) transition-colors">
-                Chăm chút & Tối ưu CV
+            <div className="min-w-0">
+              <h3 className="font-heading font-bold text-[#2F4F4F] text-[10px] md:text-lg mb-0 md:mb-1 group-hover:text-(--primary) transition-colors leading-tight">
+                Tối ưu CV
               </h3>
-              <p className="text-xs md:text-sm text-[#5A6D6D]">AI phân tích và gợi ý sửa CV chuẩn ATS.</p>
+              <p className="hidden md:block text-xs md:text-sm text-[#5A6D6D] line-clamp-1">AI phân tích và gợi ý sửa CV chuẩn ATS.</p>
             </div>
           </button>
 
@@ -267,16 +266,16 @@ export default function SetupPage() {
           <button
             onClick={() => handleSave("/app/interview")}
             disabled={isExtractingPDF}
-            className="flex items-start gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-white border-2 border-orange-400/20 hover:border-orange-400 hover:bg-orange-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex flex-row items-center md:items-center gap-1.5 md:gap-4 p-2 md:p-4 rounded-xl md:rounded-2xl bg-white border-2 border-orange-400/20 hover:border-orange-400 hover:bg-orange-50 transition-all text-center md:text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-orange-400/10 text-orange-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-              <Mic className="w-5 h-5 md:w-6 md:h-6" />
+            <div className="w-8 h-8 md:w-12 md:h-12 rounded-full bg-orange-400/10 text-orange-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              <Mic className="w-4 h-4 md:w-6 md:h-6" />
             </div>
-            <div>
-              <h3 className="font-heading font-bold text-[#2F4F4F] text-base md:text-lg mb-0.5 md:mb-1 group-hover:text-orange-500 transition-colors">
-                Phỏng vấn 1-1 với Bé Đậu
+            <div className="min-w-0">
+              <h3 className="font-heading font-bold text-[#2F4F4F] text-[10px] md:text-lg mb-0 md:mb-1 group-hover:text-orange-500 transition-colors leading-tight">
+                Phỏng vấn 1-1
               </h3>
-              <p className="text-xs md:text-sm text-[#5A6D6D]">Luyện tập trả lời câu hỏi dựa trên CV và JD.</p>
+              <p className="hidden md:block text-xs md:text-sm text-[#5A6D6D] line-clamp-1">Luyện tập trả lời câu hỏi dựa trên CV và JD.</p>
             </div>
           </button>
         </div>

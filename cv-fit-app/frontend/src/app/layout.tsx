@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import Script from "next/script";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "Đậu - AI sửa CV chuẩn ATS & luyện phỏng vấn theo JD",
@@ -73,6 +74,7 @@ export default function RootLayout({
       </head>
       <body>
         {children}
+        <Toaster />
         <SpeedInsights />
       </body>
     </html>

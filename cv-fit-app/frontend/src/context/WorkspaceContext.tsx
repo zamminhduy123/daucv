@@ -114,7 +114,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const hasData = !!(state.cvText.trim() && state.jdText.trim());
+  const hasData = !!state.cvText.trim();
 
   return (
     <WorkspaceContext.Provider

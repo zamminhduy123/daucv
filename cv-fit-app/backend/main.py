@@ -137,12 +137,12 @@ class Message(BaseModel):
     content: str
 
 class InterviewChatRequest(BaseModel):
-    jd_text: str
     cv_text: str
     chat_history: List[Message]
     current_question: int = 1      # e.g., 1
     total_questions: int = 5       # e.g., 5
     interview_type: str = "general"  # "hr", "technical", "manager", "general"
+    jd_text: Optional[str] = ""
 
 class LiveMetrics(BaseModel):
     confidence_score: int
@@ -184,10 +184,10 @@ class FinalInterviewReport(BaseModel):
     turn_by_turn_analysis: List[TurnAnalysis]
 
 class InterviewFinishRequest(BaseModel):
-    jd_text: str
     cv_text: str
     chat_history: List[Message]
     interview_type: str = "general"  # "hr", "technical", "manager", "general"
+    jd_text: Optional[str] = ""
 
 # ---------------------------------------------------------------------------
 # Pydantic models – /api/analyze-cv (structured output)
@@ -242,7 +242,7 @@ def health():
 @app.post("/api/upload-and-match", response_model=MatchResult)
 async def upload_and_match(
     cv_file: UploadFile = File(...),
-    jd_text: str = Form(...),
+    jd_text: str = Form(""),
 ):
     """
     Parse the uploaded CV PDF, compare with the JD, and return:
@@ -292,8 +292,8 @@ async def upload_and_match(
 
 
 class AnalyzeCVRequest(BaseModel):
-    jd_text: str
     cv_text: str
+    jd_text: Optional[str] = ""
 
 # ---------------------------------------------------------------------------
 # POST /api/extract-pdf
@@ -330,9 +330,16 @@ async def analyze_cv(req: AnalyzeCVRequest):
         )
 
     # 2. Build system prompt
+    if jd_text.strip():
+        context_instruction = "Nhiệm vụ: Phân tích CV ứng viên dựa trên Mô tả Công việc (JD) được cung cấp và trả về kết quả phân tích."
+        user_content = f"CV của ứng viên:\n{extracted_text}\n\nMô tả Công việc (JD):\n{jd_text}"
+    else:
+        context_instruction = "Nhiệm vụ: Người dùng không cung cấp JD. Thực hiện Đánh giá CV chung (General CV ATS Audit). Đánh giá CV dựa trên tiêu chuẩn ngành chung cho vị trí của họ. Chấm điểm về tính dễ đọc, số liệu tác động, động từ hành động và mức độ chuẩn ATS nói chung. Đề xuất các từ khóa chung họ nên bổ sung dựa trên vị trí ngầm hiểu."
+        user_content = f"CV của ứng viên:\n{extracted_text}"
+
     system_prompt = (
         "Bạn là một Senior Tech Recruiter đóng vai trò chuyên gia review CV. Bạn thẳng thắn, trực tiếp và luôn mang tính xây dựng.\n\n"
-        "Nhiệm vụ: Phân tích CV ứng viên dựa trên Mô tả Công việc (JD) được cung cấp và trả về kết quả phân tích.\n\n"
+        f"{context_instruction}\n\n"
         "QUY TẮC BẮT BUỘC VỀ NGÔN NGỮ:\n"
         "- BƯỚC 1: Xác định ngôn ngữ chính của CV ứng viên (Tiếng Anh hoặc Tiếng Việt).\n"
         "- BƯỚC 2: TẤT CẢ các mảng văn bản trả về PHẢI viết bằng CHÍNH ngôn ngữ của CV đó.\n"
@@ -368,8 +375,6 @@ async def analyze_cv(req: AnalyzeCVRequest):
         "  + comment: Nhận xét ngắn gọn giải thích đánh giá (VD: \"Supported by 8M+ MAU metrics\", \"No leadership evidence found\")\n\n"
         "Hãy trung thực, mang tính xây dựng và cung cấp kết quả ở định dạng JSON hợp lệ duy nhất."
     )
-
-    user_content = f"CV của ứng viên:\n{extracted_text}\n\nMô tả Công việc (JD):\n{jd_text}"
 
     # 3. Call Language Model with structured output
     try:
@@ -408,6 +413,11 @@ async def interview_chat(req: InterviewChatRequest):
     else:
         question_strategy = "Deep dive into a specific technical or situational requirement from the JD. Challenge the candidate."
 
+    if req.jd_text.strip():
+        jd_context = f"You are interviewing the candidate for this specific JD:\n{req.jd_text}"
+    else:
+        jd_context = "The candidate did not provide a specific JD. Conduct a general interview based purely on their CV to assess their past experiences, strengths, and general career readiness."
+
     system_prompt = f"""You are Bé Đậu, a friendly but rigorous Senior Tech Recruiter in Vietnam. 
         You are conducting a professional 1-on-1 mock interview with a candidate.
 
@@ -415,7 +425,8 @@ async def interview_chat(req: InterviewChatRequest):
         {active_persona}
 
         [CONTEXT]
-        Job Description (JD):\n{req.jd_text}\n
+        {jd_context}
+
         Candidate's CV:\n{req.cv_text}\n
         [INTERVIEW PROGRESS]
         You are currently asking question {req.current_question} out of {req.total_questions}.
@@ -488,11 +499,16 @@ async def interview_finish(req: InterviewFinishRequest):
     }
     round_label = round_labels.get(req.interview_type, round_labels["general"])
 
+    if req.jd_text.strip():
+        jd_context = f"Job Description (JD):\n{req.jd_text}\n"
+    else:
+        jd_context = "The candidate did not provide a specific JD. Evaluate their performance purely based on their CV claims, general career readiness, and industry standards.\n"
+
     system_prompt = f"""You are a Senior Tech Recruiter conducting a post-interview evaluation.
         The mock interview has ENDED. Your task is to review the ENTIRE conversation and generate a comprehensive assessment report.
 
         [CONTEXT]
-        Job Description (JD):\n{req.jd_text}\n
+        {jd_context}
         Candidate's CV:\n{req.cv_text}\n
         Interview Round: {round_label}
         [EVALUATION INSTRUCTIONS]
@@ -564,9 +580,9 @@ async def generate_tts(req: TTSRequest):
 
 class WriterRequest(BaseModel):
     cv_text: str
-    jd_text: str
     writing_type: str       # "email", "linkedin", "zalo", "custom"
     tone: str               # e.g. "Chuyên nghiệp", "Ngắn gọn", "Tự tin"
+    jd_text: Optional[str] = ""
     custom_prompt: Optional[str] = None
 
 class WriterResponse(BaseModel):
@@ -580,8 +596,8 @@ async def writer_generate(req: WriterRequest):
     Generate an application email, cover letter, LinkedIn message, Zalo message,
     or custom writing based on the user's CV and JD.
     """
-    if not req.cv_text.strip() or not req.jd_text.strip():
-        raise HTTPException(status_code=422, detail="CV and JD are both required.")
+    if not req.cv_text.strip():
+        raise HTTPException(status_code=422, detail="CV is required.")
 
     type_labels = {
         "email": "Email ứng tuyển (Application Email)",
@@ -591,15 +607,24 @@ async def writer_generate(req: WriterRequest):
     }
     type_desc = type_labels.get(req.writing_type, req.writing_type)
 
+    jd_instruction = (
+        "và JD bên dưới.\n\n"
+        "QUY TẮC QUAN TRỌNG:\n"
+        "- KHÔNG bịa đặt kinh nghiệm hoặc kỹ năng mà CV không có.\n"
+        "- Nội dung phải BÁM SÁT các yêu cầu trong JD.\n"
+    ) if req.jd_text and req.jd_text.strip() else (
+        "bên dưới (Người dùng không cung cấp JD).\n\n"
+        "QUY TẮC QUAN TRỌNG:\n"
+        "- KHÔNG bịa đặt kinh nghiệm hoặc kỹ năng mà CV không có.\n"
+        "- Tập trung làm nổi bật điểm mạnh và kinh nghiệm đáng chú ý nhất của ứng viên.\n"
+    )
+
     system_prompt = (
         "Bạn là một chuyên gia Tư vấn Nghề nghiệp (Career Coach) tại Việt Nam.\n\n"
         "QUY TẮC BẮT BUỘC VỀ NGÔN NGỮ:\n"
         "- BƯỚC 1: Xác định ngôn ngữ chính của CV ứng viên (Tiếng Anh hoặc Tiếng Việt).\n"
         "- BƯỚC 2: TẤT CẢ nội dung trả về PHẢI viết bằng CHÍNH ngôn ngữ của CV đó.\n\n"
-        f"Nhiệm vụ: Viết một {type_desc} với giọng văn '{req.tone}' dựa trên CV và JD bên dưới.\n\n"
-        "QUY TẮC QUAN TRỌNG:\n"
-        "- KHÔNG bịa đặt kinh nghiệm hoặc kỹ năng mà CV không có.\n"
-        "- Nội dung phải BÁM SÁT các yêu cầu trong JD.\n"
+        f"Nhiệm vụ: Viết một {type_desc} với giọng văn '{req.tone}' dựa trên CV {jd_instruction}"
         "- Giữ ngắn gọn, chuyên nghiệp, và phù hợp với kênh giao tiếp.\n"
     )
 
@@ -630,7 +655,10 @@ async def writer_generate(req: WriterRequest):
         "Chỉ trả về JSON hợp lệ duy nhất."
     )
 
-    user_content = f"CV của ứng viên:\n{req.cv_text}\n\nMô tả Công việc (JD):\n{req.jd_text}"
+    if req.jd_text.strip():
+        user_content = f"CV của ứng viên:\n{req.cv_text}\n\nMô tả Công việc (JD):\n{req.jd_text}"
+    else:
+        user_content = f"CV của ứng viên:\n{req.cv_text}"
 
     try:
         parsed = await call_llm_with_fallback(system_prompt, user_content, WriterResponse)

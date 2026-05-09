@@ -65,7 +65,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <TopBar />
 
           {/* Scrollable content */}
-          <main className="flex-1 h-full overflow-y-auto bg-[#F9F9F2] p-4 md:p-8">
+          <main className="flex-1 h-full overflow-y-auto bg-[#F9F9F2] p-4">
             {children}
           </main>
         </div>

@@ -5,6 +5,7 @@ import { Upload, FileText, X, CheckCircle, AlertTriangle, Sparkles, Mic, Loader2
 import type { WorkspaceInputs } from "@/types";
 import { wordCount } from "@/lib/utils";
 import { extractPdfAPI } from "@/lib/api";
+import { useToast } from "@/components/ui/use-toast";
 
 interface InputSectionProps {
   inputs: WorkspaceInputs;
@@ -63,6 +64,7 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
   const [dragging, setDragging] = useState(false);
   const [isExtractingPDF, setIsExtractingPDF] = useState(false);
   const [extractError, setExtractError] = useState("");
+  const { toast } = useToast();
 
   const handleFile = async (file: File) => {
     if (file.type !== "application/pdf") {
@@ -99,6 +101,30 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
 
   const clearFile = () => onChange({ cvFile: null, cvText: "" });
 
+  const handleAnalyzeClick = () => {
+    if (!inputs.cvText.trim()) {
+        toast({
+            title: "Thiếu thông tin ⚠️",
+            description: "Vui lòng tải lên hoặc dán nội dung CV của bạn trước khi tiếp tục.",
+            variant: "destructive"
+        });
+        return;
+    }
+    onAnalyze();
+  };
+
+  const handleInterviewClick = () => {
+    if (!inputs.cvText.trim()) {
+        toast({
+            title: "Thiếu thông tin ⚠️",
+            description: "Vui lòng tải lên hoặc dán nội dung CV của bạn trước khi tiếp tục.",
+            variant: "destructive"
+        });
+        return;
+    }
+    onInterview();
+  };
+
   return (
     // Full-height flex column — fills whatever height the parent gives it
     <div className="flex flex-col gap-4 h-[calc(100vh-100px)] ">
@@ -126,7 +152,7 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
           <textarea
             value={inputs.jdText}
             onChange={(e) => onChange({ jdText: e.target.value })}
-            placeholder={"// Dán yêu cầu công việc (JD) vào đây...\n\nVí dụ: Chúng tôi tìm kiếm một Kỹ sư Frontend..."}
+            placeholder={"// Dán yêu cầu công việc (JD) vào đây (Không bắt buộc)...\n\nVí dụ: Chúng tôi tìm kiếm một Kỹ sư Frontend..."}
             className="flex-1 w-full resize-none outline-none bg-transparent text-[#2F4F4F] leading-relaxed text-sm"
             style={{ padding: "1rem", fontFamily: "'Inter', 'Courier New', monospace" }}
             onFocus={(e) => {
@@ -225,7 +251,7 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mt-2">
           {/* Action Card 1: Analyze */}
           <button
-            onClick={onAnalyze}
+            onClick={handleAnalyzeClick}
             disabled={isAnalyzing || isStartingInterview}
             className="flex items-start gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-white border-2 border-(--primary)/20 hover:border-(--primary) hover:bg-[#F9F9F2] transition-all text-left group shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -242,7 +268,7 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
 
           {/* Action Card 2: Interview */}
           <button
-            onClick={onInterview}
+            onClick={handleInterviewClick}
             disabled={isAnalyzing || isStartingInterview}
             className="flex items-start gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-white border-2 border-orange-400/20 hover:border-orange-400 hover:bg-orange-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >

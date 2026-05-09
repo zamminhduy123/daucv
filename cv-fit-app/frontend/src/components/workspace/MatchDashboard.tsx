@@ -16,6 +16,7 @@ import {
   HelpCircle,
   ClipboardCheck,
 } from "lucide-react";
+import { useWorkspace } from "@/context/WorkspaceContext";
 
 const SUB_SCORES = [
   {
@@ -63,7 +64,7 @@ const SUB_SCORES = [
 ] as const;
 
 // SVG circular progress ring
-function CircularScore({ score }: { score: number }) {
+function CircularScore({ score, isGeneral }: { score: number; isGeneral: boolean }) {
   const radius = 57;
   const circumference = 2 * Math.PI * radius;
   const strokeDash = (score / 100) * circumference;
@@ -99,13 +100,17 @@ function CircularScore({ score }: { score: number }) {
           <span className="text-5xl font-semibold text-[#1F2E2E] leading-none">{score}</span>
           <span className="text-xl font-bold text-[#1F2E2E] leading-none">%</span>
         </div>
-        <span className="text-xs font-semibold text-gray-400 tracking-wide mt-1">JD Match</span>
+        <span className="text-xs font-semibold text-gray-400 tracking-wide mt-1">
+          {isGeneral ? "ATS Score" : "JD Match"}
+        </span>
       </div>
     </div>
   );
 }
 
 export default function MatchDashboard({ result }: { result: CVAnalysisResponse }) {
+  const { jdText } = useWorkspace();
+  const isGeneral = !jdText?.trim();
 
   return (
     <div>
@@ -121,7 +126,9 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
         >
           Kết quả phân tích
         </h1>
-        <p className="text-lg text-[#2F4F4F]/70">Dựa trên JD và nội dung CV của bạn</p>
+        <p className="text-lg text-[#2F4F4F]/70">
+          {isGeneral ? "Đánh giá chất lượng CV của bạn" : "Dựa trên JD và nội dung CV của bạn"}
+        </p>
       </motion.div>
 
       {/* Main Card */}
@@ -133,7 +140,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
       >
         {/* LEFT — Circular score, fills the column */}
         <div className="xl:w-[20%] w-full max-w-[200px] mx-auto xl:mx-0 flex-shrink-0">
-          <CircularScore score={result.match_score} />
+          <CircularScore score={result.match_score} isGeneral={isGeneral} />
         </div>
 
         {/* RIGHT — Headline spanning above summary + 6 cards */}

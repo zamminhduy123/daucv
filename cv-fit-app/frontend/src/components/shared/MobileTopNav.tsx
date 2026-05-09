@@ -4,21 +4,25 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FileText, Mic, LayoutTemplate, Clock, Menu, X, Coffee, QrCode, PenLine, PenTool } from "lucide-react";
+import { useWorkspace } from "@/context/WorkspaceContext";
+import { toast } from "sonner";
 import Image from "next/image";
 
 const NAV_ITEMS = [
-  { label: "Nhập CV & JD", icon: PenLine, href: "/app/setup" },
-  { label: "Phân tích CV", icon: FileText, href: "/app/analyzer" },
-  { label: "Phỏng vấn 1-1", icon: Mic, href: "/app/interview" },
-  { label: "Trợ lý Viết", icon: PenTool, href: "/app/writer" },
-  { label: "Thư viện Mẫu CV", icon: LayoutTemplate, href: "/app/templates" },
-  { label: "Lịch sử", icon: Clock, href: "/app/history" },
+  { label: "Nhập CV & JD", icon: PenLine, href: "/app/setup", requiresCV: false },
+  { label: "Phân tích CV", icon: FileText, href: "/app/analyzer", requiresCV: true },
+  { label: "Phỏng vấn 1-1", icon: Mic, href: "/app/interview", requiresCV: true },
+  { label: "Trợ lý Viết", icon: PenTool, href: "/app/writer", requiresCV: true },
+  { label: "Thư viện Mẫu CV", icon: LayoutTemplate, href: "/app/templates", requiresCV: false },
+  { label: "Lịch sử", icon: Clock, href: "/app/history", requiresCV: false },
 ];
 
 export default function MobileTopNav() {
   const [showQR, setShowQR] = useState(false);
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const { cvText } = useWorkspace();
+  const hasCV = !!cvText?.trim();
 
   return (
     <>
@@ -65,23 +69,46 @@ export default function MobileTopNav() {
             </div>
 
             <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-              {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
+              {!hasCV && (
+                <div className="mb-4 mx-2 p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
+                  <p className="text-[11px] text-blue-600 leading-relaxed font-medium">
+                    Nhập CV để mở khoá tính năng Phân tích & Phỏng vấn
+                  </p>
+                </div>
+              )}
+              {NAV_ITEMS.map(({ label, icon: Icon, href, requiresCV }) => {
                 const isActive = pathname === href || pathname.startsWith(href + "/");
+                const isDisabled = requiresCV && !hasCV;
+                
                 return (
                   <Link
                     key={href}
-                    href={href}
-                    onClick={() => setIsOpen(false)}
+                    href={isDisabled ? "#" : href}
+                    title={isDisabled ? "Vui lòng nhập CV của bạn trước khi sử dụng tính năng này" : undefined}
+                    onClick={(e) => {
+                      if (isDisabled) {
+                        e.preventDefault();
+                        setIsOpen(false);
+                        toast.error("Vui lòng nhập CV của bạn trước khi sử dụng tính năng này", {
+                          position: "top-center",
+                        });
+                      } else {
+                        setIsOpen(false);
+                      }
+                    }}
                     className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all no-underline ${
-                      isActive
+                      isDisabled
+                        ? "text-gray-400 cursor-not-allowed bg-gray-50/50"
+                        : isActive
                         ? "bg-[var(--primary)]/10 text-[var(--primary)] font-semibold"
                         : "text-gray-500 hover:bg-gray-50 hover:text-[#2F4F4F]"
                     }`}
                   >
-                    <Icon size={18} className={isActive ? "text-[var(--primary)]" : "text-gray-400"} />
+                    <Icon size={18} className={isDisabled ? "text-gray-300" : isActive ? "text-[var(--primary)]" : "text-gray-400"} />
                     {label}
+                    
                     {/* Coming soon badge for history/templates */}
-                    {(href === "/app/history") && (
+                    {(href === "/app/history") && !isDisabled && (
                       <span className="ml-auto text-[9px] font-bold bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">
                         Soon
                       </span>
@@ -94,14 +121,15 @@ export default function MobileTopNav() {
             <div className="p-4">
               <div className="text-center relative">
                 <div className="flex flex-col items-center">
-                  <div className={`relative w-full min-h-32 mb-2`}>
+                  <div className={`relative w-32 mx-auto mb-2`}>
                     <Image 
                       src={showQR ? "/qr.webp" : "/redbean.webp"} 
                       alt={showQR ? "QR Code" : "Bé Đậu"} 
-                      width={900}
-                      height={600}
+                      width={128}
+                      height={86}
                       priority={false}
                       className={`h-auto w-full object-contain transition-opacity duration-300 ${showQR ? "rounded-lg" : ""}`} 
+                      loading="eager"
                     />
                   </div>
                   {/* <p className="text-xs font-bold text-[#1F2E2E] mb-1">

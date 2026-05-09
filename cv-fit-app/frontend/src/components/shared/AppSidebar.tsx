@@ -5,19 +5,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { FileText, Mic, LayoutTemplate, Clock, QrCode, Coffee, PenLine, PenTool } from "lucide-react";
+import { useWorkspace } from "@/context/WorkspaceContext";
+import { toast } from "sonner";
 
 const NAV_ITEMS = [
-  { label: "Nhập CV & JD", icon: PenLine, href: "/app/setup" },
-  { label: "Phân tích CV", icon: FileText, href: "/app/analyzer" },
-  { label: "Phỏng vấn 1-1", icon: Mic, href: "/app/interview" },
-  { label: "Trợ lý Viết", icon: PenTool, href: "/app/writer" },
-  { label: "Thư viện Mẫu CV", icon: LayoutTemplate, href: "/app/templates" },
-  { label: "Lịch sử", icon: Clock, href: "/app/history" },
+  { label: "Nhập CV & JD", icon: PenLine, href: "/app/setup", requiresCV: false },
+  { label: "Phân tích CV", icon: FileText, href: "/app/analyzer", requiresCV: true },
+  { label: "Phỏng vấn 1-1", icon: Mic, href: "/app/interview", requiresCV: true },
+  { label: "Trợ lý Viết", icon: PenTool, href: "/app/writer", requiresCV: true },
+  { label: "Thư viện Mẫu CV", icon: LayoutTemplate, href: "/app/templates", requiresCV: false },
+  { label: "Lịch sử", icon: Clock, href: "/app/history", requiresCV: false },
 ];
 
 export default function AppSidebar() {
   const [showQR, setShowQR] = useState(false);
   const pathname = usePathname();
+  const { cvText } = useWorkspace();
+  const hasCV = !!cvText?.trim();
 
   return (
     <aside className="w-64 h-full bg-white border-r border-gray-100 flex-col hidden md:flex flex-shrink-0">
@@ -43,14 +47,36 @@ export default function AppSidebar() {
         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 px-3 mb-3">
           Công cụ
         </p>
-        {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
+        
+        {!hasCV && (
+          <div className="mb-4 mx-2 p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
+            <p className="text-[11px] text-blue-600 leading-relaxed font-medium">
+              Nhập CV để mở khoá tính năng Phân tích & Phỏng vấn
+            </p>
+          </div>
+        )}
+        
+        {NAV_ITEMS.map(({ label, icon: Icon, href, requiresCV }) => {
           const isActive = pathname === href || pathname.startsWith(href + "/");
+          const isDisabled = requiresCV && !hasCV;
+          
           return (
             <Link
               key={href}
-              href={href}
+              href={isDisabled ? "#" : href}
+              title={isDisabled ? "Vui lòng nhập CV của bạn trước khi sử dụng tính năng này" : undefined}
+              onClick={(e) => {
+                if (isDisabled) {
+                  e.preventDefault();
+                  toast.error("Vui lòng nhập CV của bạn trước khi sử dụng tính năng này", {
+                    position: "top-center",
+                  });
+                }
+              }}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 no-underline group ${
-                isActive
+                isDisabled
+                  ? "text-gray-400 cursor-not-allowed bg-gray-50/50"
+                  : isActive
                   ? "bg-[var(--primary)]/10 text-[var(--primary)] font-semibold"
                   : "text-gray-500 hover:bg-gray-50 hover:text-[#2F4F4F]"
               }`}
@@ -58,12 +84,13 @@ export default function AppSidebar() {
               <Icon
                 size={18}
                 className={`flex-shrink-0 transition-colors ${
-                  isActive ? "text-[var(--primary)]" : "text-gray-400 group-hover:text-[#2F4F4F]"
+                  isDisabled ? "text-gray-300" : isActive ? "text-[var(--primary)]" : "text-gray-400 group-hover:text-[#2F4F4F]"
                 }`}
               />
               {label}
+              
               {/* Coming soon badge for history/templates */}
-              {(href === "/app/history") && (
+              {(href === "/app/history") && !isDisabled && (
                 <span className="ml-auto text-[9px] font-bold bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">
                   Soon
                 </span>
@@ -85,6 +112,7 @@ export default function AppSidebar() {
                 height={600}
                 priority={false}
                 className={`h-auto w-full object-contain transition-opacity duration-300 ${showQR ? "rounded-lg" : ""}`}
+                loading="eager"
               />
             </div>
             {/* <p className="text-xs font-bold text-[#1F2E2E] mb-1 leading-snug">

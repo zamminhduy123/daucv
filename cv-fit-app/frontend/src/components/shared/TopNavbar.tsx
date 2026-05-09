@@ -68,7 +68,7 @@ export function LandingNavbar() {
         >
           Hỏi đáp
         </Link>
-        {["Lợi ích", "Tính năng"].map((item) => (
+        {/* {["Lợi ích", "Tính năng"].map((item) => (
           <a
             key={item}
             href={`/#${item.toLowerCase().replace(" ", "-")}`}
@@ -76,7 +76,7 @@ export function LandingNavbar() {
           >
             {item}
           </a>
-        ))}
+        ))} */}
       </nav>
       <Link href="/app" className="btn-green text-sm sm:text-base px-4 py-2 sm:px-6 sm:py-3">
         Bắt đầu ngay
