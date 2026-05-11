@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, FileText, X, CheckCircle, AlertTriangle, Sparkles, Mic, Loader2 } from "lucide-react";
+import { Upload, FileText, X, CheckCircle, AlertTriangle, Sparkles, Mic, Loader2, PenTool } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { WorkspaceInputs } from "@/types";
 import { wordCount } from "@/lib/utils";
 import { extractPdfAPI } from "@/lib/api";
@@ -12,14 +13,16 @@ interface InputSectionProps {
   onChange: (patch: Partial<WorkspaceInputs>) => void;
   onAnalyze: () => void;
   onInterview: () => void;
+  onWrite: () => void;
   isAnalyzing: boolean;
   isStartingInterview: boolean;
+  isWriting: boolean;
   error: string;
 }
 
 // ── Sub-component: textarea card shell ────────────────────────────────────────
 interface TextCardProps {
-  title: string;
+  title: React.ReactNode;
   subtitle: string;
   children: React.ReactNode;
   wordCountText: string;
@@ -59,7 +62,17 @@ function TextCard({ title, subtitle, children, wordCountText, headerRight, topBa
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function InputSection({ inputs, onChange, onAnalyze, onInterview, isAnalyzing, isStartingInterview, error }: InputSectionProps) {
+export default function InputSection({ 
+  inputs, 
+  onChange, 
+  onAnalyze, 
+  onInterview, 
+  onWrite,
+  isAnalyzing, 
+  isStartingInterview, 
+  isWriting,
+  error 
+}: InputSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [isExtractingPDF, setIsExtractingPDF] = useState(false);
@@ -80,13 +93,16 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
     try {
       const result = await extractPdfAPI(file);
       if (result.error) {
-        setExtractError(result.error);
-        onChange({ cvFile: null, cvText: `[Lỗi trích xuất: ${result.error}]` });
+        setExtractError("Đã có lỗi xảy ra khi trích xuất, vui lòng thử lại.");
+        console.error(result.error);
+        onChange({ cvFile: null, cvText: "" });
       } else {
         onChange({ cvText: result.text || "" });
       }
     } catch (err: any) {
-      setExtractError(err.message || "Lỗi kết nối");
+      onChange({ cvFile: null, cvText: "" });
+      setExtractError("Đã có lỗi xảy ra khi trích xuất, vui lòng thử lại.");
+      console.error(err);
     } finally {
       setIsExtractingPDF(false);
     }
@@ -125,9 +141,23 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
     onInterview();
   };
 
+  const handleWriteClick = () => {
+    if (!inputs.cvText.trim()) {
+        toast({
+            title: "Thiếu thông tin ⚠️",
+            description: "Vui lòng tải lên hoặc dán nội dung CV của bạn trước khi tiếp tục.",
+            variant: "destructive"
+        });
+        return;
+    }
+    onWrite();
+  };
+
+  const isCvReady = inputs.cvText.trim().length > 20;
+
   return (
-    // Full-height flex column — fills whatever height the parent gives it
-    <div className="flex flex-col gap-4 h-[calc(100vh-100px)] ">
+    // Full-height flex column on desktop, auto-height on mobile
+    <div className="flex flex-col gap-3 md:gap-4 h-auto md:h-[calc(100vh-100px)]">
 
       {/* ── Compact page header ── */}
       <div className="shrink-0">
@@ -141,11 +171,11 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
       </div>
 
       {/* ── 2-col card grid — stacks on mobile, side-by-side on larger screens ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 flex-none md:flex-1">
 
         {/* LEFT: JD */}
         <TextCard
-          title="Job Description (JD)"
+          title={<>Job Description (JD) <span className="text-gray-400 font-normal text-xs ml-1">(Tùy chọn)</span></>}
           subtitle="Yêu cầu từ nhà tuyển dụng"
           wordCountText={wordCount(inputs.jdText)}
         >
@@ -153,7 +183,7 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
             value={inputs.jdText}
             onChange={(e) => onChange({ jdText: e.target.value })}
             placeholder={"// Dán yêu cầu công việc (JD) vào đây (Không bắt buộc)...\n\nVí dụ: Chúng tôi tìm kiếm một Kỹ sư Frontend..."}
-            className="flex-1 w-full resize-none outline-none bg-transparent text-[#2F4F4F] leading-relaxed text-sm"
+            className="flex-1 w-full min-h-[200px] resize-none outline-none bg-transparent text-[#2F4F4F] leading-relaxed text-sm"
             style={{ padding: "1rem", fontFamily: "'Inter', 'Courier New', monospace" }}
             onFocus={(e) => {
               const card = e.target.closest<HTMLDivElement>(".bg-white");
@@ -168,7 +198,7 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
 
         {/* RIGHT: CV */}
         <TextCard
-          title="CV của bạn"
+          title={<>CV của bạn <span className="text-red-500 ml-0.5">*</span></>}
           subtitle="Dán text hoặc upload PDF"
           wordCountText={wordCount(inputs.cvText)}
           headerRight={
@@ -230,14 +260,14 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
             value={inputs.cvText}
             onChange={(e) => onChange({ cvText: e.target.value })}
             placeholder={"// Dán nội dung CV của bạn vào đây...\n\nHọ tên: Nguyễn Văn A\nKinh nghiệm: 3 năm tại...\nKỹ năng: React, TypeScript..."}
-            className="flex-1 w-full resize-none outline-none bg-transparent text-[#2F4F4F] leading-relaxed text-sm"
+            className="flex-1 w-full min-h-[200px] resize-none outline-none bg-transparent text-[#2F4F4F] leading-relaxed text-sm"
             style={{ padding: "0.75rem 1rem", fontFamily: "'Inter', 'Courier New', monospace" }}
           />
         </TextCard>
       </div>
 
       {/* ── Error + CTA — pinned at bottom, never scrolls away ── */}
-      <div className="shrink-0">
+      <div className="shrink-0 min-h-0 md:min-h-[140px] flex flex-col justify-end mt-2 md:mt-0">
         {(error || extractError) && (
           <div
             className="flex items-center gap-2.5 rounded-xl px-4 py-3 mb-3 text-sm font-medium text-[#B22222]"
@@ -248,41 +278,92 @@ export default function InputSection({ inputs, onChange, onAnalyze, onInterview,
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mt-2">
-          {/* Action Card 1: Analyze */}
-          <button
-            onClick={handleAnalyzeClick}
-            disabled={isAnalyzing || isStartingInterview}
-            className="flex items-start gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-white border-2 border-(--primary)/20 hover:border-(--primary) hover:bg-[#F9F9F2] transition-all text-left group shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-(--primary)/10 text-(--primary) flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-              {isAnalyzing ? <Loader2 className="animate-spin w-5 h-5 md:w-6 md:h-6" /> : <Sparkles className="w-5 h-5 md:w-6 md:h-6" />}
-            </div>
-            <div>
-              <h3 className="font-heading font-bold text-[#2F4F4F] text-base md:text-lg mb-0.5 md:mb-1 group-hover:text-(--primary) transition-colors">
-                {isAnalyzing ? "Đang xử lý..." : "Chăm chút & Tối ưu CV"}
-              </h3>
-              <p className="text-xs md:text-sm text-[#5A6D6D]">AI phân tích và gợi ý sửa CV chuẩn ATS.</p>
-            </div>
-          </button>
+        <AnimatePresence mode="wait">
+          {!isCvReady ? (
+            <motion.div
+              key="placeholder"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="bg-[#2F4F4F]/[0.03] border border-dashed border-[#2F4F4F]/15 rounded-2xl p-4 md:p-6 text-center"
+            >
+              <div className="flex flex-row md:flex-col items-center justify-center gap-3 md:gap-2">
+                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-[#5A6D6D] shrink-0">
+                  <FileText size={18} className="md:w-5 md:h-5" />
+                </div>
+                <div>
+                  <p className="text-[#2F4F4F] font-semibold text-xs md:text-sm">Cung cấp CV để bắt đầu</p>
+                  <p className="text-[#5A6D6D] text-[10px] md:text-xs">Bé Đậu cần nội dung CV của bạn.</p>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="actions"
+              initial={{ opacity: 0, scale: 0.98, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="flex flex-col gap-4"
+            >
+              <div className="flex items-center gap-2 px-1">
+                <div className="w-1.5 h-4 bg-(--primary) rounded-full" />
+                <h3 className="font-heading font-bold text-[#2F4F4F] text-sm">Chọn tính năng bạn muốn sử dụng:</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3 mb-4 sm:mb-0">
+                {/* Action Card 1: Analyze */}
+                <button
+                  onClick={handleAnalyzeClick}
+                  disabled={isAnalyzing || isStartingInterview || isWriting}
+                  className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 p-3 md:p-4 rounded-2xl bg-white border-2 border-(--primary)/20 hover:border-(--primary) hover:bg-[#F9F9F2] transition-all text-left group shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-(--primary)/10 text-(--primary) flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    {isAnalyzing ? <Loader2 className="animate-spin w-4 h-4 md:w-5 md:h-5" /> : <Sparkles className="w-4 h-4 md:w-5 md:h-5" />}
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-bold text-[#2F4F4F] text-sm mb-0.5 group-hover:text-(--primary) transition-colors">
+                      {isAnalyzing ? "Đang xử lý..." : "Tối ưu CV"}
+                    </h3>
+                    <p className="text-[11px] text-[#5A6D6D] leading-tight">Phân tích CV chuẩn ATS.</p>
+                  </div>
+                </button>
 
-          {/* Action Card 2: Interview */}
-          <button
-            onClick={handleInterviewClick}
-            disabled={isAnalyzing || isStartingInterview}
-            className="flex items-start gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-white border-2 border-orange-400/20 hover:border-orange-400 hover:bg-orange-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-orange-400/10 text-orange-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-              {isStartingInterview ? <Loader2 className="animate-spin w-5 h-5 md:w-6 md:h-6" /> : <Mic className="w-5 h-5 md:w-6 md:h-6" />}
-            </div>
-            <div>
-              <h3 className="font-heading font-bold text-[#2F4F4F] text-base md:text-lg mb-0.5 md:mb-1 group-hover:text-orange-500 transition-colors">
-                {isStartingInterview ? "Đang xử lý..." : "Phỏng vấn 1-1 với Bé Đậu"}
-              </h3>
-              <p className="text-xs md:text-sm text-[#5A6D6D]">Luyện tập trả lời câu hỏi dựa trên CV và JD.</p>
-            </div>
-          </button>
-        </div>
+                {/* Action Card 2: Interview */}
+                <button
+                  onClick={handleInterviewClick}
+                  disabled={isAnalyzing || isStartingInterview || isWriting}
+                  className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 p-3 md:p-4 rounded-2xl bg-white border-2 border-orange-400/20 hover:border-orange-400 hover:bg-orange-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-orange-400/10 text-orange-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    {isStartingInterview ? <Loader2 className="animate-spin w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-bold text-[#2F4F4F] text-sm mb-0.5 group-hover:text-orange-500 transition-colors">
+                      {isStartingInterview ? "Đang xử lý..." : "Phỏng vấn 1-1"}
+                    </h3>
+                    <p className="text-[11px] text-[#5A6D6D] leading-tight">Luyện tập trả lời câu hỏi.</p>
+                  </div>
+                </button>
+
+                {/* Action Card 3: Writing Assistant */}
+                <button
+                  onClick={handleWriteClick}
+                  disabled={isAnalyzing || isStartingInterview || isWriting}
+                  className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 p-3 md:p-4 rounded-2xl bg-white border-2 border-purple-400/20 hover:border-purple-400 hover:bg-purple-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-purple-400/10 text-purple-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    {isWriting ? <Loader2 className="animate-spin w-4 h-4 md:w-5 md:h-5" /> : <PenTool className="w-4 h-4 md:w-5 md:h-5" />}
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-bold text-[#2F4F4F] text-sm mb-0.5 group-hover:text-purple-600 transition-colors">
+                      {isWriting ? "Đang xử lý..." : "Trợ lý Viết"}
+                    </h3>
+                    <p className="text-[11px] text-[#5A6D6D] leading-tight">Email, LinkedIn, Zalo...</p>
+                  </div>
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

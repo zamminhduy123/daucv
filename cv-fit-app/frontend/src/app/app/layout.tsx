@@ -33,13 +33,13 @@ function TopBar() {
       </div>
 
       {/* Right: change data button */}
-      <button
+      {hasData && <button
         onClick={() => router.push("/app/setup")}
         className="flex items-center gap-1.5 text-xs text-gray-500 font-medium border border-gray-200 rounded-xl px-3 py-1.5 hover:bg-gray-50 transition-colors"
       >
         <RefreshCw size={12} />
         Thay đổi dữ liệu
-      </button>
+      </button>}
     </div>
   );
 }

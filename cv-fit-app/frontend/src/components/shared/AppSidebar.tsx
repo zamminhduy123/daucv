@@ -44,12 +44,12 @@ export default function AppSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 px-3 mb-3">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-2">
           Công cụ
         </p>
         
         {!hasCV && (
-          <div className="mb-4 mx-2 p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
+          <div className="mb-4 p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
             <p className="text-[11px] text-blue-600 leading-relaxed font-medium">
               Nhập CV để mở khoá tính năng Phân tích & Phỏng vấn
             </p>

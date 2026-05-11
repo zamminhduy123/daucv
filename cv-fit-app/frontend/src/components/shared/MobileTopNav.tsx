@@ -68,9 +68,9 @@ export default function MobileTopNav() {
               </button>
             </div>
 
-            <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
               {!hasCV && (
-                <div className="mb-4 mx-2 p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
+                <div className="mb-4 p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
                   <p className="text-[11px] text-blue-600 leading-relaxed font-medium">
                     Nhập CV để mở khoá tính năng Phân tích & Phỏng vấn
                   </p>
