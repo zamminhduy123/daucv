@@ -198,7 +198,7 @@ export default function InputSection({
 
         {/* RIGHT: CV */}
         <TextCard
-          title={<>CV của bạn <span className="text-red-500 ml-0.5">*</span></>}
+          title={<>CV của bạn <span className="text-red-500 font-normal text-xs ml-1">(Yêu cầu)</span></>}
           subtitle="Dán text hoặc upload PDF"
           wordCountText={wordCount(inputs.cvText)}
           headerRight={
