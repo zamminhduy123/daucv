@@ -2,7 +2,11 @@ import os
 import json
 import logging
 import asyncio
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ValidationError
@@ -13,6 +17,8 @@ import io
 import edge_tts
 import tempfile
 from openai import AsyncOpenAI
+
+from utils.llm_logger import LLMLogRecord, log_llm_request
 
 load_dotenv()
 
@@ -53,50 +59,136 @@ PROVIDERS = [
     }
 ]
 
-async def call_llm_with_fallback(system_prompt: str, user_input: Any, response_model: type, max_retries: int = 1):
+async def call_llm_with_fallback(
+    system_prompt: str,
+    user_input: Any,
+    response_model: type,
+    *,
+    feature_name: str = "unknown",
+    prompt_version: str = "1.0.0",
+    background_tasks: BackgroundTasks | None = None,
+    max_retries: int = 1,
+):
     """
-    Tries multiple providers in a waterfall logic. 
+    Tries multiple providers in a waterfall logic.
     If a provider fails, switches to the next one.
+
+    Instruments every attempt with latency / token / success metrics and
+    enqueues the log write as a FastAPI BackgroundTask so the caller is
+    never blocked.
     """
     if "JSON" not in system_prompt.upper():
         system_prompt += "\n\nYou must return a valid JSON object matching the exact requested schema."
 
     messages = [{"role": "system", "content": system_prompt}]
-    
+
     if isinstance(user_input, str):
         messages.append({"role": "user", "content": user_input})
     elif isinstance(user_input, list):
         messages.extend(user_input)
 
     last_error = None
-    
-    for provider in PROVIDERS:
+    fallback_used = False
+
+    for idx, provider in enumerate(PROVIDERS):
         client: AsyncOpenAI = provider["client"]
         model: str = provider["model"]
         name: str = provider["name"]
-        
+
+        if idx > 0:
+            fallback_used = True
+
         for attempt in range(max_retries):
+            start_time = time.perf_counter()
+            input_tokens = 0
+            output_tokens = 0
+            json_valid = False
+            success = False
+            error_message = ""
+
             try:
                 response = await client.chat.completions.create(
                     model=model,
                     messages=messages,
                     response_format={"type": "json_object"},
-                    temperature=0.7
+                    temperature=0.7,
                 )
-                
+
+                # --- Extract token usage (gracefully handle None) -----------
+                if response.usage is not None:
+                    input_tokens = response.usage.prompt_tokens or 0
+                    output_tokens = response.usage.completion_tokens or 0
+
                 content = response.choices[0].message.content
                 if not content:
                     raise ValueError("Empty response content")
-                
-                parsed = response_model.model_validate_json(content)
+
+                # --- Validate JSON against Pydantic model -------------------
+                try:
+                    parsed = response_model.model_validate_json(content)
+                    json_valid = True
+                    success = True
+                except ValidationError as ve:
+                    json_valid = False
+                    success = False
+                    error_message = str(ve)
+                    raise  # re-raise so outer except catches it
+
+                # --- Log success --------------------------------------------
+                latency_ms = int((time.perf_counter() - start_time) * 1000)
+                record = LLMLogRecord(
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    feature=feature_name,
+                    provider=name,
+                    model=model,
+                    latency_ms=latency_ms,
+                    success=True,
+                    fallback_used=fallback_used,
+                    json_valid=True,
+                    prompt_version=prompt_version,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                )
+                if background_tasks is not None:
+                    background_tasks.add_task(log_llm_request, record)
+                else:
+                    log_llm_request(record)
+
                 return parsed
-                
+
             except Exception as e:
+                latency_ms = int((time.perf_counter() - start_time) * 1000)
                 last_error = str(e)
-                logging.warning(f"Provider {name} attempt {attempt + 1} failed: {last_error}. Switching to next...")
-                await asyncio.sleep(1) # wait before retry
-                
-    raise HTTPException(status_code=503, detail=f"All AI providers are currently overloaded. Last error: {last_error}")
+
+                # --- Log failure --------------------------------------------
+                record = LLMLogRecord(
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    feature=feature_name,
+                    provider=name,
+                    model=model,
+                    latency_ms=latency_ms,
+                    success=False,
+                    fallback_used=fallback_used,
+                    json_valid=json_valid,
+                    prompt_version=prompt_version,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    error_message=error_message or last_error,
+                )
+                if background_tasks is not None:
+                    background_tasks.add_task(log_llm_request, record)
+                else:
+                    log_llm_request(record)
+
+                logging.warning(
+                    f"Provider {name} attempt {attempt + 1} failed: {last_error}. Switching to next..."
+                )
+                await asyncio.sleep(1)  # wait before retry
+
+    raise HTTPException(
+        status_code=503,
+        detail=f"All AI providers are currently overloaded. Last error: {last_error}",
+    )
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -241,6 +333,7 @@ def health():
 
 @app.post("/api/upload-and-match", response_model=MatchResult)
 async def upload_and_match(
+    background_tasks: BackgroundTasks,
     cv_file: UploadFile = File(...),
     jd_text: str = Form(""),
 ):
@@ -281,7 +374,14 @@ async def upload_and_match(
 
 
     try:
-        data = await call_llm_with_fallback(system_prompt, f"CV:\n{cv_text}\n\nJob Description:\n{jd_text}", MatchResult)
+        data = await call_llm_with_fallback(
+            system_prompt,
+            f"CV:\n{cv_text}\n\nJob Description:\n{jd_text}",
+            MatchResult,
+            feature_name="upload_and_match",
+            prompt_version="1.0.0",
+            background_tasks=background_tasks,
+        )
         return data
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
@@ -315,7 +415,7 @@ async def extract_pdf(file: UploadFile = File(...)):
 # ---------------------------------------------------------------------------
 
 @app.post("/api/analyze-cv", response_model=CVAnalysisResponse)
-async def analyze_cv(req: AnalyzeCVRequest):
+async def analyze_cv(req: AnalyzeCVRequest, background_tasks: BackgroundTasks):
     """
     Accept raw CV text and a Job Description. 
     Return a structured analysis.
@@ -378,7 +478,14 @@ async def analyze_cv(req: AnalyzeCVRequest):
 
     # 3. Call Language Model with structured output
     try:
-        parsed = await call_llm_with_fallback(system_prompt, user_content, CVAnalysisResponse)
+        parsed = await call_llm_with_fallback(
+            system_prompt,
+            user_content,
+            CVAnalysisResponse,
+            feature_name="cv_analyzer",
+            prompt_version="1.0.0",
+            background_tasks=background_tasks,
+        )
         return parsed
     except HTTPException:
         raise
@@ -390,7 +497,7 @@ async def analyze_cv(req: AnalyzeCVRequest):
 
 
 @app.post("/api/interview/chat", response_model=InterviewTurnResponse)
-async def interview_chat(req: InterviewChatRequest):
+async def interview_chat(req: InterviewChatRequest, background_tasks: BackgroundTasks):
     """
     Stateless mock interview turn processor mapping an InterviewChatRequest to an InterviewTurnResponse.
     Supports bounded interviews with question progress tracking.
@@ -469,7 +576,14 @@ async def interview_chat(req: InterviewChatRequest):
         contents = [{"role": "user", "content": "Xin chào, tôi đã sẵn sàng tham gia buổi phỏng vấn."}]
 
     try:
-        parsed = await call_llm_with_fallback(system_prompt, contents, InterviewTurnResponse)
+        parsed = await call_llm_with_fallback(
+            system_prompt,
+            contents,
+            InterviewTurnResponse,
+            feature_name="mock_interview",
+            prompt_version="1.0.0",
+            background_tasks=background_tasks,
+        )
         return parsed
     except HTTPException:
         raise
@@ -482,7 +596,7 @@ async def interview_chat(req: InterviewChatRequest):
 # ---------------------------------------------------------------------------
 
 @app.post("/api/interview/finish", response_model=FinalInterviewReport)
-async def interview_finish(req: InterviewFinishRequest):
+async def interview_finish(req: InterviewFinishRequest, background_tasks: BackgroundTasks):
     """
     Takes the completed chat history and generates a comprehensive
     Final Assessment report with per-turn analysis.
@@ -548,7 +662,14 @@ async def interview_finish(req: InterviewFinishRequest):
         contents.append({"role": "assistant" if msg.role == "assistant" else "user", "content": msg.content})
 
     try:
-        parsed = await call_llm_with_fallback(system_prompt, contents, FinalInterviewReport)
+        parsed = await call_llm_with_fallback(
+            system_prompt,
+            contents,
+            FinalInterviewReport,
+            feature_name="interview_finish",
+            prompt_version="1.0.0",
+            background_tasks=background_tasks,
+        )
         return parsed
     except HTTPException:
         raise
@@ -591,7 +712,7 @@ class WriterResponse(BaseModel):
     tips: List[str]         # 1-2 quick actionable tips
 
 @app.post("/api/writer/generate", response_model=WriterResponse)
-async def writer_generate(req: WriterRequest):
+async def writer_generate(req: WriterRequest, background_tasks: BackgroundTasks):
     """
     Generate an application email, cover letter, LinkedIn message, Zalo message,
     or custom writing based on the user's CV and JD.
@@ -661,10 +782,125 @@ async def writer_generate(req: WriterRequest):
         user_content = f"CV của ứng viên:\n{req.cv_text}"
 
     try:
-        parsed = await call_llm_with_fallback(system_prompt, user_content, WriterResponse)
+        parsed = await call_llm_with_fallback(
+            system_prompt,
+            user_content,
+            WriterResponse,
+            feature_name="writing_assistant",
+            prompt_version="1.0.0",
+            background_tasks=background_tasks,
+        )
         return parsed
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Writer generation failed: {e}")
 
+
+# ---------------------------------------------------------------------------
+# GET /api/admin/metrics — LLMOps Observability Dashboard
+# ---------------------------------------------------------------------------
+
+_LOGS_DIR = Path(__file__).resolve().parent / "logs"
+
+
+@app.get("/api/admin/metrics")
+async def admin_metrics():
+    """
+    Aggregate LLM request metrics from all daily JSONL log files.
+
+    Returns success rates, per-provider latency, fallback frequency,
+    JSON parse failure rates, and total token usage.
+    """
+    log_files = sorted(_LOGS_DIR.glob("*.jsonl"))
+
+    empty_response = {
+        "total_requests": 0,
+        "success_rate_pct": 0.0,
+        "avg_latency_by_provider": {},
+        "fallback_count": 0,
+        "json_failure_rate_by_provider": {},
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "total_tokens": 0,
+        "requests_by_feature": {},
+        "requests_by_provider": {},
+    }
+
+    if not log_files:
+        return empty_response
+
+    records: list[dict] = []
+    for fpath in log_files:
+        with open(fpath, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue  # skip malformed lines
+
+    total = len(records)
+    if total == 0:
+        return empty_response
+
+    # --- Aggregate stats ------------------------------------------------
+    successes = sum(1 for r in records if r.get("success"))
+    fallback_count = sum(1 for r in records if r.get("fallback_used"))
+    total_input_tokens = sum(r.get("input_tokens", 0) for r in records)
+    total_output_tokens = sum(r.get("output_tokens", 0) for r in records)
+
+    # Per-provider latency
+    provider_latencies: dict[str, list[int]] = {}
+    # Per-provider JSON failure tracking
+    provider_json_total: dict[str, int] = {}
+    provider_json_failures: dict[str, int] = {}
+    # Per-feature request count
+    feature_counts: dict[str, int] = {}
+    # Per-provider request count
+    provider_counts: dict[str, int] = {}
+
+    for r in records:
+        prov = r.get("provider", "unknown")
+        feat = r.get("feature", "unknown")
+
+        # Latency
+        provider_latencies.setdefault(prov, []).append(r.get("latency_ms", 0))
+
+        # JSON validity
+        provider_json_total[prov] = provider_json_total.get(prov, 0) + 1
+        if not r.get("json_valid", True):
+            provider_json_failures[prov] = provider_json_failures.get(prov, 0) + 1
+
+        # Feature counts
+        feature_counts[feat] = feature_counts.get(feat, 0) + 1
+
+        # Provider counts
+        provider_counts[prov] = provider_counts.get(prov, 0) + 1
+
+    avg_latency_by_provider = {
+        prov: round(sum(lats) / len(lats), 1)
+        for prov, lats in provider_latencies.items()
+    }
+
+    json_failure_rate_by_provider = {
+        prov: round(
+            (provider_json_failures.get(prov, 0) / provider_json_total[prov]) * 100, 2
+        )
+        for prov in provider_json_total
+    }
+
+    return {
+        "total_requests": total,
+        "success_rate_pct": round((successes / total) * 100, 2),
+        "avg_latency_by_provider": avg_latency_by_provider,
+        "fallback_count": fallback_count,
+        "json_failure_rate_by_provider": json_failure_rate_by_provider,
+        "total_input_tokens": total_input_tokens,
+        "total_output_tokens": total_output_tokens,
+        "total_tokens": total_input_tokens + total_output_tokens,
+        "requests_by_feature": feature_counts,
+        "requests_by_provider": provider_counts,
+    }
