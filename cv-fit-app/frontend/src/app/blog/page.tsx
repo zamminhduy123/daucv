@@ -5,6 +5,7 @@ import { Clock, Search, CalendarArrowDown, FileText, Smile, Leaf, Mail } from 'l
 import { LandingNavbar } from "@/components/shared/TopNavbar";
 import Footer from "@/components/landing/Footer";
 import Image from 'next/image';
+import { BlogCTA } from '@/components/blog';
 
 export const metadata: Metadata = {
   title: 'Blog | Đậu CV',
@@ -30,7 +31,7 @@ export default function BlogIndexPage() {
       <div className="max-w-7xl mx-auto px-6 pb-20">
         
         {/* 2. Hero Section */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center pt-8 pb-16">
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center py-8">
           {/* Left Column */}
           <div className="h-full flex flex-col justify-start items-start gap-8">
             <div className="px-2">
@@ -57,7 +58,23 @@ export default function BlogIndexPage() {
               />
             </div> */}
             {/* Left: Filters */}
-            <div className="flex items-center gap-6 flex-wrap w-full no-scrollbar pb-2 md:pb-0">
+            
+          </div>
+          
+          {/* Right Column (Mascot Placeholder) */}
+          <div className="w-full aspect-[4/3] bg-gradient-to-br from-green-50 to-white rounded-[3rem] border border-green-100 flex items-center justify-center relative overflow-hidden shadow-sm">
+            <div className="flex flex-col items-center gap-4 z-10">
+              <Image 
+                src={"/blog.webp"} 
+                alt={""}
+                fill
+                className='object-cover'
+              />
+            </div>
+          </div>
+        </section>
+
+        <div className="flex items-center gap-6 flex-wrap w-full no-scrollbar pb-2 my-4">
               {categories.map((cat, idx) => (
                 <div 
                   key={idx}
@@ -71,26 +88,8 @@ export default function BlogIndexPage() {
                 </div>
               ))}
             </div>
-          </div>
-          
-          {/* Right Column (Mascot Placeholder) */}
-          <div className="w-full aspect-[4/3] bg-gradient-to-br from-green-50 to-white rounded-[3rem] border border-green-100 flex items-center justify-center relative overflow-hidden shadow-sm">
-            <div className="absolute top-10 left-10 w-16 h-16 bg-green-200/50 rounded-full blur-xl animate-pulse"></div>
-            <div className="absolute bottom-10 right-10 w-24 h-24 bg-yellow-200/40 rounded-full blur-2xl animate-pulse delay-700"></div>
-            <div className="absolute top-1/4 right-1/4">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-yellow-400/60 animate-bounce">
-                <path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z" fill="currentColor" />
-              </svg>
-            </div>
-            
-            <div className="flex flex-col items-center gap-4 z-10">
-              <Smile size={80} className="text-[var(--primary)]/20" />
-              <p className="text-[var(--primary)]/40 font-bold font-heading text-xl">Mascot Illustration Here</p>
-            </div>
-          </div>
-        </section>
 
-        <div className="border-b border-gray-100 mb-12" />
+        {/* <div className="border-b border-gray-100 mb-12" /> */}
 
         {/* 4. Blog Card Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
@@ -149,6 +148,8 @@ export default function BlogIndexPage() {
             </Link>
           ))}
         </div>
+
+        
         
         {posts.length === 0 && (
           <div className="text-center pb-24">
@@ -156,43 +157,19 @@ export default function BlogIndexPage() {
           </div>
         )}
 
-        {/* 5. Newsletter Section */}
-        <section className="bg-gradient-to-r from-green-50 to-[#F9F9F2] rounded-[3rem] p-10 md:p-12 border border-green-100 flex flex-col md:flex-row items-center justify-between gap-10 shadow-sm relative overflow-hidden">
-          <div className="absolute -left-10 -bottom-10 opacity-30">
-            <Leaf size={160} className="text-[var(--primary)]" />
-          </div>
-          
-          <div className="flex-1 relative z-10 text-center md:text-left">
-            <h3 className="text-2xl md:text-3xl font-bold text-[#2F4F4F] font-heading mb-3">
-              Đón đầu xu hướng nghề nghiệp
-            </h3>
-            <p className="text-gray-500 text-sm md:text-base">
-              Nhận mẹo viết CV, kỹ năng phỏng vấn và thông tin mới nhất gửi trực tiếp vào hộp thư của bạn.
-            </p>
-          </div>
-          
-          <div className="w-full md:w-auto relative z-10">
-            <div className="flex flex-col sm:flex-row items-center bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm gap-2">
-              <div className="flex items-center pl-3 text-gray-400 flex-1 w-full">
-                <Mail size={18} />
-                <input 
-                  type="email" 
-                  placeholder="Nhập email của bạn..." 
-                  className="w-full bg-transparent border-none focus:ring-0 text-sm px-3 py-2 outline-none"
-                />
-              </div>
-              <button className="w-full sm:w-auto bg-[var(--primary)] hover:bg-[#4a8233] text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-sm">
-                Đăng ký
-              </button>
-            </div>
-            <p className="text-[10px] text-gray-400 text-center md:text-left mt-3">
-              Không spam. Bạn có thể hủy đăng ký bất cứ lúc nào.
-            </p>
-          </div>
-        </section>
+        {/* 5. Use App Banner */}
+        <div className="mb-16">
+          <BlogCTA 
+            title="Sẵn sàng có một CV chuẩn ATS?"
+            description="Tạo CV chuyên nghiệp, chuẩn ATS và chinh phục nhà tuyển dụng ngay hôm nay với công cụ của Đậu."
+            buttonText="Thử Ngay"
+            buttonHref="/app/setup"
+            image="/trophy.webp"
+          />
+        </div>
 
         {/* 6. Pagination */}
-        <div className="flex items-center justify-center gap-2 mt-16 mb-8">
+        {/* <div className="flex items-center justify-center gap-2 mt-16 mb-8">
           <button className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-[#2F4F4F] px-3 py-2 transition-colors">
             &lsaquo; Trước
           </button>
@@ -209,7 +186,7 @@ export default function BlogIndexPage() {
           <button className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-[#2F4F4F] px-3 py-2 transition-colors">
             Tiếp &rsaquo;
           </button>
-        </div>
+        </div> */}
 
       </div>
       
