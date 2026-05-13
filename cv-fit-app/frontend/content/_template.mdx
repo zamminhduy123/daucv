@@ -1,0 +1,101 @@
+---
+title: "[Your Blog Title Here]"
+description: "[A short, 1-2 sentence description for SEO and the blog intro]"
+date: "YYYY-MM-DD"
+category: "[Category, e.g., ATS CV, Phỏng vấn]"
+author: "[Author Name, e.g., Bé Đậu]"
+coverImage: "[URL to your cover image, e.g., https://images.unsplash.com/...]"
+readTime: "[e.g., 5 min read]"
+tags: ["Tag1", "Tag2"]
+authorAvatar: "[URL to author avatar, e.g., https://ui-avatars.com/api/?name=Bé+Đậu&background=E8F5E9&color=2E7D32]"
+---
+
+{/* 
+  NOTE: The BlogLayout, Right Sidebar, Table of Contents, and Related Blogs are handled 
+  automatically by `src/app/blog/[slug]/page.tsx`. You only need to write the main article content here! 
+*/}
+
+{/* 
+  OPTIONAL: If you want to render a custom hero section inside the MDX, use <BlogHero />.
+  However, `page.tsx` usually renders the Title, Meta, and Cover Image automatically. 
+  Check `page.tsx` behavior before using this.
+*/}
+{/*
+<BlogHero 
+  title="[Your Blog Title Here]"
+  category="[Category]"
+  description="[Description]"
+  author="[Author]"
+  authorAvatar="[Avatar URL]"
+  date="[Date]"
+  readTime="[Read Time]"
+  coverImage="[Image URL]"
+/>
+*/}
+
+{/* RECOMMENDED: A highlighted box summarizing the key points of the article */}
+<TakeawaysBox takeaways={[
+  "Ý chính 1 bạn sẽ học được từ bài viết này.",
+  "Ý chính 2 bạn sẽ học được từ bài viết này.",
+  "Ý chính 3 bạn sẽ học được từ bài viết này."
+]} />
+
+{/* Your main article content starts here. Use standard Markdown headings (##, ###). */}
+## [Tiêu đề phần 1]
+
+[Nội dung giới thiệu hoặc đoạn văn mô tả cho phần này. Bạn có thể sử dụng **in đậm**, *in nghiêng*, và các cú pháp Markdown tiêu chuẩn.]
+
+{/* RECOMMENDED: Use FeatureGrid to display a grid of items with icons. Icons must match lucide-react names. */}
+<FeatureGrid 
+  title="[Tùy chọn: Tiêu đề cho lưới tính năng]"
+  features={[
+    { icon: "ScanLine", title: "Tính năng 1", description: "Mô tả ngắn gọn về tính năng 1." },
+    { icon: "LayoutTemplate", title: "Tính năng 2", description: "Mô tả ngắn gọn về tính năng 2." },
+    { icon: "Wand2", title: "Tính năng 3", description: "Mô tả ngắn gọn về tính năng 3." },
+    { icon: "Zap", title: "Tính năng 4", description: "Mô tả ngắn gọn về tính năng 4." }
+  ]} 
+/>
+
+## [Tiêu đề phần 2]
+
+[Nội dung cho phần 2...]
+
+{/* OPTIONAL: A vertical list of steps with numbers and optional images. */}
+<StepList 
+  title="[Tùy chọn: Tiêu đề danh sách bước]"
+  steps={[
+    { 
+      title: "Bước 1: Làm gì đó", 
+      description: "Mô tả chi tiết cho bước 1.",
+      image: "https://images.unsplash.com/photo-..." // Optional
+    },
+    { 
+      title: "Bước 2: Tiếp theo", 
+      description: "Mô tả chi tiết cho bước 2."
+    }
+  ]} 
+/>
+
+## [Tiêu đề phần 3]
+
+{/* OPTIONAL: A checklist of tips or requirements. */}
+<ChecklistSection 
+  title="[Tùy chọn: Tiêu đề checklist]"
+  items={[
+    "Mẹo số 1 cần lưu ý.",
+    "Mẹo số 2 cần lưu ý.",
+    "Mẹo số 3 cần lưu ý."
+  ]} 
+/>
+
+{/* RECOMMENDED: A Call-To-Action banner at the end of the article. */}
+<BlogCTA 
+  title="[Sẵn sàng hành động?]"
+  description="[Mô tả ngắn gọn khuyến khích người dùng nhấn nút.]"
+  buttonText="[Nút CTA]"
+  buttonHref="[/duong-dan-link]"
+  image="[URL hình mascot/minh họa tùy chọn]"
+/>
+
+{/* OPTIONAL: Render a static comments section if needed. */}
+{/* <CommentsSection /> */}

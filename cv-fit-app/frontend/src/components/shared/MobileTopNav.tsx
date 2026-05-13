@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Mic, LayoutTemplate, Clock, Menu, X, Coffee, QrCode, PenLine, PenTool } from "lucide-react";
+import { FileText, Mic, LayoutTemplate, Clock, Menu, X, Coffee, QrCode, PenLine, PenTool, BookOpen } from "lucide-react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { label: "Phỏng vấn 1-1", icon: Mic, href: "/app/interview", requiresCV: true },
   { label: "Trợ lý Viết", icon: PenTool, href: "/app/writer", requiresCV: true },
   { label: "Thư viện Mẫu CV", icon: LayoutTemplate, href: "/app/templates", requiresCV: false },
+  { label: "Blog & Cẩm nang", icon: BookOpen, href: "/blog", requiresCV: false },
   { label: "Lịch sử", icon: Clock, href: "/app/history", requiresCV: false },
 ];
 

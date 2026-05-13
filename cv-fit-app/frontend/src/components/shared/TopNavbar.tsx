@@ -68,6 +68,12 @@ export function LandingNavbar() {
         >
           Hỏi đáp
         </Link>
+        <Link 
+          href="/blog" 
+          className="hover-elevate px-3 py-2 rounded-xl text-[#2F4F4F] no-underline"
+        >
+          Blog
+        </Link>
         {/* {["Lợi ích", "Tính năng"].map((item) => (
           <a
             key={item}
