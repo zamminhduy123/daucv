@@ -1,36 +1,62 @@
-import os
+"""
+Alternative LLM Provider implementations (native SDK).
+
+These providers use vendor-specific SDKs (Gemini native, Ollama, Qwen)
+rather than the OpenAI-compatible waterfall router in ``ai_service.py``.
+
+Currently **not actively used** by the application — retained for future
+experimentation or fallback to native SDKs.
+"""
+
 import json
-import httpx
+import os
+import re
 from abc import ABC, abstractmethod
 from typing import Any
-from pydantic import BaseModel
+
+import httpx
 from google import genai
+from pydantic import BaseModel
+
 
 class BaseAIProvider(ABC):
     @abstractmethod
-    async def generate_structured(self, system_prompt: str, user_content: Any, response_model: type[BaseModel], temperature: float = 0.3) -> BaseModel:
+    async def generate_structured(
+        self,
+        system_prompt: str,
+        user_content: Any,
+        response_model: type[BaseModel],
+        temperature: float = 0.3,
+    ) -> BaseModel:
         pass
+
 
 class GeminiProvider(BaseAIProvider):
     def __init__(self):
         self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
         self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
-    async def generate_structured(self, system_prompt: str, user_content: Any, response_model: type[BaseModel], temperature: float = 0.3) -> BaseModel:
+    async def generate_structured(
+        self,
+        system_prompt: str,
+        user_content: Any,
+        response_model: type[BaseModel],
+        temperature: float = 0.3,
+    ) -> BaseModel:
         config = {
             "system_instruction": system_prompt,
             "temperature": temperature,
             "response_mime_type": "application/json",
             "response_schema": response_model,
         }
-        
+
         # user_content could be a string or a list of dicts (chat history)
         completion = self.client.models.generate_content(
             model=self.model_name,
             contents=user_content,
-            config=config
+            config=config,
         )
-        
+
         parsed = completion.parsed
         if parsed is None:
             # Fallback string parsing just in case response_schema is dropped
@@ -38,22 +64,36 @@ class GeminiProvider(BaseAIProvider):
             return response_model(**json.loads(raw))
         return parsed
 
+
 class OllamaProvider(BaseAIProvider):
     def __init__(self):
-        self.endpoint = os.getenv("OLLAMA_ENDPOINT", "http://localhost:11434/api/generate")
+        self.endpoint = os.getenv(
+            "OLLAMA_ENDPOINT", "http://localhost:11434/api/generate"
+        )
         # default to gemma4:e4b or read from env
         self.model_name = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
 
-    async def generate_structured(self, system_prompt: str, user_content: Any, response_model: type[BaseModel], temperature: float = 0.3) -> BaseModel:
+    async def generate_structured(
+        self,
+        system_prompt: str,
+        user_content: Any,
+        response_model: type[BaseModel],
+        temperature: float = 0.3,
+    ) -> BaseModel:
         async with httpx.AsyncClient() as http_client:
             # Flatten chat history if necessary
             if isinstance(user_content, list):
-                content_str = "\n".join([f"{msg['role']}: {msg['parts'][0]['text']}" for msg in user_content])
+                content_str = "\n".join(
+                    [
+                        f"{msg['role']}: {msg['parts'][0]['text']}"
+                        for msg in user_content
+                    ]
+                )
             else:
                 content_str = user_content
 
             fallback_prompt = f"{system_prompt}\n\nCRITICAL: Answer ONLY with valid JSON exactly matching the schema.\n\nInput:\n{content_str}"
-            
+
             res = await http_client.post(
                 self.endpoint,
                 json={
@@ -61,11 +101,9 @@ class OllamaProvider(BaseAIProvider):
                     "prompt": fallback_prompt,
                     "format": response_model.model_json_schema(),
                     "stream": False,
-                    "options": {
-                        "temperature": temperature 
-                    }
+                    "options": {"temperature": temperature},
                 },
-                timeout=300.0
+                timeout=300.0,
             )
             res.raise_for_status()
             ollama_data = res.json()
@@ -73,21 +111,35 @@ class OllamaProvider(BaseAIProvider):
             parsed_json = json.loads(raw_content)
             return response_model(**parsed_json)
 
+
 class QwenProvider(BaseAIProvider):
     def __init__(self):
         self.endpoint = os.getenv("QWEN_ENDPOINT")
         self.api_key = os.getenv("QWEN_API_KEY")
         self.model_name = os.getenv("QWEN_MODEL", "Qwen3.6-35B-A3B-UD-Q4_K_M")
 
-    async def generate_structured(self, system_prompt: str, user_content: Any, response_model: type[BaseModel], temperature: float = 0.3) -> BaseModel:
+    async def generate_structured(
+        self,
+        system_prompt: str,
+        user_content: Any,
+        response_model: type[BaseModel],
+        temperature: float = 0.3,
+    ) -> BaseModel:
         async with httpx.AsyncClient() as http_client:
-            messages = [{"role": "system", "content": f"{system_prompt}\n\nCRITICAL: Answer ONLY with valid JSON exactly matching the schema."}]
-            
+            messages = [
+                {
+                    "role": "system",
+                    "content": f"{system_prompt}\n\nCRITICAL: Answer ONLY with valid JSON exactly matching the schema.",
+                }
+            ]
+
             if isinstance(user_content, list):
                 for msg in user_content:
                     if "role" in msg and "parts" in msg:
                         role = "assistant" if msg["role"] == "model" else "user"
-                        messages.append({"role": role, "content": msg["parts"][0]["text"]})
+                        messages.append(
+                            {"role": role, "content": msg["parts"][0]["text"]}
+                        )
                     elif "role" in msg and "content" in msg:
                         messages.append(msg)
             else:
@@ -97,29 +149,29 @@ class QwenProvider(BaseAIProvider):
                 self.endpoint,
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 },
                 json={
                     "model": self.model_name,
                     "messages": messages,
                     "temperature": temperature,
-                    "response_format": {"type": "json_object"}
+                    "response_format": {"type": "json_object"},
                 },
-                timeout=300.0
+                timeout=300.0,
             )
             res.raise_for_status()
             data = res.json()
             raw_content = data["choices"][0]["message"]["content"]
-            
+
             # Fallback to extract JSON if markdown wrapped
-            import re
             json_str = raw_content
-            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)```', raw_content)
+            json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw_content)
             if json_match:
                 json_str = json_match.group(1)
-                
+
             parsed_json = json.loads(json_str)
             return response_model(**parsed_json)
+
 
 def get_ai_provider(provider_name: str = None) -> BaseAIProvider:
     provider_name = provider_name or os.getenv("AI_PROVIDER", "gemini")

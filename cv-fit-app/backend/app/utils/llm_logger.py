@@ -6,19 +6,12 @@ Each line in the file is a self-contained JSON object for easy ingestion
 by analytics pipelines or the admin metrics endpoint.
 """
 
-import os
 import threading
 from datetime import datetime, timezone
-from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-# ---------------------------------------------------------------------------
-# Log directory — lives next to the backend root
-# ---------------------------------------------------------------------------
-
-_LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
-_LOGS_DIR.mkdir(parents=True, exist_ok=True)
+from app.core.config import LOGS_DIR
 
 # A single lock shared by all threads writing to JSONL files.
 _write_lock = threading.Lock()
@@ -74,10 +67,10 @@ class LLMLogRecord(BaseModel):
 # Writer function
 # ---------------------------------------------------------------------------
 
-def _get_daily_log_path() -> Path:
+def _get_daily_log_path():
     """Return the path for today's log file, e.g. ``logs/2026-05-13-requests.jsonl``."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    return _LOGS_DIR / f"{today}-requests.jsonl"
+    return LOGS_DIR / f"{today}-requests.jsonl"
 
 
 def log_llm_request(record: LLMLogRecord) -> None:
