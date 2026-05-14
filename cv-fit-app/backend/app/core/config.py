@@ -23,29 +23,35 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 # LLM Waterfall Provider Configuration
 # ---------------------------------------------------------------------------
 
-PROVIDERS: list[dict] = [
-    {
-        "name": "Gemini",
-        "client": AsyncOpenAI(
-            api_key=os.getenv("GEMINI_API_KEY", "dummy"),
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-        ),
-        "model": "gemini-2.5-flash",
-    },
-    {
-        "name": "Groq",
-        "client": AsyncOpenAI(
-            api_key=os.getenv("GROQ_API_KEY", "dummy"),
-            base_url="https://api.groq.com/openai/v1",
-        ),
-        "model": "llama-3.3-70b-versatile",
-    },
-    {
-        "name": "OpenRouter",
-        "client": AsyncOpenAI(
-            api_key=os.getenv("OPENROUTER_API_KEY", "dummy"),
-            base_url="https://openrouter.ai/api/v1",
-        ),
-        "model": "google/gemini-2.5-flash",
-    },
+from app.services.llm_provider import OpenAIProvider, QwenCustomProvider
+
+PROVIDERS = [
+    # 1. Primary: Local Qwen (or your preferred local setup)
+    QwenCustomProvider(
+        name="Local-Qwen",
+        model=os.getenv("QWEN_MODEL", "qwen2.5-7b-instruct"),
+        api_key=os.getenv("QWEN_API_KEY", "not-needed"),
+        endpoint=os.getenv("QWEN_ENDPOINT", "http://localhost:8000/v1/chat/completions"),
+    ),
+    # 2. Primary Fallback: Gemini (via OpenAI shim)
+    OpenAIProvider(
+        name="Gemini",
+        model="gemini-2.5-flash",
+        api_key=os.getenv("GEMINI_API_KEY", ""),
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+    ),
+    # 3. Secondary Fallback: Groq
+    OpenAIProvider(
+        name="Groq",
+        model="llama-3.3-70b-versatile",
+        api_key=os.getenv("GROQ_API_KEY", ""),
+        base_url="https://api.groq.com/openai/v1",
+    ),
+    # 4. Final Fallback: OpenRouter
+    OpenAIProvider(
+        name="OpenRouter",
+        model="google/gemini-2.5-flash",
+        api_key=os.getenv("OPENROUTER_API_KEY", ""),
+        base_url="https://openrouter.ai/api/v1",
+    ),
 ]

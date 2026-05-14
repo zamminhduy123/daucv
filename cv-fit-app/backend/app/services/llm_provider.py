@@ -1,48 +1,112 @@
 """
-Alternative LLM Provider implementations (native SDK).
+LLM Provider implementations with a consistent interface.
 
-These providers use vendor-specific SDKs (Gemini native, Ollama, Qwen)
-rather than the OpenAI-compatible waterfall router in ``ai_service.py``.
-
-Currently **not actively used** by the application — retained for future
-experimentation or fallback to native SDKs.
+Each provider implements ``generate_structured`` which returns a ``ProviderResult``
+containing the parsed Pydantic model and usage metrics (tokens).
 """
 
 import json
 import os
 import re
+import time
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional, Type, TypeVar
 
 import httpx
 from google import genai
-from pydantic import BaseModel
+from openai import AsyncOpenAI
+from pydantic import BaseModel, Field
+
+T = TypeVar("T", bound=BaseModel)
+
+
+class ProviderResult(BaseModel):
+    """Container for LLM response and metadata."""
+
+    data: Any
+    input_tokens: int = 0
+    output_tokens: int = 0
+    raw_response: str = ""
 
 
 class BaseAIProvider(ABC):
+    def __init__(self, name: str, model: str):
+        self.name = name
+        self.model = model
+
     @abstractmethod
     async def generate_structured(
         self,
         system_prompt: str,
         user_content: Any,
-        response_model: type[BaseModel],
-        temperature: float = 0.3,
-    ) -> BaseModel:
+        response_model: Type[T],
+        temperature: float = 0.7,
+    ) -> ProviderResult:
         pass
 
 
-class GeminiProvider(BaseAIProvider):
-    def __init__(self):
-        self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+class OpenAIProvider(BaseAIProvider):
+    """
+    Standard provider for any OpenAI-compatible API (Gemini-OpenAI, Groq, OpenRouter, vLLM).
+    """
+
+    def __init__(self, name: str, model: str, api_key: str, base_url: str):
+        super().__init__(name, model)
+        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
     async def generate_structured(
         self,
         system_prompt: str,
         user_content: Any,
-        response_model: type[BaseModel],
-        temperature: float = 0.3,
-    ) -> BaseModel:
+        response_model: Type[T],
+        temperature: float = 0.7,
+    ) -> ProviderResult:
+        messages = [{"role": "system", "content": system_prompt}]
+        if isinstance(user_content, list):
+            messages.extend(user_content)
+        else:
+            messages.append({"role": "user", "content": user_content})
+
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=temperature,
+        )
+
+        content = response.choices[0].message.content or "{}"
+        parsed = response_model.model_validate_json(content)
+
+        input_tokens = 0
+        output_tokens = 0
+        if response.usage:
+            input_tokens = response.usage.prompt_tokens
+            output_tokens = response.usage.completion_tokens
+
+        return ProviderResult(
+            data=parsed,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            raw_response=content,
+        )
+
+
+class GeminiNativeProvider(BaseAIProvider):
+    """
+    Uses Google's native Generative AI SDK (google-genai).
+    """
+
+    def __init__(self, name: str, model: str, api_key: str):
+        super().__init__(name, model)
+        self.client = genai.Client(api_key=api_key)
+
+    async def generate_structured(
+        self,
+        system_prompt: str,
+        user_content: Any,
+        response_model: Type[T],
+        temperature: float = 0.7,
+    ) -> ProviderResult:
         config = {
             "system_instruction": system_prompt,
             "temperature": temperature,
@@ -50,55 +114,56 @@ class GeminiProvider(BaseAIProvider):
             "response_schema": response_model,
         }
 
-        # user_content could be a string or a list of dicts (chat history)
+        # Note: native SDK is synchronous in current version, but we wrap it
         completion = self.client.models.generate_content(
-            model=self.model_name,
+            model=self.model,
             contents=user_content,
             config=config,
         )
 
         parsed = completion.parsed
         if parsed is None:
-            # Fallback string parsing just in case response_schema is dropped
             raw = completion.text or "{}"
-            return response_model(**json.loads(raw))
-        return parsed
+            parsed = response_model.model_validate_json(raw)
+
+        # TODO: Extract token usage from native SDK response if available
+        return ProviderResult(
+            data=parsed,
+            raw_response=completion.text or "",
+        )
 
 
 class OllamaProvider(BaseAIProvider):
-    def __init__(self):
-        self.endpoint = os.getenv(
-            "OLLAMA_ENDPOINT", "http://localhost:11434/api/generate"
-        )
-        # default to gemma4:e4b or read from env
-        self.model_name = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
+    """
+    Direct HTTP implementation for Ollama local servers.
+    """
+
+    def __init__(self, name: str, model: str, endpoint: str):
+        super().__init__(name, model)
+        self.endpoint = endpoint
 
     async def generate_structured(
         self,
         system_prompt: str,
         user_content: Any,
-        response_model: type[BaseModel],
-        temperature: float = 0.3,
-    ) -> BaseModel:
+        response_model: Type[T],
+        temperature: float = 0.7,
+    ) -> ProviderResult:
         async with httpx.AsyncClient() as http_client:
-            # Flatten chat history if necessary
             if isinstance(user_content, list):
                 content_str = "\n".join(
-                    [
-                        f"{msg['role']}: {msg['parts'][0]['text']}"
-                        for msg in user_content
-                    ]
+                    [f"{m.get('role')}: {m.get('content')}" for m in user_content]
                 )
             else:
                 content_str = user_content
 
-            fallback_prompt = f"{system_prompt}\n\nCRITICAL: Answer ONLY with valid JSON exactly matching the schema.\n\nInput:\n{content_str}"
+            prompt = f"{system_prompt}\n\nInput:\n{content_str}"
 
             res = await http_client.post(
                 self.endpoint,
                 json={
-                    "model": self.model_name,
-                    "prompt": fallback_prompt,
+                    "model": self.model,
+                    "prompt": prompt,
                     "format": response_model.model_json_schema(),
                     "stream": False,
                     "options": {"temperature": temperature},
@@ -106,53 +171,47 @@ class OllamaProvider(BaseAIProvider):
                 timeout=300.0,
             )
             res.raise_for_status()
-            ollama_data = res.json()
-            raw_content = ollama_data.get("response", "{}")
-            parsed_json = json.loads(raw_content)
-            return response_model(**parsed_json)
+            data = res.json()
+            content = data.get("response", "{}")
+            parsed = response_model.model_validate_json(content)
+
+            return ProviderResult(
+                data=parsed,
+                input_tokens=data.get("prompt_eval_count", 0),
+                output_tokens=data.get("eval_count", 0),
+                raw_response=content,
+            )
 
 
-class QwenProvider(BaseAIProvider):
-    def __init__(self):
-        self.endpoint = os.getenv("QWEN_ENDPOINT")
-        self.api_key = os.getenv("QWEN_API_KEY")
-        self.model_name = os.getenv("QWEN_MODEL", "Qwen3.6-35B-A3B-UD-Q4_K_M")
+class QwenCustomProvider(BaseAIProvider):
+    """
+    Custom provider for Qwen or local endpoints with specific JSON extraction needs.
+    """
+
+    def __init__(self, name: str, model: str, api_key: str, endpoint: str):
+        super().__init__(name, model)
+        self.api_key = api_key
+        self.endpoint = endpoint
 
     async def generate_structured(
         self,
         system_prompt: str,
         user_content: Any,
-        response_model: type[BaseModel],
-        temperature: float = 0.3,
-    ) -> BaseModel:
+        response_model: Type[T],
+        temperature: float = 0.7,
+    ) -> ProviderResult:
         async with httpx.AsyncClient() as http_client:
-            messages = [
-                {
-                    "role": "system",
-                    "content": f"{system_prompt}\n\nCRITICAL: Answer ONLY with valid JSON exactly matching the schema.",
-                }
-            ]
-
+            messages = [{"role": "system", "content": system_prompt}]
             if isinstance(user_content, list):
-                for msg in user_content:
-                    if "role" in msg and "parts" in msg:
-                        role = "assistant" if msg["role"] == "model" else "user"
-                        messages.append(
-                            {"role": role, "content": msg["parts"][0]["text"]}
-                        )
-                    elif "role" in msg and "content" in msg:
-                        messages.append(msg)
+                messages.extend(user_content)
             else:
                 messages.append({"role": "user", "content": user_content})
 
             res = await http_client.post(
                 self.endpoint,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                },
+                headers={"Authorization": f"Bearer {self.api_key}"},
                 json={
-                    "model": self.model_name,
+                    "model": self.model,
                     "messages": messages,
                     "temperature": temperature,
                     "response_format": {"type": "json_object"},
@@ -161,22 +220,21 @@ class QwenProvider(BaseAIProvider):
             )
             res.raise_for_status()
             data = res.json()
-            raw_content = data["choices"][0]["message"]["content"]
+            content = data["choices"][0]["message"]["content"]
 
-            # Fallback to extract JSON if markdown wrapped
-            json_str = raw_content
-            json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw_content)
+            # Extraction helper
+            json_str = content
+            json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", content)
             if json_match:
                 json_str = json_match.group(1)
 
-            parsed_json = json.loads(json_str)
-            return response_model(**parsed_json)
+            parsed = response_model.model_validate_json(json_str)
 
+            usage = data.get("usage", {})
+            return ProviderResult(
+                data=parsed,
+                input_tokens=usage.get("prompt_tokens", 0),
+                output_tokens=usage.get("completion_tokens", 0),
+                raw_response=content,
+            )
 
-def get_ai_provider(provider_name: str = None) -> BaseAIProvider:
-    provider_name = provider_name or os.getenv("AI_PROVIDER", "gemini")
-    if provider_name.lower() == "ollama":
-        return OllamaProvider()
-    elif provider_name.lower() == "qwen":
-        return QwenProvider()
-    return GeminiProvider()

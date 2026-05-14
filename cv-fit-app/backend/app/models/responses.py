@@ -2,8 +2,8 @@
 Pydantic response models — outbound payloads returned to API clients.
 """
 
-from pydantic import BaseModel
-from typing import List
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated, Dict, List
 
 from app.models.domain import (
     LiveMetrics,
@@ -38,30 +38,49 @@ class FinalInterviewReport(BaseModel):
     turn_by_turn_analysis: List[TurnAnalysis]
 
 
+class ScoreBreakdown(BaseModel):
+    weights: Dict[str, float]
+    raw_score: int = Field(ge=0, le=100)
+    critical_missing_count: int = Field(ge=0)
+    high_missing_count: int = Field(ge=0)
+    unsupported_claim_count: int = Field(ge=0)
+    critical_missing_penalty: int = Field(ge=0)
+    high_missing_penalty: int = Field(ge=0)
+    unsupported_claim_penalty: int = Field(ge=0)
+    total_penalty: int = Field(ge=0)
+    final_score: int = Field(ge=0, le=100)
+
+
 # ---------------------------------------------------------------------------
 # CV Analysis response
 # ---------------------------------------------------------------------------
 
-class CVAnalysisResponse(BaseModel):
-    match_score: int               # 0 to 100 - overall match
-    match_headline: str            # e.g. "Rất phù hợp — Khả năng lọt vào vòng phỏng vấn cao."
-    match_summary: str             # 2-3 sentences explaining the score and what to focus on
+class CVAnalysisLLMResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    # 6 sub-scores (all 0 to 100)
-    technical_match: int
-    experience_relevance: int
-    keyword_coverage: int
-    impact_evidence: int
-    tone_quality: int
-    ats_readiness: int
+    match_headline: str
+    match_summary: str
 
-    missing_keywords: List[str]           # Up to 5 missing keywords
-    suggested_edits: List[SuggestedEdit]  # 3 to 5 high-impact bullet rewrites
+    # 6 sub-scores — all clamped to 0-100
+    technical_match: int = Field(ge=0, le=100)
+    experience_relevance: int = Field(ge=0, le=100)
+    keyword_coverage: int = Field(ge=0, le=100)
+    impact_evidence: int = Field(ge=0, le=100)
+    tone_quality: int = Field(ge=0, le=100)
+    ats_readiness: int = Field(ge=0, le=100)
+
+    missing_keywords: Annotated[List[str], Field(max_length=6)]
+    suggested_edits: Annotated[List[SuggestedEdit], Field(min_length=2, max_length=5)]
 
     # Widgets data
-    cv_strengths: List[str]                          # 3-4 bullet points of what the CV does well
-    prioritized_keywords: List[PrioritizedKeyword]   # Missing keywords with priority levels
-    evidence_analysis: List[EvidenceAnalysis]         # 4-5 items evaluating claims vs evidence
+    cv_strengths: Annotated[List[str], Field(min_length=2, max_length=5)]
+    prioritized_keywords: Annotated[List[PrioritizedKeyword], Field(max_length=6)]
+    evidence_analysis: Annotated[List[EvidenceAnalysis], Field(min_length=3, max_length=6)]
+
+
+class CVAnalysisResponse(CVAnalysisLLMResponse):
+    match_score: int = Field(ge=0, le=100)
+    score_breakdown: ScoreBreakdown
 
 
 # ---------------------------------------------------------------------------

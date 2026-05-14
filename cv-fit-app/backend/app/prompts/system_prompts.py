@@ -41,7 +41,6 @@ def build_cv_analysis_prompt(context_instruction: str) -> str:
         "- BƯỚC 2: TẤT CẢ các mảng văn bản trả về PHẢI viết bằng CHÍNH ngôn ngữ của CV đó.\n"
         "  Ví dụ: Nếu CV tiếng Anh -> Phản hồi 100% bằng tiếng Anh. Nếu CV tiếng Việt -> Phản hồi 100% bằng tiếng Việt.\n\n"
         "Cấu trúc JSON cần trả về (TẤT CẢ điểm số đều từ 0 đến 100):\n"
-        "- match_score (0-100): Đánh giá mức độ phù hợp TỔNG THỂ của CV với JD.\n"
         '- match_headline: Câu tiêu đề ngắn gọn mô tả kết quả (VD: "Rất phù hợp — Khả năng lọt vào vòng phỏng vấn cao." hoặc "Cần cải thiện — CV chưa bám sát yêu cầu JD.").\n'
         "- match_summary: 2-3 câu giải thích điểm số tổng thể và những điểm cần tập trung cải thiện nhất.\n"
         "- technical_match (0-100): Mức độ khớp về kỹ năng kỹ thuật / chuyên môn giữa CV và JD.\n"
@@ -55,8 +54,17 @@ def build_cv_analysis_prompt(context_instruction: str) -> str:
         "  Với mỗi đề xuất:\n"
         '  + section: tên phần (VD: "Experience", "Kinh nghiệm làm việc")\n'
         "  + original_text: trích dẫn CHÍNH XÁC đoạn gốc cần cải thiện\n"
-        "  + upgraded_text: phiên bản viết lại (cùng ngôn ngữ với CV)\n"
+        "  + improved_safe: phiên bản viết lại an toàn, chỉ dùng thông tin đã có trong CV/JD; KHÔNG thêm số liệu, quy mô người dùng, %, trước/sau, doanh thu, uptime, latency, traffic nếu CV chưa nêu rõ.\n"
+        "  + improved_with_placeholders: phiên bản coaching có placeholder rõ ràng cho số liệu hoặc ngữ cảnh cần người dùng xác nhận, ví dụ [X ms], [Y ms], [N users], [before], [after]. Placeholder phải nằm trong ngoặc vuông và không được trình bày như sự thật.\n"
+        "  + metric_questions: 2-4 câu hỏi cụ thể để người dùng bổ sung số liệu thật (VD: before/after latency, request volume, user count, uptime, error rate, revenue, conversion).\n"
+        "  + unsupported_assumptions: danh sách các giả định/số liệu KHÔNG được khẳng định là thật nếu người dùng chưa xác nhận (VD: exact latency reduction, number of users). Dùng [] nếu không có.\n"
+        '  + rewrite_risk: PHẢI là một trong ["safe", "needs_user_input", "risky"]. Dùng "needs_user_input" khi bản có placeholder cần số liệu; dùng "risky" nếu bản an toàn vẫn cần giả định chưa có bằng chứng.\n'
         "  + reason: giải thích ngắn gọn tại sao cần thay đổi (cùng ngôn ngữ với CV)\n\n"
+        "QUY TẮC CHỐNG HALLUCINATION CHO SUGGESTED EDITS:\n"
+        "- KHÔNG bịa số liệu để làm bullet nghe ấn tượng hơn.\n"
+        "- Nếu muốn hướng dẫn người dùng thêm metric, đặt metric đó trong improved_with_placeholders và hỏi trong metric_questions.\n"
+        "- improved_safe phải là câu có thể dùng ngay trong CV mà không tạo claim mới.\n"
+        "- Nếu CV đã có metric thật, có thể giữ metric đó trong improved_safe.\n\n"
         '- cv_strengths: Mảng 3-4 điểm sáng / ưu điểm nổi bật của CV hiện tại (VD: "Strong production engineering experience", "Professional and concise language").\n'
         "- prioritized_keywords: Mảng từ khóa quan trọng CẦN BỔ SUNG, mỗi item gồm:\n"
         "  + keyword: tên từ khóa\n"

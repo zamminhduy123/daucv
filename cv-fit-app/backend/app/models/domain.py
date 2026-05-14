@@ -2,7 +2,7 @@
 Shared / domain-level Pydantic models used across multiple features.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from typing import List, Optional, Literal
 
 
@@ -71,10 +71,20 @@ class AIFeedbackSummary(BaseModel):
 # ---------------------------------------------------------------------------
 
 class SuggestedEdit(BaseModel):
-    section: str          # e.g. "Kinh nghiệm làm việc", "Kỹ năng"
-    original_text: str    # Exact text from the original CV that needs changing
-    upgraded_text: str    # Rewritten, metric-driven replacement
-    reason: str           # Short explanation in Vietnamese
+    section: str                         # e.g. "Kinh nghiệm làm việc", "Kỹ năng"
+    original_text: str                   # Exact text from the original CV that needs changing
+    improved_safe: str                   # Rewrite using only supported claims, no invented metrics
+    improved_with_placeholders: str      # Rewrite with explicit placeholders for metrics/user facts
+    metric_questions: List[str]          # Questions the user should answer to quantify impact
+    unsupported_assumptions: List[str]   # Claims/metrics that must not be stated as fact yet
+    rewrite_risk: Literal["safe", "needs_user_input", "risky"]
+    reason: str                          # Short explanation in the CV's language
+
+    @computed_field(return_type=str)
+    @property
+    def upgraded_text(self) -> str:
+        """Backward-compatible field for clients still rendering upgraded_text."""
+        return self.improved_safe
 
 
 class PrioritizedKeyword(BaseModel):

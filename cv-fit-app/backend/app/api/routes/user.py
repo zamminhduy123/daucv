@@ -20,6 +20,7 @@ from app.models.requests import (
     WriterRequest,
 )
 from app.models.responses import (
+    CVAnalysisLLMResponse,
     CVAnalysisResponse,
     FinalInterviewReport,
     InterviewTurnResponse,
@@ -38,6 +39,7 @@ from app.prompts.system_prompts import (
     build_writer_prompt,
 )
 from app.services.ai_service import call_llm_with_fallback
+from app.services.cv_quality_checks import build_scored_analysis
 from app.utils.helpers import extract_text_from_pdf
 
 router = APIRouter(prefix="/api", tags=["user"])
@@ -139,12 +141,12 @@ async def analyze_cv(req: AnalyzeCVRequest, background_tasks: BackgroundTasks):
         parsed = await call_llm_with_fallback(
             system_prompt,
             user_content,
-            CVAnalysisResponse,
+            CVAnalysisLLMResponse,
             feature_name="cv_analyzer",
             prompt_version="1.0.0",
             background_tasks=background_tasks,
         )
-        return parsed
+        return build_scored_analysis(parsed)
     except HTTPException:
         raise
     except Exception as e:

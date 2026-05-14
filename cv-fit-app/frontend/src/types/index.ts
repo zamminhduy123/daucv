@@ -33,12 +33,31 @@ export interface MatchResult {
 export interface SuggestedEdit {
   section: string;
   original_text: string;
-  upgraded_text: string;
+  improved_safe: string;
+  improved_with_placeholders: string;
+  metric_questions: string[];
+  unsupported_assumptions: string[];
+  rewrite_risk: "safe" | "needs_user_input" | "risky";
   reason: string;
+  upgraded_text?: string;
+}
+
+export interface ScoreBreakdown {
+  weights: Record<string, number>;
+  raw_score: number;
+  critical_missing_count: number;
+  high_missing_count: number;
+  unsupported_claim_count: number;
+  critical_missing_penalty: number;
+  high_missing_penalty: number;
+  unsupported_claim_penalty: number;
+  total_penalty: number;
+  final_score: number;
 }
 
 export interface CVAnalysisResponse {
   match_score: number;
+  score_breakdown: ScoreBreakdown;
   match_headline: string;
   match_summary: string;
 
