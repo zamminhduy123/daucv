@@ -80,7 +80,7 @@ export interface CVAnalysisResponse {
 
 export interface PrioritizedKeyword {
   keyword: string;
-  priority: "High" | "Medium" | "Low";
+  priority: "Critical" | "High" | "Medium" | "Low";
 }
 
 export interface EvidenceAnalysis {

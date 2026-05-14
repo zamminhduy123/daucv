@@ -89,7 +89,7 @@ class SuggestedEdit(BaseModel):
 
 class PrioritizedKeyword(BaseModel):
     keyword: str
-    priority: Literal["High", "Medium", "Low"]
+    priority: Literal["Critical", "High", "Medium", "Low"]
 
 
 class EvidenceAnalysis(BaseModel):

@@ -68,7 +68,7 @@ def build_cv_analysis_prompt(context_instruction: str) -> str:
         '- cv_strengths: Mảng 3-4 điểm sáng / ưu điểm nổi bật của CV hiện tại (VD: "Strong production engineering experience", "Professional and concise language").\n'
         "- prioritized_keywords: Mảng từ khóa quan trọng CẦN BỔ SUNG, mỗi item gồm:\n"
         "  + keyword: tên từ khóa\n"
-        '  + priority: PHẢI là một trong ["High", "Medium", "Low"] — "High" nếu từ khóa xuất hiện nhiều lần trong JD hoặc là yêu cầu bắt buộc, "Low" nếu chỉ là nice-to-have.\n'
+        '  + priority: PHẢI là một trong ["Critical", "High", "Medium", "Low"] — "Critical" nếu là yêu cầu bắt buộc/knockout, "High" nếu từ khóa xuất hiện nhiều lần trong JD hoặc là trách nhiệm chính, "Low" nếu chỉ là nice-to-have.\n'
         "- evidence_analysis: Mảng 4-5 năng lực/claim mà ứng viên thể hiện hoặc cần thể hiện, mỗi item gồm:\n"
         '  + claim: Năng lực / skill / claim được đánh giá (VD: "Scalable system delivery", "MLOps experience")\n'
         '  + evidence_strength: PHẢI là một trong ["Strong", "Medium", "Weak", "Missing"]\n'
