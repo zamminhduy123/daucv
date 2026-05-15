@@ -1,6 +1,6 @@
 "use client";
 
-import type { CVAnalysisResponse } from "@/types";
+import type { CVAnalysisResponse, PrioritizedKeyword } from "@/types";
 import { motion } from "framer-motion";
 import {
   Code2,
@@ -62,6 +62,13 @@ const SUB_SCORES = [
     iconColor: "text-teal-600",
   },
 ] as const;
+
+const PRIORITY_BADGE_STYLE: Record<PrioritizedKeyword["priority"], string> = {
+  Critical: "bg-red-100 text-red-700",
+  High: "bg-orange-100 text-orange-700",
+  Medium: "bg-yellow-100 text-yellow-700",
+  Low: "bg-green-50 text-green-600",
+};
 
 // SVG circular progress ring
 function CircularScore({ score, isGeneral }: { score: number; isGeneral: boolean }) {
@@ -144,7 +151,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
         </div>
 
         {/* RIGHT — Headline spanning above summary + 6 cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 flex-1 text-left">
+        <div className="grid grid-cols-1 lg:grid-cols-2 flex-1 text-justify">
           {/* Summary + 6 cards side by side */}
           <div className="flex flex-col gap-2 items-start mt-4">
             {/* Headline spans full width */}
@@ -152,7 +159,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
               {result.match_headline}
             </h2>
             {/* Summary text */}
-            <p className="text-xs text-gray-500 leading-relaxed flex-shrink-0 text-justify lg:max-w-[80%]">
+            <p className="text-xs text-gray-500 leading-relaxed flex-shrink-0 text-justify lg:max-w-[90%]">
               {result.match_summary}
             </p>
           </div>
@@ -164,9 +171,9 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 + i * 0.05 }}
-                className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col items-start gap-2 shadow-sm"
+                className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm"
               >
-                <div className="flex items-center gap-2 w-full">
+                <div className="flex items-center gap-2 w-full justify-center">
                   <div className={`${iconBg} rounded-lg p-1.5 flex-shrink-0`}>
                     <Icon size={14} className={iconColor} />
                   </div>
@@ -174,7 +181,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                     {result[key] ?? 0}%
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 font-medium leading-tight">{label}</p>
+                <p className="text-xs text-gray-500 text-center font-medium leading-tight">{label}</p>
               </motion.div>
             ))}
           </div>
@@ -225,12 +232,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
               </div>
               <div className="flex flex-wrap gap-2 mb-4 flex-1">
                 {result.prioritized_keywords.map(({ keyword, priority }, i) => {
-                  const badgeStyle =
-                    priority === "High"
-                      ? "bg-red-50 text-red-600"
-                      : priority === "Medium"
-                        ? "bg-orange-50 text-orange-600"
-                        : "bg-green-50 text-green-600";
+                  const badgeStyle = PRIORITY_BADGE_STYLE[priority];
                   return (
                     <div
                       key={i}
