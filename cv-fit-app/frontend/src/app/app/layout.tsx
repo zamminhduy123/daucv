@@ -13,7 +13,7 @@ function TopBar() {
   const router = useRouter();
 
   return (
-    <div className="h-14 bg-white border-b border-gray-100 items-center justify-between px-6 shrink-0 hidden md:flex">
+    <div className="flex-0 py-3 bg-white border-b border-gray-100 items-center justify-between px-6 shrink-0 hidden md:flex">
       {/* Left: active context pills */}
       <div className="flex gap-3 text-sm font-medium">
         {hasData ? (
@@ -65,7 +65,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <TopBar />
 
           {/* Scrollable content */}
-          <main className="flex-1 h-full overflow-y-auto bg-[#F9F9F2] p-4">
+          <main className="flex-1 overflow-y-auto bg-[#F9F9F2] p-4">
             {children}
           </main>
         </div>

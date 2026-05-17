@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import LoadingOverlay from "@/components/workspace/LoadingOverlay";
-import InterviewRoom from "@/components/workspace/InterviewRoom";
+import InterviewRoomMinimal from "@/components/workspace/InterviewRoomMinimal";
+import type { InterviewState } from "@/components/workspace/InterviewRoomMinimal";
 import { sendInterviewChatAPI } from "@/lib/api";
 import { useWorkspace } from "@/context/WorkspaceContext";
 
@@ -68,8 +69,8 @@ export default function InterviewPage() {
   const { cvText, jdText, hasData, cache, setCachedInterview } = useWorkspace();
 
   const [isStarting, setIsStarting] = useState(false);
-  const [interviewState, setInterviewState] = useState<any>(
-    cache.interviewState // Initialize from cache
+  const [interviewState, setInterviewState] = useState<InterviewState | null>(
+    cache.interviewState as InterviewState | null // Initialize from cache
   );
   const [totalQuestions, setTotalQuestions] = useState(5);
   const [interviewType, setInterviewType] = useState<InterviewType>("general");
@@ -226,7 +227,7 @@ export default function InterviewPage() {
       )}
 
       {!!interviewState && !isStarting && !isSettingUp && (
-        <InterviewRoom
+        <InterviewRoomMinimal
           cvText={cvText}
           jdText={jdText}
           initialState={interviewState}

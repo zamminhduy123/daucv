@@ -1,4 +1,5 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const TTS_API_URL = process.env.NEXT_PUBLIC_TTS_SERVICE_URL || "http://127.0.0.1:8000";
 
 export async function pingAPI() {
   const res = await fetch(`${API_URL}/`);
@@ -84,10 +85,10 @@ export async function finishInterviewAPI(
 }
 
 export async function generateTTSAPI(text: string) {
-  const res = await fetch(`${API_URL}/api/interview/tts`, {
+  const res = await fetch(`${TTS_API_URL}/api/tts/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text: text, self_clone: true }),
   });
 
   if (!res.ok) {
