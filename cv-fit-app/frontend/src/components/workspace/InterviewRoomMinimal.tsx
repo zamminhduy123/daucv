@@ -34,10 +34,51 @@ interface InterviewRoomMinimalProps {
 
 type AnswerMode = "ready" | "recording" | "typing" | "review";
 
+const IDLE_VOICE_LEVELS = [0, 0, 0, 0];
+const VOICE_NOISE_GATE = 0.025;
+
+type WindowWithWebkitAudio = Window &
+  typeof globalThis & {
+    webkitAudioContext?: typeof AudioContext;
+  };
+
 function formatDuration(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
   const seconds = (totalSeconds % 60).toString().padStart(2, "0");
   return `${minutes}:${seconds}`;
+}
+
+function VoiceLevelDots({ levels, active }: { levels: number[]; active: boolean }) {
+  return (
+    <div className="flex h-7 items-center justify-center gap-1.5" aria-hidden>
+      {levels.map((level, index) => (
+        <span
+          key={index}
+          className="h-2.5 w-2.5 rounded-full bg-[#5A9E40] transition-all duration-500 ease-out"
+          style={{
+            opacity: active ? 0.34 + level * 0.46 : 0.3,
+            transform: active
+              ? `translateY(${-(level * 16)}px) scale(${0.86 + level * 0.34})`
+              : undefined,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function AiVoiceOrb({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-full border border-[#2F4F4F]/8 bg-white px-3 py-2 shadow-[0_8px_24px_rgba(47,79,79,0.04)]">
+      <div className="relative h-8 w-8" aria-hidden>
+        <span className="absolute left-1 top-1 h-5 w-5 animate-pulse rounded-full bg-[#5A9E40]/70 blur-[1px]" />
+        <span className="absolute right-0 top-1.5 h-4 w-4 animate-pulse rounded-full bg-[#A8C99A]/85 [animation-delay:120ms]" />
+        <span className="absolute bottom-0 left-2 h-5 w-5 animate-pulse rounded-full bg-[#EAF4E6] [animation-delay:240ms]" />
+        <span className="absolute inset-1 rounded-full border border-[#5A9E40]/20 animate-ping" />
+      </div>
+      <span className="text-xs font-semibold text-[#5A6D6D]">{label}</span>
+    </div>
+  );
 }
 
 export default function InterviewRoomMinimal({
@@ -59,12 +100,16 @@ export default function InterviewRoomMinimal({
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isTTSLoading, setIsTTSLoading] = useState(false);
+  const [voiceLevels, setVoiceLevels] = useState<number[]>(IDLE_VOICE_LEVELS);
   const textFallbackRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
   const audioBlobCacheRef = useRef<Map<string, Blob>>(new Map());
   const audioRequestCacheRef = useRef<Map<string, Promise<Blob>>>(new Map());
   const lastSpokenQuestionRef = useRef<string | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const meterFrameRef = useRef<number | null>(null);
 
   const isResuming = Boolean(initialState?.messages);
   const initialMessages: Message[] = isResuming
@@ -98,6 +143,72 @@ export default function InterviewRoomMinimal({
   const answerText = answerMode === "typing"
     ? typedAnswer.trim()
     : spokenAnswer;
+  const shouldShowAiOrb = isTTSLoading || isSpeaking || loading;
+
+  const stopVoiceMeter = useCallback(() => {
+    if (meterFrameRef.current) {
+      cancelAnimationFrame(meterFrameRef.current);
+      meterFrameRef.current = null;
+    }
+
+    micStreamRef.current?.getTracks().forEach((track) => track.stop());
+    micStreamRef.current = null;
+
+    audioContextRef.current?.close().catch(() => undefined);
+    audioContextRef.current = null;
+    setVoiceLevels(IDLE_VOICE_LEVELS);
+  }, []);
+
+  const startVoiceMeter = useCallback(async () => {
+    if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) return;
+
+    try {
+      stopVoiceMeter();
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const AudioContextConstructor = window.AudioContext || (window as WindowWithWebkitAudio).webkitAudioContext;
+      if (!AudioContextConstructor) return;
+
+      const audioContext = new AudioContextConstructor();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.45;
+      const timeDomainData = new Uint8Array(analyser.fftSize);
+      source.connect(analyser);
+      micStreamRef.current = stream;
+      audioContextRef.current = audioContext;
+
+      const updateLevels = () => {
+        analyser.getByteTimeDomainData(timeDomainData);
+
+        const chunkSize = Math.floor(timeDomainData.length / 4);
+        const nextLevels = [0, 1, 2, 3].map((index) => {
+          const start = index * chunkSize;
+          const end = index === 3 ? timeDomainData.length : start + chunkSize;
+          let sumSquares = 0;
+
+          for (let i = start; i < end; i += 1) {
+            const centered = (timeDomainData[i] - 128) / 128;
+            sumSquares += centered * centered;
+          }
+
+          const rms = Math.sqrt(sumSquares / Math.max(1, end - start));
+          const gatedLevel = Math.max(0, rms - VOICE_NOISE_GATE);
+          return Math.min(1, gatedLevel * 16);
+        });
+
+        setVoiceLevels(nextLevels);
+        meterFrameRef.current = requestAnimationFrame(updateLevels);
+      };
+
+      updateLevels();
+    } catch (error) {
+      console.error("Voice meter error:", error);
+      setVoiceLevels(IDLE_VOICE_LEVELS);
+    }
+  }, [stopVoiceMeter]);
 
   const cleanupAudioUrl = useCallback(() => {
     if (audioUrlRef.current) {
@@ -180,6 +291,10 @@ export default function InterviewRoomMinimal({
   }, [answerMode, isListening]);
 
   useEffect(() => {
+    return () => stopVoiceMeter();
+  }, [stopVoiceMeter]);
+
+  useEffect(() => {
     if (!voiceEnabled || lastSpokenQuestionRef.current === displayQuestion) return;
     lastSpokenQuestionRef.current = displayQuestion;
     speakQuestion(displayQuestion);
@@ -227,23 +342,28 @@ export default function InterviewRoomMinimal({
     stopQuestionAudio();
     setAnswerMode("recording");
     startListening();
+    startVoiceMeter();
   };
 
   const toggleRecordingPause = () => {
     if (isListening) {
       stopListening();
+      stopVoiceMeter();
       return;
     }
     startListening();
+    startVoiceMeter();
   };
 
   const finishRecording = () => {
     if (isListening) stopListening();
+    stopVoiceMeter();
     setAnswerMode("review");
   };
 
   const cancelRecording = () => {
     if (isListening) stopListening();
+    stopVoiceMeter();
     setTranscript("");
     setRecordingSeconds(0);
     setAnswerMode("ready");
@@ -251,6 +371,7 @@ export default function InterviewRoomMinimal({
 
   const switchToTyping = () => {
     if (isListening) stopListening();
+    stopVoiceMeter();
     stopQuestionAudio();
     setTypedAnswer("");
     setAnswerMode("typing");
@@ -278,6 +399,7 @@ export default function InterviewRoomMinimal({
     setRecordingSeconds(0);
     setAnswerMode("recording");
     startListening();
+    startVoiceMeter();
   };
 
   const editSpokenAnswer = () => {
@@ -294,6 +416,7 @@ export default function InterviewRoomMinimal({
     setRecordingSeconds(0);
     setAnswerMode("ready");
     if (isListening) stopListening();
+    stopVoiceMeter();
 
     if (currentQuestion >= totalQuestions) {
       setIsGeneratingReport(true);
@@ -383,10 +506,10 @@ export default function InterviewRoomMinimal({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {(isTTSLoading || isSpeaking) && (
-                    <span className="hidden text-xs font-semibold text-[#6B7A7A] xl:inline">
-                      {isTTSLoading ? "Đang chuẩn bị giọng đọc" : "Bé Đậu đang đọc"}
-                    </span>
+                  {shouldShowAiOrb && (
+                    <AiVoiceOrb
+                      label={loading ? "Bé Đậu đang nghĩ" : isTTSLoading ? "Đang chuẩn bị giọng đọc" : "Bé Đậu đang đọc"}
+                    />
                   )}
                   {voiceEnabled && (
                     <button
@@ -415,7 +538,9 @@ export default function InterviewRoomMinimal({
                 className={`mt-4 w-full max-w-205 shrink-0 rounded-3xl border border-[#2F4F4F]/8 bg-[#FBFCF8] transition-all duration-300 ${
                   answerMode === "ready"
                     ? "px-7 py-6"
-                    : "max-h-[220px] overflow-y-auto px-6 py-5 custom-scrollbar"
+                    : answerMode === "recording"
+                      ? "max-h-[150px] overflow-y-auto px-6 py-4 custom-scrollbar"
+                      : "max-h-[220px] overflow-y-auto px-6 py-5 custom-scrollbar"
                 }`}
               >
                 <p
@@ -458,20 +583,33 @@ export default function InterviewRoomMinimal({
                 )}
 
                 {answerMode === "recording" && (
-                  <div className="flex min-h-0 w-full max-w-[820px] flex-1 flex-col animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="mb-4 flex shrink-0 items-center justify-between gap-4">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-[#4F9339]">
-                        <span className="h-2.5 w-2.5 rounded-full bg-[#5A9E40] shadow-[0_0_0_5px_rgba(90,158,64,0.10)]" />
-                        {isListening ? "Đang ghi âm" : "Đã tạm dừng"}
-                      </div>
+                  <div className="flex min-h-0 w-full max-w-205 flex-1 flex-col items-center animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="mb-5 flex shrink-0 items-center gap-2 rounded-full border border-[#2F4F4F]/8 bg-white px-4 py-2 shadow-[0_8px_24px_rgba(47,79,79,0.04)]">
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${
+                          isListening
+                            ? "bg-[#5A9E40] shadow-[0_0_0_5px_rgba(90,158,64,0.10)] animate-pulse"
+                            : "bg-[#AAB4B4]"
+                        }`}
+                      />
+                      <span className="text-sm font-bold text-[#4F9339]">
+                        {isListening ? "Đang lắng nghe" : "Đã tạm dừng"}
+                      </span>
+                      <span className="text-[#AAB4B4]">·</span>
                       <span className="font-mono text-sm font-semibold text-[#647373]">
                         {formatDuration(recordingSeconds)}
                       </span>
                     </div>
 
-                    <section className="flex min-h-0 flex-1 flex-col rounded-[24px] border border-[#2F4F4F]/10 bg-[#FBFCF8] p-5 shadow-[0_10px_28px_rgba(47,79,79,0.035)]">
-                      <h3 className="text-sm font-bold text-[#2F4F4F]">Câu trả lời của bạn</h3>
-                      <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-2 text-[16px] leading-8 text-[#2F4F4F] custom-scrollbar">
+                    <section className="flex min-h-0 w-full flex-1 flex-col rounded-[28px] border border-[#2F4F4F]/10 bg-linear-to-b from-[#FBFCF8] to-white p-6 shadow-[0_10px_28px_rgba(47,79,79,0.035)]">
+                      <div className="flex shrink-0 items-center justify-between gap-4">
+                        <h3 className="text-sm font-bold text-[#2F4F4F]">Câu trả lời của bạn</h3>
+                        <div className="flex items-center gap-3">
+                          <VoiceLevelDots levels={voiceLevels} active={isListening} />
+                          <p className="text-xs font-semibold text-[#8A9696]">Transcript trực tiếp</p>
+                        </div>
+                      </div>
+                      <div className="mt-5 flex min-h-0 flex-1 items-center overflow-y-auto pr-2 text-[19px] leading-9 text-[#2F4F4F] custom-scrollbar">
                         {spokenAnswer ? (
                           <p>{spokenAnswer}</p>
                         ) : (
@@ -482,11 +620,11 @@ export default function InterviewRoomMinimal({
                       </div>
                     </section>
 
-                    <div className="mt-5 flex shrink-0 items-center justify-between gap-4">
+                    <div className="mt-5 flex w-full shrink-0 items-center justify-between gap-4 rounded-full border border-[#2F4F4F]/8 bg-white px-3 py-3 shadow-[0_10px_28px_rgba(47,79,79,0.045)]">
                       <button
                         type="button"
                         onClick={cancelRecording}
-                        className="text-sm font-semibold text-[#7B8787] underline-offset-4 hover:underline"
+                        className="px-2 text-sm font-semibold text-[#7B8787] underline-offset-4 hover:underline"
                       >
                         Hủy
                       </button>
