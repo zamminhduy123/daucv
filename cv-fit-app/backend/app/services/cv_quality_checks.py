@@ -168,11 +168,79 @@ def build_scored_analysis(response: CVAnalysisLLMResponse) -> CVAnalysisResponse
         total_penalty=total_penalty,
         final_score=final_score,
     )
-    return CVAnalysisResponse(
-        **response.model_dump(),
+    match_headline, match_summary = _build_deterministic_match_copy(
+        response=response,
+        role_fit_score=raw_score,
+        final_score=final_score,
+        total_penalty=total_penalty,
+    )
+    response_data = response.model_dump()
+    response_data.update(
+        match_headline=match_headline,
+        match_summary=match_summary,
         match_score=final_score,
+        role_fit_score=raw_score,
         score_breakdown=score_breakdown,
     )
+    return CVAnalysisResponse(**response_data)
+
+
+def _build_deterministic_match_copy(
+    *,
+    response: CVAnalysisLLMResponse,
+    role_fit_score: int,
+    final_score: int,
+    total_penalty: int,
+) -> tuple[str, str]:
+    penalty_reason = _summarize_penalty_reason(response)
+
+    if final_score >= 85:
+        headline = "Rất phù hợp — CV đã bám sát JD và có tín hiệu ứng tuyển mạnh."
+    elif final_score >= 70:
+        headline = "Phù hợp tốt — CV có nền tảng mạnh nhưng vẫn còn điểm cần tối ưu."
+    elif role_fit_score >= 80 and final_score >= 55:
+        headline = "Có tiềm năng cao, nhưng CV cần tối ưu theo JD."
+    elif final_score >= 55:
+        headline = "Có tiềm năng, cần bổ sung thêm tín hiệu phù hợp JD."
+    elif final_score >= 40:
+        headline = "Chưa đủ khớp — CV cần cải thiện rõ trước khi ứng tuyển."
+    else:
+        headline = "Không phù hợp — CV thiếu nhiều yêu cầu quan trọng của JD."
+
+    if total_penalty > 0 and role_fit_score - final_score >= 10:
+        summary = (
+            f"Role Fit hiện là {role_fit_score}%, cho thấy nền tảng ứng viên khá tốt. "
+            f"CV Match còn {final_score}% vì bị trừ {total_penalty} điểm do {penalty_reason}. "
+            f"{response.match_summary}"
+        )
+    else:
+        summary = response.match_summary
+
+    return headline, summary
+
+
+def _summarize_penalty_reason(response: CVAnalysisLLMResponse) -> str:
+    critical_count = sum(
+        1 for item in response.prioritized_keywords if item.priority == "Critical"
+    )
+    high_count = sum(
+        1 for item in response.prioritized_keywords if item.priority == "High"
+    )
+    unsupported_count = sum(
+        1
+        for edit in response.suggested_edits
+        if edit.rewrite_risk == "risky" or edit.unsupported_assumptions
+    )
+
+    reasons: List[str] = []
+    if critical_count:
+        reasons.append(f"{critical_count} yêu cầu Critical còn thiếu")
+    if high_count:
+        reasons.append(f"{high_count} yêu cầu High-priority còn thiếu")
+    if unsupported_count:
+        reasons.append(f"{unsupported_count} đề xuất cần người dùng xác nhận thêm")
+
+    return ", ".join(reasons) if reasons else "các tín hiệu CV chưa đủ rõ so với JD"
 
 
 # ---------------------------------------------------------------------------

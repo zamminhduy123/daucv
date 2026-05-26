@@ -157,6 +157,7 @@ class CVAnalysisLLMResponse(BaseModel):
 
 class CVAnalysisResponse(CVAnalysisLLMResponse):
     match_score: int = Field(ge=0, le=100)
+    role_fit_score: int = Field(ge=0, le=100)
     score_breakdown: ScoreBreakdown
 
 

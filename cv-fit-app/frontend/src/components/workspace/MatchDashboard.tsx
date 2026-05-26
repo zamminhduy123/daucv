@@ -71,7 +71,7 @@ const PRIORITY_BADGE_STYLE: Record<PrioritizedKeyword["priority"], string> = {
 };
 
 // SVG circular progress ring
-function CircularScore({ score, isGeneral }: { score: number; isGeneral: boolean }) {
+function CircularScore({ score, label }: { score: number; label: string }) {
   const radius = 57;
   const circumference = 2 * Math.PI * radius;
   const strokeDash = (score / 100) * circumference;
@@ -108,7 +108,7 @@ function CircularScore({ score, isGeneral }: { score: number; isGeneral: boolean
           <span className="text-xl font-bold text-[#1F2E2E] leading-none">%</span>
         </div>
         <span className="text-xs font-semibold text-gray-400 tracking-wide mt-1">
-          {isGeneral ? "ATS Score" : "JD Match"}
+          {label}
         </span>
       </div>
     </div>
@@ -118,6 +118,10 @@ function CircularScore({ score, isGeneral }: { score: number; isGeneral: boolean
 export default function MatchDashboard({ result }: { result: CVAnalysisResponse }) {
   const { jdText } = useWorkspace();
   const isGeneral = !jdText?.trim();
+  const roleFitScore = result.role_fit_score ?? result.score_breakdown?.raw_score ?? result.match_score;
+  const penalty = result.score_breakdown?.total_penalty ?? Math.max(0, roleFitScore - result.match_score);
+  const shouldShowPenaltyContext = !isGeneral && roleFitScore - result.match_score >= 8;
+  const scoreLabel = isGeneral ? "ATS Score" : "CV Match";
 
   return (
     <div>
@@ -147,7 +151,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
       >
         {/* LEFT — Circular score, fills the column */}
         <div className="xl:w-[20%] w-full max-w-[200px] mx-auto xl:mx-0 flex-shrink-0">
-          <CircularScore score={result.match_score} isGeneral={isGeneral} />
+          <CircularScore score={result.match_score} label={scoreLabel} />
         </div>
 
         {/* RIGHT — Headline spanning above summary + 6 cards */}
@@ -162,6 +166,25 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
             <p className="text-xs text-gray-500 leading-relaxed flex-shrink-0 text-justify lg:max-w-[90%]">
               {result.match_summary}
             </p>
+            {shouldShowPenaltyContext && (
+              <div className="mt-3 w-full lg:max-w-[90%] rounded-2xl border border-orange-100 bg-orange-50/70 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-orange-700">
+                      Vì sao điểm CV Match thấp hơn?
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-orange-800">
+                      Role Fit của bạn là <span className="font-bold">{roleFitScore}%</span>, nhưng điểm cuối bị trừ{" "}
+                      <span className="font-bold">{penalty}</span> điểm vì CV còn thiếu hoặc chưa xác nhận một số tín hiệu ưu tiên trong JD.
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="text-[11px] text-orange-700">Role Fit</p>
+                    <p className="text-xl font-bold text-orange-800">{roleFitScore}%</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           {/* 6 mini-score cards */}
           <div className="grid grid-cols-2 lg:grid-cols-3 mt-4 lg:mt-0 gap-3 flex-1 w-full">

@@ -47,9 +47,11 @@ export interface ScoreBreakdown {
   raw_score: number;
   critical_missing_count: number;
   high_missing_count: number;
+  weighted_missing_requirement_score: number;
   unsupported_claim_count: number;
   critical_missing_penalty: number;
   high_missing_penalty: number;
+  missing_requirement_penalty: number;
   unsupported_claim_penalty: number;
   total_penalty: number;
   final_score: number;
@@ -57,6 +59,7 @@ export interface ScoreBreakdown {
 
 export interface CVAnalysisResponse {
   match_score: number;
+  role_fit_score: number;
   score_breakdown: ScoreBreakdown;
   match_headline: string;
   match_summary: string;
