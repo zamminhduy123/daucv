@@ -6,6 +6,7 @@ export interface WorkspaceInputs {
   jdText: string;
   cvText: string;
   cvFile: File | null;
+  jdFile: File | null;
 }
 
 // ─── AI Analysis Result ───────────────────────────────────────────────────────

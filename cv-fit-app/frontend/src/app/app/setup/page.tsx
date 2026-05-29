@@ -14,6 +14,7 @@ export default function SetupPage() {
     cvText: cvText,
     jdText: jdText,
     cvFile: null as File | null,
+    jdFile: null as File | null,
   });
   
   const [error, setError] = useState("");
