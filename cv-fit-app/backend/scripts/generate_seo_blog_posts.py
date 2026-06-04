@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
+import html
 import json
 import random
 import re
@@ -26,6 +28,7 @@ from pydantic import BaseModel, Field, model_validator
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 PROJECT_DIR = BACKEND_DIR.parent
 BLOG_DIR = PROJECT_DIR / "frontend" / "content" / "blog"
+COVER_DIR = PROJECT_DIR / "frontend" / "public" / "blog"
 
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
@@ -35,13 +38,13 @@ AUTHOR = "Bé Đậu"
 AUTHOR_AVATAR = "https://ui-avatars.com/api/?name=Bé+Đậu&background=E8F5E9&color=2E7D32"
 DEFAULT_CTA_HREF = "/app/setup"
 
-COVER_IMAGES = [
-    "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=2070&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=2070&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?q=80&w=2072&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=2070&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1551836022-d5d88e9218df?q=80&w=2070&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1586281380349-632531db7ed4?q=80&w=2070&auto=format&fit=crop",
+COVER_THEMES = [
+    ("#2F4F4F", "#5A9E40", "#F0F6DC"),
+    ("#263F3F", "#4F8F5B", "#E8F5E9"),
+    ("#254346", "#77A647", "#F7FAEF"),
+    ("#31514A", "#6A9F3B", "#EEF7E8"),
+    ("#243E3E", "#8AAF45", "#F4F8E8"),
+    ("#36544B", "#5E9D6D", "#EDF7EE"),
 ]
 
 SEO_CLUSTERS = [
@@ -340,6 +343,100 @@ def unique_slug(title: str, existing_slugs: set[str]) -> str:
     return slug
 
 
+def cover_theme(slug: str) -> tuple[str, str, str]:
+    digest = hashlib.sha256(slug.encode("utf-8")).digest()
+    return COVER_THEMES[digest[0] % len(COVER_THEMES)]
+
+
+def wrap_cover_title(title: str, max_chars: int = 26, max_lines: int = 4) -> list[str]:
+    words = title.split()
+    lines: list[str] = []
+    current = ""
+    consumed = 0
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if len(candidate) <= max_chars:
+            current = candidate
+            consumed += 1
+            continue
+        if current:
+            lines.append(current)
+        current = word
+        consumed += 1
+        if len(lines) == max_lines - 1:
+            break
+    if current and len(lines) < max_lines:
+        lines.append(current)
+    if consumed < len(words) and lines:
+        lines[-1] = lines[-1].rstrip(" .,;:-") + "..."
+    return lines
+
+
+def render_cover_svg(article: ArticleDraft, slug: str) -> str:
+    dark, green, light = cover_theme(slug)
+    title_spans = "\n".join(
+        f'<tspan x="82" y="{210 + index * 58}">{html.escape(line)}</tspan>'
+        for index, line in enumerate(wrap_cover_title(article.title))
+    )
+    category = html.escape(article.category.upper())
+    description = html.escape(article.description[:112].rstrip(" .,;:-"))
+    accent = html.escape(article.tags[0] if article.tags else "CV chuẩn ATS")
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">{html.escape(article.title)}</title>
+  <desc id="desc">{html.escape(article.description)}</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="{light}"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#2F4F4F" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" rx="44" fill="url(#bg)"/>
+  <circle cx="1010" cy="116" r="154" fill="{green}" opacity="0.12"/>
+  <circle cx="1066" cy="500" r="210" fill="{dark}" opacity="0.08"/>
+  <rect x="66" y="58" width="1068" height="514" rx="38" fill="#FFFFFF" filter="url(#shadow)"/>
+  <rect x="82" y="74" width="1036" height="482" rx="30" fill="{light}" opacity="0.48"/>
+  <g transform="translate(82 106)">
+    <rect width="208" height="42" rx="14" fill="#FFFFFF"/>
+    <text x="18" y="28" fill="{green}" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">{category}</text>
+  </g>
+  <text x="82" y="210" fill="{dark}" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800" letter-spacing="0">
+    {title_spans}
+  </text>
+  <text x="82" y="482" fill="#5F6F55" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">
+    <tspan x="82" y="482">{description}</tspan>
+  </text>
+  <g transform="translate(807 154)">
+    <rect x="0" y="0" width="262" height="318" rx="24" fill="#FFFFFF" stroke="#DDEACF" stroke-width="3"/>
+    <rect x="34" y="46" width="156" height="18" rx="9" fill="{dark}" opacity="0.78"/>
+    <rect x="34" y="92" width="194" height="12" rx="6" fill="{green}" opacity="0.55"/>
+    <rect x="34" y="124" width="174" height="12" rx="6" fill="{green}" opacity="0.36"/>
+    <rect x="34" y="164" width="206" height="12" rx="6" fill="{dark}" opacity="0.22"/>
+    <rect x="34" y="196" width="152" height="12" rx="6" fill="{dark}" opacity="0.18"/>
+    <rect x="34" y="236" width="92" height="34" rx="12" fill="{green}" opacity="0.18"/>
+    <path d="M218 42l34 34-78 80-34-34z" fill="{green}" opacity="0.9"/>
+    <path d="M238 22l34 34-19 20-34-34z" fill="{dark}"/>
+  </g>
+  <g transform="translate(82 526)">
+    <circle cx="20" cy="20" r="20" fill="#E8F5E9"/>
+    <text x="20" y="27" text-anchor="middle" fill="{green}" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800">Đ</text>
+    <text x="52" y="27" fill="{dark}" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800">Đậu CV</text>
+    <text x="190" y="27" fill="#6A7D69" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="600">- {accent}</text>
+  </g>
+</svg>
+"""
+
+
+def create_cover(article: ArticleDraft, slug: str) -> str:
+    COVER_DIR.mkdir(parents=True, exist_ok=True)
+    cover_path = COVER_DIR / f"{slug}.svg"
+    cover_path.write_text(render_cover_svg(article, slug), encoding="utf-8")
+    return f"/blog/{slug}.svg"
+
+
 def estimate_read_time(article: ArticleDraft) -> str:
     text_parts: list[str] = []
     text_parts.extend(article.intro)
@@ -542,6 +639,8 @@ async def main() -> int:
 
     publish_date = args.date or datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date().isoformat()
     BLOG_DIR.mkdir(parents=True, exist_ok=True)
+    if not args.dry_run:
+        COVER_DIR.mkdir(parents=True, exist_ok=True)
 
     existing_posts = load_existing_posts()
     existing_slugs = {post["slug"] for post in existing_posts}
@@ -552,7 +651,7 @@ async def main() -> int:
         topic_seed = topic_pool[index % len(topic_pool)]
         article = await generate_one(existing_posts, topic_seed, publish_date)
         slug = unique_slug(article.title, existing_slugs)
-        cover_image = random.choice(COVER_IMAGES)
+        cover_image = f"/blog/{slug}.svg" if args.dry_run else create_cover(article, slug)
         output = render_article(article, publish_date, cover_image)
         output_path = BLOG_DIR / f"{slug}.mdx"
 
@@ -561,8 +660,15 @@ async def main() -> int:
         else:
             output_path.write_text(output, encoding="utf-8")
             print(f"[seo-blog] Created {output_path.relative_to(PROJECT_DIR)}")
+            print(f"[seo-blog] Created frontend/public/blog/{slug}.svg")
 
-        post_record = {"slug": slug, "title": article.title, "description": article.description}
+        post_record = {
+            "slug": slug,
+            "title": article.title,
+            "description": article.description,
+            "coverImage": cover_image,
+            "coverPath": f"frontend/public/blog/{slug}.svg",
+        }
         existing_posts.append(post_record)
         created.append(post_record)
 

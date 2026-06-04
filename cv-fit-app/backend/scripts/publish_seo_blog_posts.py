@@ -97,11 +97,15 @@ def generator_command(args: argparse.Namespace) -> list[str]:
 
 
 def stage_generated_posts(repo_root: Path, posts: list[dict[str, str]]) -> list[str]:
-    files = [
-        f"cv-fit-app/frontend/content/blog/{post['slug']}.mdx"
-        for post in posts
-        if post.get("slug")
-    ]
+    files: list[str] = []
+    for post in posts:
+        slug = post.get("slug")
+        if not slug:
+            continue
+        files.append(f"cv-fit-app/frontend/content/blog/{slug}.mdx")
+        cover_path = post.get("coverPath")
+        if cover_path:
+            files.append(f"cv-fit-app/{cover_path}")
     if not files:
         raise RuntimeError("Generator returned no posts to stage.")
 
