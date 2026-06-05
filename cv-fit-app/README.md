@@ -14,7 +14,8 @@ cv-fit-app/
 │       └── interview/page.tsx → Mock interview chat
 │
 └── backend/           # Python FastAPI
-    ├── main.py              → All API logic (single file)
+    ├── main.py              → Compatibility shim for uvicorn main:app
+    ├── app/                 → API routes, services, models, prompts
     ├── requirements.txt
     └── .env.example
 ```
@@ -42,6 +43,27 @@ uvicorn main:app --reload --port 8000
 ```
 
 Backend will be live at **http://localhost:8000**
+
+### Docker
+
+Run the FastAPI backend in a local container:
+
+```bash
+# Create backend/.env first if you use live AI providers
+cp backend/.env.example backend/.env
+
+docker compose up --build backend
+```
+
+The API will be available at **http://localhost:8000**.
+
+Useful checks:
+
+```bash
+curl http://localhost:8000/
+docker compose ps
+docker compose logs -f backend
+```
 
 ### 2. Frontend (Next.js)
 

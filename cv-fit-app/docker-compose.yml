@@ -1,0 +1,20 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    image: cv-fit-backend:local
+    container_name: cv-fit-backend
+    env_file:
+      - ./backend/.env
+    environment:
+      PORT: "8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
