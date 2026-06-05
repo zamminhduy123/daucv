@@ -103,6 +103,9 @@ def stage_generated_posts(repo_root: Path, posts: list[dict[str, str]]) -> list[
         if not slug:
             continue
         files.append(f"cv-fit-app/frontend/content/blog/{slug}.mdx")
+        cover_image = str(post.get("coverImage", "")).strip()
+        if cover_image.startswith("/blog/"):
+            files.append(f"cv-fit-app/frontend/public{cover_image}")
     if not files:
         raise RuntimeError("Generator returned no posts to stage.")
 
