@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+<title>CV kế toán: cách trình bày kinh nghiệm, chứng từ và độ chính xác một cách thuyết phục</title>
+<desc>Branded DauCV blog cover for CV kế toán: cách trình bày kinh nghiệm, chứng từ và độ chính xác một cách thuyết phục</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#ECF6F0"/>
+    <stop offset="100%" stop-color="#F7FCFF"/>
+  </linearGradient>
+  <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.98"/>
+    <stop offset="100%" stop-color="#ECF6F0" stop-opacity="0.9"/>
+  </linearGradient>
+</defs>
+<rect width="1200" height="630" rx="36" fill="url(#bg)"/>
+<circle cx="1084" cy="88" r="160" fill="#A6D2C6" opacity="0.24"/>
+<circle cx="1014" cy="556" r="146" fill="#4B8B78" opacity="0.12"/>
+<circle cx="86" cy="550" r="110" fill="#A6D2C6" opacity="0.14"/>
+<rect x="58" y="58" width="1084" height="514" rx="34" fill="url(#panel)" stroke="#4B8B78" stroke-opacity="0.16"/>
+<rect x="92" y="84" width="282" height="42" rx="21" fill="#4B8B78"/>
+<text x="124" y="112" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">Đậu CV Blog</text>
+<text x="92" y="154" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="600" fill="#4B8B78">Career • Growth • Positioning</text>
+<text x="92" y="196" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="700" fill="#1E3A36">CV kế toán: cách trình bày</text><text x="92" y="258" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="700" fill="#1E3A36">kinh nghiệm, chứng từ và độ</text><text x="92" y="320" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="700" fill="#1E3A36">chính xác một cách thuyết p…</text>
+<rect x="92" y="444" width="396" height="54" rx="27" fill="#FFFFFF" stroke="#4B8B78" stroke-width="2"/>
+<text x="122" y="479" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#4B8B78">CV kế toán</text>
+<rect x="92" y="514" width="226" height="46" rx="23" fill="#1E3A36"/>
+<text x="122" y="544" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">daucv.com/blog</text>
+<text x="92" y="590" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="500" fill="#1E3A36" opacity="0.72">CV &amp; Resumes • Tối ưu CV • Tăng cơ hội phỏng vấn</text>
+
+<g transform="translate(824 102)">
+  <rect x="0" y="0" width="280" height="300" rx="36" fill="#1E3A36" opacity="0.08"/>
+  <path d="M38 246 C88 154 136 188 174 106 C194 62 230 42 252 54" stroke="#4B8B78" stroke-width="18" fill="none" stroke-linecap="round"/>
+  <circle cx="38" cy="246" r="18" fill="#A6D2C6"/>
+  <circle cx="174" cy="106" r="18" fill="#4B8B78" opacity="0.92"/>
+  <circle cx="252" cy="54" r="18" fill="#1E3A36" opacity="0.8"/>
+  <rect x="38" y="56" width="86" height="18" rx="9" fill="#A6D2C6"/>
+  <rect x="38" y="86" width="128" height="18" rx="9" fill="#A6D2C6" opacity="0.72"/>
+</g>
+</svg>
