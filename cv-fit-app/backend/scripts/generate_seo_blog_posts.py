@@ -19,7 +19,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 from zoneinfo import ZoneInfo
-from xml.sax.saxutils import escape
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
@@ -27,7 +26,6 @@ from pydantic import BaseModel, Field, model_validator
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 PROJECT_DIR = BACKEND_DIR.parent
 BLOG_DIR = PROJECT_DIR / "frontend" / "content" / "blog"
-PUBLIC_BLOG_DIR = PROJECT_DIR / "frontend" / "public" / "blog"
 
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
@@ -37,51 +35,35 @@ AUTHOR = "Bé Đậu"
 AUTHOR_AVATAR = "https://ui-avatars.com/api/?name=Bé+Đậu&background=E8F5E9&color=2E7D32"
 DEFAULT_CTA_HREF = "/app/setup"
 
-BRAND_PALETTES = [
-    {
-        "name": "ats",
-        "eyebrow": "ATS • Keyword • Layout",
-        "bg_start": "#EEF7E8",
-        "bg_end": "#F9FFF6",
-        "accent": "#5A9E40",
-        "accent_soft": "#A8C99A",
-        "ink": "#1F3B2F",
-        "panel": "#FFFFFF",
-        "pattern": "scan",
-    },
-    {
-        "name": "interview",
-        "eyebrow": "Interview • Storytelling • Confidence",
-        "bg_start": "#F3F8EA",
-        "bg_end": "#FFFDF7",
-        "accent": "#3F8F6B",
-        "accent_soft": "#BCD8AA",
-        "ink": "#223A33",
-        "panel": "#FFFDF8",
-        "pattern": "dialog",
-    },
-    {
-        "name": "career",
-        "eyebrow": "Career • Growth • Positioning",
-        "bg_start": "#ECF6F0",
-        "bg_end": "#F7FCFF",
-        "accent": "#4B8B78",
-        "accent_soft": "#A6D2C6",
-        "ink": "#1E3A36",
-        "panel": "#FFFFFF",
-        "pattern": "path",
-    },
-    {
-        "name": "ai",
-        "eyebrow": "AI • Optimisation • Workflow",
-        "bg_start": "#EEF7F1",
-        "bg_end": "#FCFFFB",
-        "accent": "#2F7D57",
-        "accent_soft": "#9ED3B4",
-        "ink": "#1D342C",
-        "panel": "#FFFFFF",
-        "pattern": "spark",
-    },
+COVER_IMAGES = [
+    "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?q=80&w=2072&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1551836022-d5d88e9218df?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=2084&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1556761175-b413da4baf72?q=80&w=2074&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1551836022-4c4c79ecde51?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1497366754035-f200968a6e72?q=80&w=2069&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1497366811353-6870744d04b2?q=80&w=2069&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=2032&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=2071&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1553877522-43269d4ea984?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1521791055366-0d553872125f?q=80&w=2069&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1559136555-9303baea8ebd?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1573496130141-209d200cebd8?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1556761175-4b46a572b786?q=80&w=2074&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1524758631624-e2822e304c36?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1551836022-8b2858c9c69b?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1516321497487-e288fb19713f?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1556761175-129418cb2dfe?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop",
 ]
 
 SEO_CLUSTERS = [
@@ -330,6 +312,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="Generate and print metadata without writing files.")
     parser.add_argument("--topic", action="append", default=[], help="Optional topic seed. Can be repeated.")
     parser.add_argument("--date", help="Publish date in YYYY-MM-DD. Defaults to Asia/Ho_Chi_Minh today.")
+    parser.add_argument("--allow-fallback", action="store_true", help="Allow offline template fallback if all providers fail.")
     return parser.parse_args()
 
 
@@ -348,6 +331,7 @@ def load_existing_posts() -> list[dict[str, str]]:
                 "slug": path.stem,
                 "title": str(frontmatter.get("title", path.stem)),
                 "description": str(frontmatter.get("description", "")),
+                "coverImage": str(frontmatter.get("coverImage", "")),
             }
         )
     return posts
@@ -380,147 +364,22 @@ def unique_slug(title: str, existing_slugs: set[str]) -> str:
     return slug
 
 
-def choose_palette(article: ArticleDraft) -> dict[str, str]:
-    haystack = " ".join(
-        [
-            article.title,
-            article.primary_keyword,
-            article.category,
-            *article.tags,
-        ]
-    ).lower()
-    if any(keyword in haystack for keyword in ("phỏng vấn", "interview", "cover letter", "linkedin")):
-        return BRAND_PALETTES[1]
-    if any(keyword in haystack for keyword in ("ai", "ats", "keyword", "fresher it", "data")):
-        return BRAND_PALETTES[0] if "ai" not in haystack else BRAND_PALETTES[3]
-    if any(keyword in haystack for keyword in ("manager", "sales", "marketing", "logistics", "kế toán", "nhân sự")):
-        return BRAND_PALETTES[2]
-    return BRAND_PALETTES[0]
-
-
-def wrap_svg_text(text: str, max_chars: int = 28, max_lines: int = 3) -> list[str]:
-    words = text.split()
-    if not words:
-        return ["Đậu CV"]
-
-    lines: list[str] = []
-    current = words[0]
-    for word in words[1:]:
-        candidate = f"{current} {word}"
-        if len(candidate) <= max_chars:
-            current = candidate
-            continue
-        lines.append(current)
-        current = word
-    lines.append(current)
-
-    if len(lines) <= max_lines:
-        return lines
-
-    collapsed = lines[: max_lines - 1]
-    tail = " ".join(lines[max_lines - 1 :]).strip()
-    if len(tail) > max_chars - 1:
-        tail = tail[: max_chars - 1].rstrip(" .,;:-") + "…"
-    collapsed.append(tail)
-    return collapsed
-
-
-def pattern_markup(pattern: str, accent: str, accent_soft: str, ink: str) -> str:
-    if pattern == "dialog":
-        return f"""
-<g transform="translate(830 110)">
-  <rect x="0" y="0" width="274" height="188" rx="32" fill="{accent}" opacity="0.14"/>
-  <rect x="24" y="34" width="178" height="78" rx="28" fill="{accent}" opacity="0.94"/>
-  <rect x="86" y="122" width="164" height="72" rx="28" fill="{accent_soft}" opacity="0.9"/>
-  <circle cx="56" cy="72" r="8" fill="#FFFFFF"/>
-  <circle cx="86" cy="72" r="8" fill="#FFFFFF"/>
-  <circle cx="116" cy="72" r="8" fill="#FFFFFF"/>
-</g>"""
-    if pattern == "path":
-        return f"""
-<g transform="translate(824 102)">
-  <rect x="0" y="0" width="280" height="300" rx="36" fill="{ink}" opacity="0.08"/>
-  <path d="M38 246 C88 154 136 188 174 106 C194 62 230 42 252 54" stroke="{accent}" stroke-width="18" fill="none" stroke-linecap="round"/>
-  <circle cx="38" cy="246" r="18" fill="{accent_soft}"/>
-  <circle cx="174" cy="106" r="18" fill="{accent}" opacity="0.92"/>
-  <circle cx="252" cy="54" r="18" fill="{ink}" opacity="0.8"/>
-  <rect x="38" y="56" width="86" height="18" rx="9" fill="{accent_soft}"/>
-  <rect x="38" y="86" width="128" height="18" rx="9" fill="{accent_soft}" opacity="0.72"/>
-</g>"""
-    if pattern == "spark":
-        return f"""
-<g transform="translate(844 108)">
-  <rect x="0" y="0" width="248" height="300" rx="34" fill="{accent}" opacity="0.08"/>
-  <path d="M120 32 L138 90 L196 108 L142 130 L126 188 L104 132 L46 116 L100 92 Z" fill="{accent}" opacity="0.96"/>
-  <circle cx="58" cy="226" r="22" fill="{accent_soft}" opacity="0.9"/>
-  <circle cx="188" cy="238" r="14" fill="{ink}" opacity="0.18"/>
-  <rect x="40" y="248" width="160" height="16" rx="8" fill="{ink}" opacity="0.12"/>
-  <rect x="40" y="274" width="116" height="16" rx="8" fill="{ink}" opacity="0.08"/>
-</g>"""
-    return f"""
-<g transform="translate(834 110)">
-  <rect x="0" y="0" width="256" height="308" rx="34" fill="{accent}" opacity="0.08"/>
-  <rect x="28" y="42" width="196" height="30" rx="15" fill="{accent_soft}" opacity="0.95"/>
-  <rect x="28" y="92" width="196" height="18" rx="9" fill="{ink}" opacity="0.12"/>
-  <rect x="28" y="124" width="156" height="18" rx="9" fill="{ink}" opacity="0.12"/>
-  <rect x="28" y="176" width="88" height="88" rx="22" fill="{accent}" opacity="0.9"/>
-  <rect x="136" y="176" width="88" height="88" rx="22" fill="{accent_soft}" opacity="0.88"/>
-  <path d="M52 220 H92" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"/>
-  <path d="M72 200 V240" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"/>
-</g>"""
-
-
-def render_cover_svg(article: ArticleDraft, slug: str) -> str:
-    palette = choose_palette(article)
-    title_lines = wrap_svg_text(article.title)
-    title_y = 196
-    title_markup = []
-    for index, line in enumerate(title_lines):
-        title_markup.append(
-            f'<text x="92" y="{title_y + index * 62}" font-family="Arial, Helvetica, sans-serif" '
-            f'font-size="50" font-weight="700" fill="{palette["ink"]}">{escape(line)}</text>'
-        )
-
-    keyword = escape(article.primary_keyword[:44].rstrip())
-    category = escape(article.category)
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
-<title>{escape(article.title)}</title>
-<desc>Branded DauCV blog cover for {escape(article.title)}</desc>
-<defs>
-  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="{palette["bg_start"]}"/>
-    <stop offset="100%" stop-color="{palette["bg_end"]}"/>
-  </linearGradient>
-  <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0%" stop-color="{palette["panel"]}" stop-opacity="0.98"/>
-    <stop offset="100%" stop-color="{palette["bg_start"]}" stop-opacity="0.9"/>
-  </linearGradient>
-</defs>
-<rect width="1200" height="630" rx="36" fill="url(#bg)"/>
-<circle cx="1084" cy="88" r="160" fill="{palette["accent_soft"]}" opacity="0.24"/>
-<circle cx="1014" cy="556" r="146" fill="{palette["accent"]}" opacity="0.12"/>
-<circle cx="86" cy="550" r="110" fill="{palette["accent_soft"]}" opacity="0.14"/>
-<rect x="58" y="58" width="1084" height="514" rx="34" fill="url(#panel)" stroke="{palette["accent"]}" stroke-opacity="0.16"/>
-<rect x="92" y="84" width="282" height="42" rx="21" fill="{palette["accent"]}"/>
-<text x="124" y="112" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">Đậu CV Blog</text>
-<text x="92" y="154" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="600" fill="{palette["accent"]}">{escape(palette["eyebrow"])}</text>
-{''.join(title_markup)}
-<rect x="92" y="444" width="396" height="54" rx="27" fill="{palette["panel"]}" stroke="{palette["accent"]}" stroke-width="2"/>
-<text x="122" y="479" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="{palette["accent"]}">{keyword}</text>
-<rect x="92" y="514" width="226" height="46" rx="23" fill="{palette["ink"]}"/>
-<text x="122" y="544" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">daucv.com/blog</text>
-<text x="92" y="590" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="500" fill="{palette["ink"]}" opacity="0.72">{category} • Tối ưu CV • Tăng cơ hội phỏng vấn</text>
-{pattern_markup(palette["pattern"], palette["accent"], palette["accent_soft"], palette["ink"])}
-</svg>
-"""
-
-
-def write_cover_image(article: ArticleDraft, slug: str) -> str:
-    PUBLIC_BLOG_DIR.mkdir(parents=True, exist_ok=True)
-    cover_filename = f"{slug}.svg"
-    cover_path = PUBLIC_BLOG_DIR / cover_filename
-    cover_path.write_text(render_cover_svg(article, slug), encoding="utf-8")
-    return f"/blog/{cover_filename}"
+def choose_cover_image(existing_posts: list[dict[str, str]], used_this_run: set[str]) -> str:
+    used_images = {
+        str(post.get("coverImage", "")).strip()
+        for post in existing_posts
+        if str(post.get("coverImage", "")).strip()
+    }
+    available = [
+        image
+        for image in COVER_IMAGES
+        if image not in used_images and image not in used_this_run
+    ]
+    if not available:
+        available = [image for image in COVER_IMAGES if image not in used_this_run] or COVER_IMAGES
+    cover_image = random.choice(available)
+    used_this_run.add(cover_image)
+    return cover_image
 
 
 def estimate_read_time(article: ArticleDraft) -> str:
@@ -656,6 +515,69 @@ def format_bullets(items: list[str]) -> list[str]:
     return [f"- {item.strip()}" for item in items]
 
 
+LAZY_PHRASES = [
+    "rất quan trọng",
+    "chìa khóa thành công",
+    "tăng cơ hội thành công",
+    "tạo ấn tượng tốt",
+    "nâng cao cơ hội",
+    "một cách hiệu quả",
+    "đóng vai trò quan trọng",
+]
+
+
+def article_word_count(article: ArticleDraft) -> int:
+    parts: list[str] = []
+    parts.extend(article.intro)
+    parts.extend(article.takeaways)
+    for section in article.sections:
+        parts.append(section.title)
+        parts.extend(section.paragraphs)
+        parts.extend(section.bullets)
+    parts.extend(article.checklist_items)
+    for step in article.steps:
+        parts.extend([step.title, step.description])
+    return len(re.findall(r"\w+", " ".join(parts), re.UNICODE))
+
+
+def validate_editorial_quality(article: ArticleDraft) -> None:
+    issues: list[str] = []
+    total_words = article_word_count(article)
+    if total_words < 850:
+        issues.append(f"draft too short ({total_words} words)")
+
+    all_text = " ".join(
+        [
+            article.title,
+            article.description,
+            *article.intro,
+            *article.takeaways,
+            *article.checklist_items,
+            *(paragraph for section in article.sections for paragraph in section.paragraphs),
+            *(bullet for section in article.sections for bullet in section.bullets),
+        ]
+    ).lower()
+    lazy_hits = [phrase for phrase in LAZY_PHRASES if phrase in all_text]
+    if len(lazy_hits) >= 3:
+        issues.append(f"too many lazy phrases: {', '.join(lazy_hits[:4])}")
+
+    thin_sections = [
+        section.title
+        for section in article.sections
+        if sum(len(paragraph.split()) for paragraph in section.paragraphs) < 70 and len(section.bullets) < 2
+    ]
+    if thin_sections:
+        issues.append(f"thin sections: {', '.join(thin_sections[:3])}")
+
+    concrete_markers = ["ví dụ", "trước:", "sau:", "jd", "bullet", "số liệu", "kết quả", "công cụ", "portfolio"]
+    marker_count = sum(all_text.count(marker) for marker in concrete_markers)
+    if marker_count < 4:
+        issues.append("not enough concrete examples or CV-specific details")
+
+    if issues:
+        raise ValueError("; ".join(issues))
+
+
 def build_prompt(existing_posts: list[dict[str, str]], topic_seed: str, publish_date: str) -> tuple[str, str]:
     existing_summary = "\n".join(
         f"- {post['slug']}: {post['title']}" for post in existing_posts[-60:]
@@ -664,6 +586,8 @@ def build_prompt(existing_posts: list[dict[str, str]], topic_seed: str, publish_
 Bạn là senior SEO content strategist cho Đậu CV (daucv.com), một sản phẩm AI giúp người Việt phân tích CV, tối ưu CV chuẩn ATS, chuẩn bị phỏng vấn và viết nội dung ứng tuyển.
 
 Nhiệm vụ: tạo một bài blog tiếng Việt evergreen, hữu ích, tự nhiên, không nhồi từ khóa, không bịa số liệu và không trích dẫn nguồn nếu không chắc. Bài viết phải phù hợp để xuất bản ở /blog trên daucv.com.
+
+Tiêu chuẩn biên tập: viết như một career coach có kinh nghiệm đọc CV thật, không viết kiểu bài SEO rỗng. Mỗi section phải có quan sát cụ thể, ví dụ thực tế hoặc tiêu chí tự kiểm tra. Tránh câu chung chung như "điều này rất quan trọng", "hãy tối ưu CV", "giúp tăng cơ hội" nếu không giải thích rõ làm gì và vì sao.
 
 Chỉ trả JSON hợp lệ theo schema. Không dùng Markdown trong JSON ngoài nội dung paragraph/bullet thông thường. Không tạo frontmatter, import, HTML, JSX hoặc MDX component.
 """.strip()
@@ -682,7 +606,11 @@ Yêu cầu nội dung:
 - Description 120-160 ký tự, có giá trị SEO.
 - Intro 2-4 đoạn ngắn.
 - Sections có heading rõ ràng, mỗi section đủ chi tiết và thực tế.
-- Bullet nên là lời khuyên hành động, không chung chung.
+- Mỗi section cần ít nhất 2 đoạn hoặc 1 đoạn dày + bullet cụ thể.
+- Bullet phải là lời khuyên hành động có ngữ cảnh, không chung chung.
+- Thêm ví dụ phrasing CV cụ thể khi phù hợp, ví dụ một bullet kinh nghiệm trước/sau hoặc câu mô tả có thể dùng ngay.
+- Không dùng các cụm sáo rỗng kiểu "nâng cao cơ hội thành công", "tạo ấn tượng tốt", "chìa khóa thành công" nếu không có hành động cụ thể đi kèm.
+- Không lặp lại cùng một ý ở intro, takeaways, sections và checklist.
 - Tags 3-6 tag ngắn.
 - Feature icons chỉ dùng các tên lucide phổ biến: ScanLine, LayoutTemplate, Wand2, Zap, Search, FileText, CheckCircle2, Briefcase, GraduationCap, Target, MessageSquare.
 - CTA hướng người đọc dùng Đậu để phân tích/tối ưu CV.
@@ -843,7 +771,7 @@ def fallback_article(topic_seed: str) -> ArticleDraft:
     )
 
 
-async def generate_one(existing_posts: list[dict[str, str]], topic_seed: str, publish_date: str) -> ArticleDraft:
+async def generate_one(existing_posts: list[dict[str, str]], topic_seed: str, publish_date: str, allow_fallback: bool) -> ArticleDraft:
     from app.core.config import PROVIDERS
 
     system_prompt, user_prompt = build_prompt(existing_posts, topic_seed, publish_date)
@@ -857,13 +785,19 @@ async def generate_one(existing_posts: list[dict[str, str]], topic_seed: str, pu
                 response_model=ArticleDraft,
                 temperature=0.82,
             )
+            validate_editorial_quality(result.data)
             return result.data
         except Exception as exc:
             last_error = exc
             print(f"[seo-blog] Provider {provider.name} failed: {exc}", file=sys.stderr)
 
-    print(f"[seo-blog] Falling back to offline template for topic: {topic_seed}", file=sys.stderr)
-    return fallback_article(topic_seed)
+    if allow_fallback:
+        print(f"[seo-blog] Falling back to offline template for topic: {topic_seed}", file=sys.stderr)
+        article = fallback_article(topic_seed)
+        validate_editorial_quality(article)
+        return article
+
+    raise RuntimeError(f"All providers failed quality or schema checks. Last error: {last_error}")
 
 
 async def main() -> int:
@@ -882,14 +816,15 @@ async def main() -> int:
 
     existing_posts = load_existing_posts()
     existing_slugs = {post["slug"] for post in existing_posts}
+    used_covers: set[str] = set()
     topic_pool = args.topic[:] or random.sample(SEO_CLUSTERS, k=min(count, len(SEO_CLUSTERS)))
 
     created: list[dict[str, str]] = []
     for index in range(count):
         topic_seed = topic_pool[index % len(topic_pool)]
-        article = await generate_one(existing_posts, topic_seed, publish_date)
+        article = await generate_one(existing_posts, topic_seed, publish_date, args.allow_fallback)
         slug = unique_slug(article.title, existing_slugs)
-        cover_image = write_cover_image(article, slug)
+        cover_image = choose_cover_image(existing_posts, used_covers)
         output = render_article(article, publish_date, cover_image)
         output_path = BLOG_DIR / f"{slug}.mdx"
 
