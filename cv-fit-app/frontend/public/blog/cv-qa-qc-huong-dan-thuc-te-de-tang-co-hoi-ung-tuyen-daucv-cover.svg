@@ -1,0 +1,47 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="110" y1="40" x2="1080" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#113B5C"/>
+      <stop offset="1" stop-color="#2E86AB"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="rgba(255,255,255,0.92)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0.78)"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1400" height="830" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="28" stdDeviation="40" flood-color="#081A14" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" rx="36" fill="url(#bg)"/>
+  <path d="M0 510C186 452 302 442 466 480C618 516 770 602 1200 486V630H0V510Z" fill="#D7EFFA" opacity="0.14"/>
+  <path d="M774 0C930 72 1028 166 1200 120V0H774Z" fill="#88C9E8" opacity="0.10"/>
+  <circle cx="934" cy="144" r="74" fill="#88C9E8" opacity="0.12"/><circle cx="881" cy="275" r="79" fill="#88C9E8" opacity="0.09"/><circle cx="895" cy="377" r="90" fill="#88C9E8" opacity="0.17"/><circle cx="875" cy="207" r="79" fill="#88C9E8" opacity="0.13"/>
+  <g filter="url(#shadow)">
+    <rect x="64" y="78" width="670" height="474" rx="34" fill="url(#panel)"/>
+    <rect x="98" y="112" width="152" height="42" rx="21" fill="#D7EFFA"/>
+    <text x="174" y="139" text-anchor="middle" fill="#113B5C" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">CV &amp; RESUMES</text>
+    <text x="98" y="214" fill="#113B5C" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="800">CV QA QC: hướng dẫn thực</text>
+    <text x="98" y="282" fill="#113B5C" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="800">tế để tăng cơ hội ứng</text><text x="98" y="350" fill="#113B5C" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="800">tuyển</text>
+    <rect x="98" y="376" width="540" height="2" fill="#88C9E8" opacity="0.65"/>
+    <text x="98" y="420" fill="#29443C" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">Hướng dẫn thực tế về CV QA QC dành cho người tìm</text><text x="98" y="456" fill="#29443C" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">việc tại Việt Nam, giúp CV rõ ràng hơn, chuẩn</text><text x="98" y="492" fill="#29443C" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">ATS hơn và tăng cơ hội được mời phỏng vấn.</text>
+    <text x="98" y="516" fill="#2E86AB" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">DauCV AI Career Assistant</text>
+  </g>
+  <g>
+    <rect x="810" y="112" width="312" height="392" rx="34" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.26)"/>
+    <rect x="850" y="148" width="232" height="56" rx="18" fill="rgba(255,255,255,0.12)"/>
+    <text x="966" y="184" text-anchor="middle" fill="#F6FCFF" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">Branded Cover</text>
+    <g transform="translate(850 214)"><g fill="none" stroke="#F6FFFB" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="18" y="28" width="194" height="244" rx="30" fill="rgba(246,255,251,0.08)" stroke="none"/>
+  <path d="M66 98h98"/>
+  <path d="M66 138h98"/>
+  <path d="M66 178h58"/>
+  <path d="M138 182l20 20 42-46"/>
+  <circle cx="76" cy="98" r="10" fill="#F6FFFB" stroke="none"/>
+  <circle cx="76" cy="138" r="10" fill="#F6FFFB" stroke="none"/>
+  <circle cx="76" cy="178" r="10" fill="#F6FFFB" stroke="none"/>
+</g></g>
+    <rect x="850" y="448" width="232" height="20" rx="10" fill="rgba(255,255,255,0.16)"/>
+    <rect x="850" y="482" width="178" height="20" rx="10" fill="rgba(255,255,255,0.16)"/>
+    <text x="966" y="542" text-anchor="middle" fill="#F6FCFF" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">daucv.com/blog</text>
+  </g>
+</svg>
