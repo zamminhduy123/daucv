@@ -1,0 +1,51 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="96" y1="54" x2="1104" y2="582" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#164E63"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="rgba(255,255,255,0.94)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0.80)"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1400" height="830" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="28" stdDeviation="40" flood-color="#081A14" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" rx="36" fill="url(#bg)"/>
+  <path d="M0 500C164 468 282 438 456 470C626 502 796 600 1200 474V630H0V500Z" fill="#CFFAFE" opacity="0.20"/>
+  <path d="M768 0C884 56 1028 160 1200 114V0H768Z" fill="#67E8F9" opacity="0.16"/>
+  <circle cx="908" cy="128" r="84" fill="#67E8F9" opacity="0.12"/>
+  <circle cx="874" cy="314" r="92" fill="#67E8F9" opacity="0.10"/>
+  <circle cx="972" cy="418" r="54" fill="#67E8F9" opacity="0.11"/>
+  <g filter="url(#shadow)">
+    <rect x="64" y="78" width="670" height="474" rx="34" fill="url(#panel)"/>
+    <rect x="98" y="112" width="188" height="42" rx="21" fill="#CFFAFE"/>
+    <text x="192" y="139" text-anchor="middle" fill="#164E63" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">CV TRAI NGANH</text>
+    <text x="98" y="208" fill="#164E63" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="800">Cách viết CV trái ngành: nhấn đúng</text>
+    <text x="98" y="276" fill="#164E63" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="800">kỹ năng để nhà tuyển dụng vẫn muốn</text>
+    <text x="98" y="344" fill="#164E63" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="800">gặp bạn</text>
+    <rect x="98" y="422" width="540" height="2" fill="#06B6D4" opacity="0.55"/>
+    <text x="98" y="446" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">Nối kinh nghiệm cũ với mục tiêu mới bằng kỹ năng</text>
+    <text x="98" y="480" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">chuyển đổi, dự án liên quan và cách kể chuyện gọn.</text>
+    <text x="98" y="516" fill="#155E75" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">DauCV AI Career Assistant</text>
+  </g>
+  <g>
+    <rect x="810" y="112" width="312" height="392" rx="34" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.28)"/>
+    <rect x="850" y="148" width="232" height="56" rx="18" fill="rgba(255,255,255,0.12)"/>
+    <text x="966" y="184" text-anchor="middle" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">Branded Cover</text>
+    <g transform="translate(836 200)"><g fill="none" stroke="#F8FAFC" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="24" y="44" width="224" height="224" rx="30" fill="rgba(248,250,252,0.08)" stroke="none"/>
+  <path d="M76 98h76"/>
+  <path d="M76 148h76"/>
+  <path d="M76 198h76"/>
+  <path d="M170 110l54 0"/>
+  <path d="M196 84l28 26-28 26"/>
+  <path d="M170 210l54 0"/>
+  <path d="M196 184l28 26-28 26"/>
+</g></g>
+    <rect x="850" y="448" width="232" height="20" rx="10" fill="rgba(255,255,255,0.16)"/>
+    <rect x="850" y="482" width="178" height="20" rx="10" fill="rgba(255,255,255,0.16)"/>
+    <text x="966" y="542" text-anchor="middle" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">daucv.com/blog</text>
+  </g>
+</svg>
