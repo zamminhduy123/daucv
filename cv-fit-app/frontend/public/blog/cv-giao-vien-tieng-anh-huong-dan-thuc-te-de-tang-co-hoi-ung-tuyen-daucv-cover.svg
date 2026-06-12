@@ -1,0 +1,50 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="88" y1="60" x2="1118" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#166534"/>
+      <stop offset="1" stop-color="#14B8A6"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="70" y1="82" x2="730" y2="552" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#ECFDF5" stop-opacity="0.88"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1400" height="830" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="28" stdDeviation="40" flood-color="#052E25" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" rx="36" fill="url(#bg)"/>
+  <path d="M0 492C150 458 314 444 470 478C640 516 780 596 1200 474V630H0V492Z" fill="#CCFBF1" opacity="0.18"/>
+  <path d="M740 0C870 70 1018 144 1200 102V0H740Z" fill="#A7F3D0" opacity="0.17"/>
+  <circle cx="924" cy="142" r="88" fill="#A7F3D0" opacity="0.15"/>
+  <circle cx="998" cy="416" r="64" fill="#CCFBF1" opacity="0.13"/>
+  <g filter="url(#shadow)">
+    <rect x="64" y="78" width="670" height="474" rx="34" fill="url(#panel)"/>
+    <rect x="98" y="112" width="214" height="42" rx="21" fill="#DCFCE7"/>
+    <text x="205" y="139" text-anchor="middle" fill="#166534" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">CV GIAO VIEN</text>
+    <text x="98" y="208" fill="#14532D" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="800">CV giao vien tieng Anh:</text>
+    <text x="98" y="276" fill="#14532D" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="800">viet ro nang luc giang day</text>
+    <text x="98" y="344" fill="#14532D" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="800">va ket qua hoc vien</text>
+    <rect x="98" y="422" width="540" height="2" fill="#14B8A6" opacity="0.62"/>
+    <text x="98" y="446" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">Goi mo cach trinh bay chung chi, giao an, lop hoc</text>
+    <text x="98" y="480" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">va tien bo cua hoc vien trong mot CV de doc.</text>
+    <text x="98" y="516" fill="#047857" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">DauCV AI Career Assistant</text>
+  </g>
+  <g>
+    <rect x="810" y="112" width="312" height="392" rx="34" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.28)"/>
+    <rect x="850" y="148" width="232" height="56" rx="18" fill="rgba(255,255,255,0.13)"/>
+    <text x="966" y="184" text-anchor="middle" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">Teaching CV</text>
+    <g fill="none" stroke="#F8FAFC" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M870 254h188c28 0 50 22 50 50v106c0 28-22 50-50 50H870c-28 0-50-22-50-50V304c0-28 22-50 50-50Z" fill="rgba(248,250,252,0.08)" stroke="none"/>
+      <path d="M868 298h196"/>
+      <path d="M898 340h70"/>
+      <path d="M898 382h132"/>
+      <path d="M898 424h92"/>
+      <path d="M1044 334l42 42-42 42"/>
+      <path d="M856 218l110-44 110 44-110 44-110-44Z"/>
+      <path d="M1076 218v72"/>
+    </g>
+    <rect x="850" y="448" width="232" height="20" rx="10" fill="rgba(255,255,255,0.16)"/>
+    <rect x="850" y="482" width="178" height="20" rx="10" fill="rgba(255,255,255,0.16)"/>
+    <text x="966" y="542" text-anchor="middle" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">daucv.com/blog</text>
+  </g>
+</svg>
