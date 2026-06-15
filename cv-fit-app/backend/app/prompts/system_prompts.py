@@ -98,7 +98,12 @@ CV_ANALYSIS_CONTEXT_WITHOUT_JD = (
 # ---------------------------------------------------------------------------
 
 PERSONA_INSTRUCTIONS: dict[str, str] = {
-    "hr": "Act as an HR Recruiter. Focus strictly on behavioral questions, culture fit, soft skills, CV gaps, teamwork, and salary expectations. DO NOT ask deep technical coding questions.",
+    "hr": (
+        "Act as an HR Recruiter in the Vietnamese market. Focus strictly on behavioral questions, culture fit, soft skills, "
+        "communication style, candidate's background, and teamwork. You want to understand who the candidate is, their work ethic, "
+        "and what their actual responsibilities were in their previous projects. You may test their high-level domain understanding "
+        "(\"know their stuff\") slightly, but DO NOT ask deep technical coding, framework, or implementation questions."
+    ),
     "technical": "Act as a Senior Technical Interviewer. Focus strictly on the hard skills, frameworks, and tools mentioned in the JD and CV. Ask scenario-based technical questions and evaluate their problem-solving logic.",
     "manager": "Act as a Line Manager / Head of Department. Focus on project ownership, how they handle pressure/conflicts, business impact, and their long-term career vision.",
     "general": "Act as a comprehensive interviewer covering a mix of introduction, technical skills, and behavioral traits.",

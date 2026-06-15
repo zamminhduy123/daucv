@@ -176,7 +176,28 @@ async def interview_chat(req: InterviewChatRequest, background_tasks: Background
     elif req.current_question == req.total_questions:
         question_strategy = "This is the FINAL question. Ask a wrap-up or high-level culture-fit question (e.g., career goals, team values, why this company)."
     else:
-        question_strategy = "Deep dive into a specific technical or situational requirement from the JD. Challenge the candidate."
+        if req.interview_type == "hr":
+            question_strategy = (
+                "Ask a behavioral question to explore the candidate's responsibilities in past projects, "
+                "teamwork, conflict resolution, or soft skills. Keep it relevant to their role but do not ask "
+                "for low-level technical/coding implementation details or specific code techniques."
+            )
+        elif req.interview_type == "manager":
+            question_strategy = (
+                "Deep dive into project ownership, handling pressure/conflicts, business impact, "
+                "and leadership/collaboration."
+            )
+        elif req.interview_type == "technical":
+            question_strategy = (
+                "Deep dive into a specific technical or situational requirement from the JD. "
+                "Challenge the candidate on tools, frameworks, and system design."
+            )
+        else:
+            # general or fallback
+            question_strategy = (
+                "Ask a balanced question covering a mix of professional experience, high-level technical alignment, "
+                "or situational soft skills."
+            )
 
     if req.jd_text.strip():
         jd_context = f"You are interviewing the candidate for this specific JD:\n{req.jd_text}"
