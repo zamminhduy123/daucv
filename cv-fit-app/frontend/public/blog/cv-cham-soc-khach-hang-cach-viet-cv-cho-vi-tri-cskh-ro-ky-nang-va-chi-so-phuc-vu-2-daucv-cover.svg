@@ -1,0 +1,51 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="84" y1="42" x2="1120" y2="592" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C3AED"/>
+      <stop offset="1" stop-color="#EC4899"/>
+    </linearGradient>
+    <linearGradient id="card" x1="64" y1="74" x2="734" y2="540" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDF4FF" stop-opacity="0.98"/>
+      <stop offset="1" stop-color="#FCE7F3" stop-opacity="0.92"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1400" height="860" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="24" stdDeviation="34" flood-color="#6D28D9" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" rx="36" fill="url(#bg)"/>
+  <path d="M0 514C184 456 338 454 518 486C684 516 878 602 1200 478V630H0V514Z" fill="#FDF4FF" opacity="0.16"/>
+  <circle cx="1002" cy="124" r="90" fill="#E9D5FF" opacity="0.18"/>
+  <circle cx="1084" cy="468" r="72" fill="#FBCFE8" opacity="0.15"/>
+  <g filter="url(#shadow)">
+    <rect x="64" y="78" width="686" height="476" rx="34" fill="url(#card)"/>
+    <rect x="98" y="112" width="364" height="42" rx="21" fill="#F5D0FE"/>
+    <text x="280" y="139" text-anchor="middle" fill="#7C3AED" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">CV CHAM SOC KHACH HANG</text>
+    <text x="98" y="202" fill="#581C87" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">CV cham soc khach hang:</text>
+    <text x="98" y="262" fill="#581C87" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">nho recruiter thay</text>
+    <text x="98" y="322" fill="#581C87" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">CSAT, SLA va cach xu ly van de</text>
+    <rect x="98" y="404" width="570" height="2" fill="#DB2777" opacity="0.58"/>
+    <text x="98" y="438" fill="#581C87" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">Lam ro ticket, ti le hai long, retention va cach ban giu giong dieu</text>
+    <text x="98" y="472" fill="#581C87" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">chuyen nghiep trong cac tinh huong khach hang can ho tro gap.</text>
+    <text x="98" y="512" fill="#7C3AED" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">DauCV AI Career Assistant</text>
+  </g>
+  <g>
+    <rect x="812" y="112" width="308" height="392" rx="34" fill="#FFFFFF" fill-opacity="0.11" stroke="#FFFFFF" stroke-opacity="0.28"/>
+    <rect x="852" y="148" width="228" height="54" rx="18" fill="#FFFFFF" fill-opacity="0.14"/>
+    <text x="966" y="182" text-anchor="middle" fill="#FDF4FF" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">Service Metrics</text>
+    <g fill="none" stroke="#FDF4FF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="850" y="246" width="232" height="180" rx="30" fill="#FFFFFF" fill-opacity="0.08"/>
+      <path d="M886 396h162"/>
+      <path d="M902 288h128"/>
+      <path d="M902 332h92"/>
+      <path d="M902 376h74"/>
+      <circle cx="1040" cy="286" r="18"/>
+      <path d="M1040 270v32"/>
+      <path d="M1024 286h32"/>
+      <path d="M904 454h164"/>
+      <path d="M916 214c16 18 28 28 50 28 30 0 38-20 58-20 22 0 30 10 42 24"/>
+    </g>
+    <rect x="852" y="448" width="230" height="18" rx="9" fill="#FFFFFF" fill-opacity="0.18"/>
+    <rect x="852" y="478" width="178" height="18" rx="9" fill="#FFFFFF" fill-opacity="0.18"/>
+    <text x="966" y="542" text-anchor="middle" fill="#FDF4FF" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">daucv.com/blog</text>
+  </g>
+</svg>

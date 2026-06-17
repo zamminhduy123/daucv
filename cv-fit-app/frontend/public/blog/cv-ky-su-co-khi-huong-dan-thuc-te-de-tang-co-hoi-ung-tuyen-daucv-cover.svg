@@ -1,0 +1,52 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="40" x2="1114" y2="588" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F766E"/>
+      <stop offset="1" stop-color="#0891B2"/>
+    </linearGradient>
+    <linearGradient id="card" x1="66" y1="76" x2="738" y2="542" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F0FDFA" stop-opacity="0.98"/>
+      <stop offset="1" stop-color="#CCFBF1" stop-opacity="0.92"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1400" height="860" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="24" stdDeviation="34" flood-color="#0F766E" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" rx="36" fill="url(#bg)"/>
+  <path d="M0 520C188 460 346 454 516 484C686 514 884 606 1200 484V630H0V520Z" fill="#ECFEFF" opacity="0.16"/>
+  <circle cx="1016" cy="122" r="94" fill="#99F6E4" opacity="0.18"/>
+  <circle cx="1090" cy="466" r="70" fill="#CFFAFE" opacity="0.14"/>
+  <g filter="url(#shadow)">
+    <rect x="64" y="78" width="688" height="476" rx="34" fill="url(#card)"/>
+    <rect x="98" y="112" width="306" height="42" rx="21" fill="#CCFBF1"/>
+    <text x="251" y="139" text-anchor="middle" fill="#0F766E" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">CV KY SU CO KHI</text>
+    <text x="98" y="206" fill="#134E4A" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">CV ky su co khi:</text>
+    <text x="98" y="270" fill="#134E4A" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">cho recruiter thay</text>
+    <text x="98" y="334" fill="#134E4A" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">quy trinh, ban ve, san xuat</text>
+    <rect x="98" y="414" width="566" height="2" fill="#0891B2" opacity="0.58"/>
+    <text x="98" y="444" fill="#134E4A" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">Nhan manh CAD, bao tri, lean, an toan va chi so giam loi</text>
+    <text x="98" y="478" fill="#134E4A" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">de CV khong chi liet ke cong viec ma the hien nang luc van hanh.</text>
+    <text x="98" y="516" fill="#0F766E" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">DauCV AI Career Assistant</text>
+  </g>
+  <g>
+    <rect x="812" y="112" width="308" height="392" rx="34" fill="#FFFFFF" fill-opacity="0.10" stroke="#FFFFFF" stroke-opacity="0.28"/>
+    <rect x="850" y="148" width="232" height="54" rx="18" fill="#FFFFFF" fill-opacity="0.14"/>
+    <text x="966" y="182" text-anchor="middle" fill="#F0FDFA" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">Engineering Proof</text>
+    <g fill="none" stroke="#F0FDFA" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="850" y="244" width="232" height="182" rx="30" fill="#FFFFFF" fill-opacity="0.08"/>
+      <circle cx="916" cy="334" r="42"/>
+      <circle cx="1020" cy="304" r="34"/>
+      <path d="M916 270v22"/>
+      <path d="M916 376v22"/>
+      <path d="M852 334h22"/>
+      <path d="M958 334h24"/>
+      <path d="M990 270l18 18"/>
+      <path d="M1032 352l16 16"/>
+      <path d="M1006 366h54"/>
+      <path d="M886 454h160"/>
+    </g>
+    <rect x="852" y="448" width="228" height="18" rx="9" fill="#FFFFFF" fill-opacity="0.18"/>
+    <rect x="852" y="478" width="170" height="18" rx="9" fill="#FFFFFF" fill-opacity="0.18"/>
+    <text x="966" y="542" text-anchor="middle" fill="#F0FDFA" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">daucv.com/blog</text>
+  </g>
+</svg>
