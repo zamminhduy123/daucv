@@ -1,0 +1,52 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg-bd" x1="70" y1="38" x2="1116" y2="594" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1E1B4B"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="panel-bd" x1="86" y1="80" x2="734" y2="556" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.97"/>
+      <stop offset="1" stop-color="#EDE9FE" stop-opacity="0.9"/>
+    </linearGradient>
+    <filter id="shadow-bd" x="0" y="0" width="1400" height="830" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="28" stdDeviation="42" flood-color="#020617" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" rx="36" fill="url(#bg-bd)"/>
+  <path d="M0 506C198 454 364 444 518 478C686 516 836 590 1200 518V630H0V506Z" fill="#C4B5FD" opacity="0.16"/>
+  <path d="M808 0C928 64 1056 156 1200 128V0H808Z" fill="#93C5FD" opacity="0.14"/>
+  <circle cx="930" cy="136" r="90" fill="#A78BFA" opacity="0.11"/>
+  <g filter="url(#shadow-bd)">
+    <rect x="60" y="78" width="688" height="470" rx="34" fill="url(#panel-bd)"/>
+    <rect x="96" y="112" width="280" height="42" rx="21" fill="#E0E7FF"/>
+    <text x="236" y="139" text-anchor="middle" fill="#3730A3" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">CV BUSINESS DEVELOPMENT</text>
+    <text x="96" y="204" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">CV business development:</text>
+    <text x="96" y="264" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">nho pipeline, deal va quan he doi tac</text>
+    <text x="96" y="324" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">thanh bang chung ve nang luc tang truong</text>
+    <rect x="96" y="406" width="568" height="2" fill="#4F46E5" opacity="0.42"/>
+    <text x="96" y="438" fill="#374151" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">Lam ro kha nang mo rong thi truong, mo cuoc hen va giu nhiet</text>
+    <text x="96" y="472" fill="#374151" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">duong ong ban hang bang so lieu cu the, gon va de quet.</text>
+    <text x="96" y="510" fill="#1D4ED8" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">DauCV AI Career Assistant</text>
+  </g>
+  <g>
+    <rect x="808" y="110" width="316" height="398" rx="34" fill="#FFFFFF" fill-opacity="0.10" stroke="#FFFFFF" stroke-opacity="0.28"/>
+    <rect x="844" y="146" width="244" height="54" rx="17" fill="#FFFFFF" fill-opacity="0.12"/>
+    <text x="966" y="181" text-anchor="middle" fill="#EEF2FF" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">Growth Snapshot</text>
+    <g transform="translate(846 226)">
+      <rect x="0" y="0" width="240" height="226" rx="26" fill="#F5F3FF" fill-opacity="0.08"/>
+      <path d="M28 180H212" stroke="#E0E7FF" stroke-width="10" stroke-linecap="round"/>
+      <path d="M48 164L90 132L126 146L170 88L204 62" stroke="#C4B5FD" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="90" cy="132" r="11" fill="#FFFFFF"/>
+      <circle cx="126" cy="146" r="11" fill="#FFFFFF"/>
+      <circle cx="170" cy="88" r="11" fill="#FFFFFF"/>
+      <circle cx="204" cy="62" r="11" fill="#FFFFFF"/>
+      <rect x="34" y="34" width="78" height="60" rx="18" fill="#FFFFFF" fill-opacity="0.14"/>
+      <text x="73" y="60" text-anchor="middle" fill="#EEF2FF" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">PIPELINE</text>
+      <text x="73" y="84" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800">120%</text>
+      <rect x="134" y="34" width="72" height="60" rx="18" fill="#FFFFFF" fill-opacity="0.14"/>
+      <text x="170" y="60" text-anchor="middle" fill="#EEF2FF" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">DEALS</text>
+      <text x="170" y="84" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800">18</text>
+    </g>
+    <text x="966" y="542" text-anchor="middle" fill="#EEF2FF" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">daucv.com/blog</text>
+  </g>
+</svg>
