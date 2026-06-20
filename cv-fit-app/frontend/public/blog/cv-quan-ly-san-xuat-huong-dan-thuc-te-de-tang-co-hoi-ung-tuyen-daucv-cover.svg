@@ -1,0 +1,51 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg-prod" x1="40" y1="34" x2="1160" y2="620" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#0F766E"/>
+    </linearGradient>
+    <linearGradient id="panel-prod" x1="74" y1="82" x2="748" y2="542" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC" stop-opacity="0.98"/>
+      <stop offset="1" stop-color="#CCFBF1" stop-opacity="0.92"/>
+    </linearGradient>
+    <filter id="shadow-prod" x="0" y="0" width="1400" height="850" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="28" stdDeviation="38" flood-color="#020617" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" rx="36" fill="url(#bg-prod)"/>
+  <path d="M0 508C212 438 400 438 572 488C748 538 924 592 1200 526V630H0V508Z" fill="#5EEAD4" opacity="0.14"/>
+  <circle cx="1000" cy="124" r="86" fill="#99F6E4" opacity="0.12"/>
+  <path d="M860 0C952 56 1068 144 1200 128V0H860Z" fill="#22D3EE" opacity="0.12"/>
+  <g filter="url(#shadow-prod)">
+    <rect x="58" y="78" width="696" height="472" rx="34" fill="url(#panel-prod)"/>
+    <rect x="94" y="112" width="250" height="42" rx="21" fill="#CCFBF1"/>
+    <text x="219" y="139" text-anchor="middle" fill="#0F766E" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">CV QUAN LY SAN XUAT</text>
+    <text x="94" y="206" fill="#0F172A" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">CV quan ly san xuat:</text>
+    <text x="94" y="266" fill="#0F172A" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">bien KPI, lean va nang luc dieu phoi</text>
+    <text x="94" y="326" fill="#0F172A" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">thanh thanh tich de recruiter doc nhanh</text>
+    <rect x="94" y="404" width="572" height="2" fill="#0F766E" opacity="0.36"/>
+    <text x="94" y="438" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">Nhấn mạnh san luong, chat luong, an toan va kha nang giu day chuyen on dinh.</text>
+    <text x="94" y="474" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">Mot bo cuc gon, co so lieu se giup CV manh hon rat nhieu.</text>
+    <text x="94" y="510" fill="#0F766E" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">DauCV AI Career Assistant</text>
+  </g>
+  <g>
+    <rect x="818" y="110" width="306" height="402" rx="34" fill="#FFFFFF" fill-opacity="0.10" stroke="#FFFFFF" stroke-opacity="0.26"/>
+    <text x="971" y="154" text-anchor="middle" fill="#ECFEFF" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">Production Snapshot</text>
+    <g transform="translate(850 194)">
+      <rect x="0" y="0" width="242" height="246" rx="26" fill="#ECFEFF" fill-opacity="0.08"/>
+      <rect x="22" y="34" width="82" height="62" rx="18" fill="#FFFFFF" fill-opacity="0.16"/>
+      <text x="63" y="60" text-anchor="middle" fill="#CCFBF1" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">OEE</text>
+      <text x="63" y="86" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800">89%</text>
+      <rect x="138" y="34" width="82" height="62" rx="18" fill="#FFFFFF" fill-opacity="0.16"/>
+      <text x="179" y="60" text-anchor="middle" fill="#CCFBF1" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">SCRAP</text>
+      <text x="179" y="86" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800">-18%</text>
+      <path d="M32 188H210" stroke="#99F6E4" stroke-width="10" stroke-linecap="round"/>
+      <rect x="48" y="146" width="28" height="42" rx="10" fill="#67E8F9"/>
+      <rect x="92" y="124" width="28" height="64" rx="10" fill="#5EEAD4"/>
+      <rect x="136" y="96" width="28" height="92" rx="10" fill="#2DD4BF"/>
+      <rect x="180" y="78" width="28" height="110" rx="10" fill="#14B8A6"/>
+      <path d="M38 220C78 190 122 188 168 154C180 146 192 130 204 110" stroke="#F8FAFC" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <text x="971" y="544" text-anchor="middle" fill="#ECFEFF" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">daucv.com/blog</text>
+  </g>
+</svg>

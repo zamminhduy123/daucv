@@ -1,0 +1,51 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg-ldt" x1="54" y1="22" x2="1138" y2="620" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4C1D95"/>
+      <stop offset="1" stop-color="#0369A1"/>
+    </linearGradient>
+    <linearGradient id="panel-ldt" x1="74" y1="80" x2="748" y2="548" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.98"/>
+      <stop offset="1" stop-color="#E0F2FE" stop-opacity="0.92"/>
+    </linearGradient>
+    <filter id="shadow-ldt" x="0" y="0" width="1400" height="850" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="28" stdDeviation="40" flood-color="#0F172A" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" rx="36" fill="url(#bg-ldt)"/>
+  <path d="M0 496C174 472 352 424 534 464C736 508 884 596 1200 516V630H0V496Z" fill="#BAE6FD" opacity="0.14"/>
+  <circle cx="944" cy="138" r="92" fill="#C4B5FD" opacity="0.13"/>
+  <g filter="url(#shadow-ldt)">
+    <rect x="60" y="78" width="694" height="474" rx="34" fill="url(#panel-ldt)"/>
+    <rect x="96" y="112" width="232" height="42" rx="21" fill="#EDE9FE"/>
+    <text x="212" y="139" text-anchor="middle" fill="#6D28D9" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">CV DAO TAO NOI BO</text>
+    <text x="96" y="206" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">CV dao tao noi bo:</text>
+    <text x="96" y="266" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">gom nhu cau, khung hoc tap va ket qua</text>
+    <text x="96" y="326" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">thanh gia tri de doanh nghiep thay ngay</text>
+    <rect x="96" y="404" width="570" height="2" fill="#6D28D9" opacity="0.32"/>
+    <text x="96" y="438" fill="#374151" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">Lam ro nang luc xay chuong trinh, facilitation va do luong su chuyen doi sau dao tao.</text>
+    <text x="96" y="474" fill="#374151" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="500">CV can cho thay ban khong chi day, ma con giup doi ngu hoc nhanh hon.</text>
+    <text x="96" y="510" fill="#0369A1" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">DauCV AI Career Assistant</text>
+  </g>
+  <g>
+    <rect x="816" y="112" width="310" height="396" rx="34" fill="#FFFFFF" fill-opacity="0.10" stroke="#FFFFFF" stroke-opacity="0.28"/>
+    <text x="971" y="156" text-anchor="middle" fill="#EFF6FF" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">Learning Snapshot</text>
+    <g transform="translate(844 202)">
+      <rect x="0" y="0" width="254" height="236" rx="26" fill="#F8FAFC" fill-opacity="0.08"/>
+      <rect x="22" y="28" width="210" height="56" rx="18" fill="#FFFFFF" fill-opacity="0.16"/>
+      <text x="46" y="54" fill="#E0F2FE" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">NEEDS ANALYSIS</text>
+      <path d="M46 68H178" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="200" cy="56" r="16" fill="#BAE6FD"/>
+      <path d="M48 126H206" stroke="#BFDBFE" stroke-width="10" stroke-linecap="round"/>
+      <path d="M48 170H184" stroke="#C4B5FD" stroke-width="10" stroke-linecap="round"/>
+      <path d="M48 214H224" stroke="#7DD3FC" stroke-width="10" stroke-linecap="round"/>
+      <rect x="34" y="104" width="20" height="20" rx="6" fill="#38BDF8"/>
+      <rect x="34" y="148" width="20" height="20" rx="6" fill="#8B5CF6"/>
+      <rect x="34" y="192" width="20" height="20" rx="6" fill="#0EA5E9"/>
+      <rect x="164" y="30" width="52" height="52" rx="16" fill="#FFFFFF" fill-opacity="0.12"/>
+      <text x="190" y="52" text-anchor="middle" fill="#E0F2FE" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700">NPS</text>
+      <text x="190" y="70" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800">4.8</text>
+    </g>
+    <text x="971" y="542" text-anchor="middle" fill="#EFF6FF" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">daucv.com/blog</text>
+  </g>
+</svg>
