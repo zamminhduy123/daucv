@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for CV Logistics Coordinator article</title>
+  <desc id="desc">A branded DauCV blog cover with logistics coordination visuals.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF8EF"/>
+      <stop offset="0.48" stop-color="#F2FBEF"/>
+      <stop offset="1" stop-color="#EFF7FF"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#4A3412" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <path d="M0 512 C130 468 232 560 380 520 C550 474 636 390 792 442 C944 493 1068 444 1200 386 L1200 675 L0 675 Z" fill="#D8F0C8"/>
+  <rect x="82" y="78" width="460" height="518" rx="30" fill="#FFFFFF" filter="url(#shadow)"/>
+  <rect x="126" y="124" width="162" height="18" rx="9" fill="#2E7D32"/>
+  <rect x="126" y="176" width="336" height="72" rx="18" fill="#FFF2DC"/>
+  <rect x="126" y="282" width="336" height="72" rx="18" fill="#E8F5E9"/>
+  <rect x="126" y="388" width="336" height="72" rx="18" fill="#EEF6FF"/>
+  <path d="M426 212 H510 M426 318 H510 M426 424 H510" stroke="#2E7D32" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="176" cy="212" r="20" fill="#2E7D32"/>
+  <circle cx="176" cy="318" r="20" fill="#F6B756"/>
+  <circle cx="176" cy="424" r="20" fill="#70B7E8"/>
+  <g transform="translate(646 150)">
+    <rect x="0" y="92" width="370" height="168" rx="24" fill="#FFFFFF" filter="url(#shadow)"/>
+    <rect x="44" y="46" width="208" height="132" rx="18" fill="#F6B756"/>
+    <rect x="82" y="84" width="58" height="38" rx="6" fill="#FFE8BE"/>
+    <rect x="160" y="84" width="58" height="38" rx="6" fill="#FFE8BE"/>
+    <path d="M252 140 H316 L352 188 V236 H252 Z" fill="#2E7D32"/>
+    <path d="M316 158 H340 L360 188 H316 Z" fill="#C8F0D3"/>
+    <circle cx="96" cy="252" r="30" fill="#1B4332"/>
+    <circle cx="306" cy="252" r="30" fill="#1B4332"/>
+    <circle cx="96" cy="252" r="12" fill="#FFFFFF"/>
+    <circle cx="306" cy="252" r="12" fill="#FFFFFF"/>
+    <path d="M18 300 H352" stroke="#DCEFE2" stroke-width="14" stroke-linecap="round"/>
+  </g>
+  <text x="614" y="498" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700" fill="#2E7D32">DauCV</text>
+  <text x="614" y="546" font-family="Inter, Arial, sans-serif" font-size="50" font-weight="800" fill="#1B4332">CV Logistics Coordinator</text>
+  <text x="614" y="588" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" fill="#6A542E">The hien dieu phoi, tien do, ket qua</text>
+</svg>
