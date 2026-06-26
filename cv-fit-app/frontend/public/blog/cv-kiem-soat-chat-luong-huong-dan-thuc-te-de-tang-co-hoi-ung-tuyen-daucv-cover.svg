@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for CV kiểm soát chất lượng</title>
+  <desc id="desc">Branded DauCV-style SEO blog cover with quality-control gauges, inspection cards, and CV scoring visuals.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F0FDF4"/>
+      <stop offset="48%" stop-color="#E0F2FE"/>
+      <stop offset="100%" stop-color="#CCFBF1"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F7FFFB"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#164E63" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <circle cx="112" cy="120" r="135" fill="#99F6E4" opacity="0.32"/>
+  <circle cx="1048" cy="548" r="188" fill="#22C55E" opacity="0.14"/>
+  <g transform="translate(78 72)">
+    <rect width="1044" height="530" rx="32" fill="url(#card)" filter="url(#shadow)"/>
+    <rect x="38" y="36" width="114" height="36" rx="18" fill="#16A34A"/>
+    <text x="95" y="60" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#FFFFFF">DauCV</text>
+    <text x="38" y="130" font-family="Inter, Arial, sans-serif" font-size="52" font-weight="900" fill="#123524">CV kiểm soát chất lượng</text>
+    <text x="38" y="176" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="700" fill="#0F766E">Viết rõ tiêu chuẩn, lỗi giảm và kết quả đo được</text>
+    <g transform="translate(46 232)">
+      <rect width="420" height="214" rx="26" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="3"/>
+      <text x="30" y="48" font-family="Inter, Arial, sans-serif" font-size="25" font-weight="900" fill="#14532D">Hồ sơ đạt chuẩn</text>
+      <g transform="translate(34 78)">
+        <rect width="330" height="20" rx="10" fill="#D1FAE5"/>
+        <rect width="268" height="20" rx="10" fill="#16A34A"/>
+        <text x="0" y="58" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#166534">Kiểm tra quy trình</text>
+        <text x="236" y="58" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="900" fill="#166534">81%</text>
+        <rect y="80" width="330" height="20" rx="10" fill="#D1FAE5"/>
+        <rect y="80" width="298" height="20" rx="10" fill="#0F766E"/>
+        <text x="0" y="138" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#166534">Giảm lỗi sản phẩm</text>
+        <text x="266" y="138" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="900" fill="#166534">90%</text>
+      </g>
+    </g>
+    <g transform="translate(548 216)">
+      <rect width="394" height="260" rx="30" fill="#F8FAFC" stroke="#BAE6FD" stroke-width="3"/>
+      <circle cx="198" cy="126" r="88" fill="#E0F2FE" stroke="#38BDF8" stroke-width="12"/>
+      <path d="M142 132 l32 32 l82 -92" fill="none" stroke="#16A34A" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+      <g font-family="Inter, Arial, sans-serif" font-size="19" font-weight="800" fill="#0F172A">
+        <rect x="42" y="26" width="96" height="36" rx="18" fill="#DCFCE7"/>
+        <text x="90" y="50" text-anchor="middle">QC</text>
+        <rect x="256" y="26" width="96" height="36" rx="18" fill="#DBEAFE"/>
+        <text x="304" y="50" text-anchor="middle">ISO</text>
+        <rect x="132" y="212" width="130" height="34" rx="17" fill="#FEF3C7"/>
+        <text x="197" y="235" text-anchor="middle">KPI rõ</text>
+      </g>
+    </g>
+  </g>
+</svg>
