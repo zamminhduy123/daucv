@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for CV chuyen vien M&amp;A</title>
+  <desc id="desc">A branded DauCV blog cover with merger, finance, and CV card graphics.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="0.5" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#14b8a6"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef2ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <circle cx="978" cy="124" r="170" fill="#ffffff" opacity="0.08"/>
+  <circle cx="1010" cy="156" r="102" fill="#ffffff" opacity="0.08"/>
+  <path d="M0 504 C160 448 287 489 420 451 C597 400 696 275 866 323 C1009 363 1081 452 1200 394 L1200 675 L0 675 Z" fill="#030712" opacity="0.24"/>
+  <g transform="translate(76 72)">
+    <rect x="0" y="0" width="192" height="56" rx="18" fill="#ffffff" opacity="0.96"/>
+    <circle cx="31" cy="28" r="16" fill="#22c55e"/>
+    <path d="M25 28 L31 34 L42 20" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="58" y="36" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800" fill="#14532d">DauCV</text>
+  </g>
+  <g transform="translate(80 174)">
+    <text x="0" y="0" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="900" fill="#ffffff">CV chuyên viên</text>
+    <text x="0" y="72" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="900" fill="#ffffff">M&amp;A</text>
+    <text x="0" y="128" font-family="Inter, Arial, sans-serif" font-size="25" font-weight="600" fill="#e0f2fe">Nêu bật phân tích, giao dịch và tác động kinh doanh</text>
+  </g>
+  <g transform="translate(662 90)">
+    <rect x="0" y="0" width="418" height="470" rx="34" fill="url(#paper)" opacity="0.98"/>
+    <g transform="translate(48 54)">
+      <rect x="0" y="0" width="146" height="148" rx="24" fill="#dbeafe"/>
+      <rect x="222" y="0" width="146" height="148" rx="24" fill="#ccfbf1"/>
+      <path d="M146 74 H222" stroke="#4f46e5" stroke-width="18" stroke-linecap="round"/>
+      <path d="M196 48 L222 74 L196 100" fill="none" stroke="#4f46e5" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M48 96 C70 60 94 72 112 42" fill="none" stroke="#2563eb" stroke-width="12" stroke-linecap="round"/>
+      <path d="M268 95 V54 M300 95 V34 M332 95 V70" stroke="#0f766e" stroke-width="16" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(58 254)">
+      <rect x="0" y="0" width="302" height="26" rx="13" fill="#4f46e5"/>
+      <rect x="0" y="58" width="246" height="18" rx="9" fill="#6366f1" opacity="0.45"/>
+      <rect x="0" y="98" width="286" height="18" rx="9" fill="#14b8a6" opacity="0.5"/>
+      <rect x="0" y="138" width="210" height="18" rx="9" fill="#6366f1" opacity="0.3"/>
+    </g>
+  </g>
+  <text x="82" y="604" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#ffffff" opacity="0.92">daucv.com/blog</text>
+</svg>
