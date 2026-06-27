@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for CV chuyen vien xuat nhap khau</title>
+  <desc id="desc">A branded DauCV-style import export CV cover with container stacks, route lines, and a resume card.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6fbf8"/>
+      <stop offset="0.52" stop-color="#e3f3f0"/>
+      <stop offset="1" stop-color="#fff2d6"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#164238" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <path d="M80 510 C210 460 320 505 455 465 C620 416 720 478 850 430 C990 378 1090 428 1200 392" fill="none" stroke="#1f8a5b" stroke-width="5" stroke-dasharray="14 18" opacity="0.42"/>
+  <circle cx="110" cy="500" r="13" fill="#f4b942"/>
+  <circle cx="855" cy="430" r="13" fill="#f4b942"/>
+  <circle cx="1130" cy="410" r="13" fill="#f4b942"/>
+  <g transform="translate(88 70)">
+    <rect width="132" height="46" rx="23" fill="#1f8a5b"/>
+    <text x="28" y="31" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="800" fill="#ffffff">DauCV</text>
+  </g>
+  <g transform="translate(105 190)">
+    <text font-family="Inter, Arial, sans-serif" font-size="50" font-weight="900" fill="#153f34">CV xuất</text>
+    <text y="62" font-family="Inter, Arial, sans-serif" font-size="50" font-weight="900" fill="#153f34">nhập khẩu</text>
+    <text y="118" font-family="Inter, Arial, sans-serif" font-size="25" font-weight="600" fill="#50675f">Làm rõ nghiệp vụ, chứng từ, tiến độ và kết quả</text>
+    <rect y="162" width="336" height="48" rx="24" fill="#f4b942"/>
+    <text x="28" y="194" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#153f34">Hồ sơ đi đúng tuyến</text>
+  </g>
+  <g transform="translate(652 82)" filter="url(#shadow)">
+    <rect width="365" height="458" rx="34" fill="#ffffff"/>
+    <rect x="42" y="46" width="160" height="18" rx="9" fill="#1f8a5b"/>
+    <rect x="42" y="88" width="265" height="12" rx="6" fill="#d7e8e3"/>
+    <rect x="42" y="116" width="228" height="12" rx="6" fill="#d7e8e3"/>
+    <rect x="42" y="170" width="284" height="74" rx="18" fill="#eef7f3"/>
+    <path d="M72 207 H296" stroke="#1f8a5b" stroke-width="8" stroke-linecap="round"/>
+    <path d="M244 183 L296 207 L244 231" fill="none" stroke="#1f8a5b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="42" y="288" width="282" height="12" rx="6" fill="#d7e8e3"/>
+    <rect x="42" y="320" width="220" height="12" rx="6" fill="#d7e8e3"/>
+    <rect x="42" y="352" width="252" height="12" rx="6" fill="#d7e8e3"/>
+    <rect x="42" y="402" width="132" height="30" rx="15" fill="#f4b942"/>
+  </g>
+  <g transform="translate(590 448)">
+    <rect width="128" height="54" rx="8" fill="#1f8a5b"/>
+    <rect x="138" y="0" width="128" height="54" rx="8" fill="#f4b942"/>
+    <rect x="276" y="0" width="128" height="54" rx="8" fill="#2c6e52"/>
+    <rect x="66" y="66" width="128" height="54" rx="8" fill="#f4b942"/>
+    <rect x="204" y="66" width="128" height="54" rx="8" fill="#1f8a5b"/>
+    <g stroke="#ffffff" stroke-width="5" opacity="0.5">
+      <path d="M18 17 H110 M18 34 H110"/>
+      <path d="M156 17 H248 M156 34 H248"/>
+      <path d="M294 17 H386 M294 34 H386"/>
+      <path d="M84 83 H176 M84 100 H176"/>
+      <path d="M222 83 H314 M222 100 H314"/>
+    </g>
+  </g>
+</svg>
