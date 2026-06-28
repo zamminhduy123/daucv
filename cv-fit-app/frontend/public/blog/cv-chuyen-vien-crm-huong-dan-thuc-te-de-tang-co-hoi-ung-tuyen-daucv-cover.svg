@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for CV chuyên viên CRM</title>
+  <desc id="desc">Branded DauCV cover with CRM pipeline cards and customer data motifs.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E8F5E9"/>
+      <stop offset="0.52" stop-color="#F4FBF6"/>
+      <stop offset="1" stop-color="#E5F0FF"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F0F7F2"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#174A2C" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <circle cx="1045" cy="120" r="88" fill="#BDE7CB" opacity="0.65"/>
+  <circle cx="112" cy="568" r="96" fill="#C9DAFF" opacity="0.45"/>
+  <rect x="72" y="68" width="1056" height="539" rx="34" fill="url(#panel)" filter="url(#shadow)"/>
+  <text x="116" y="129" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="800" fill="#1E7D42">DauCV</text>
+  <text x="116" y="174" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" fill="#4B6355">SEO BLOG GUIDE</text>
+  <text x="116" y="252" font-family="Inter, Arial, sans-serif" font-size="66" font-weight="900" fill="#102A1B">CV chuyên viên CRM</text>
+  <text x="119" y="300" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700" fill="#2F6F47">Dữ liệu khách hàng, chăm sóc vòng đời, giữ chân khách</text>
+  <rect x="118" y="356" width="346" height="88" rx="22" fill="#E5F6EA" stroke="#8BD0A0" stroke-width="2"/>
+  <text x="148" y="392" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#1B5E34">Customer segments</text>
+  <text x="148" y="423" font-family="Inter, Arial, sans-serif" font-size="20" fill="#34513E">RFM, NPS, retention rate</text>
+  <rect x="118" y="467" width="286" height="42" rx="21" fill="#1E7D42"/>
+  <text x="148" y="495" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#FFFFFF">Tối ưu hồ sơ ứng tuyển</text>
+  <rect x="622" y="144" width="382" height="388" rx="30" fill="#FFFFFF" stroke="#D7E8DD" stroke-width="2"/>
+  <rect x="666" y="189" width="294" height="52" rx="16" fill="#E8F5E9"/>
+  <rect x="666" y="271" width="294" height="52" rx="16" fill="#EAF1FF"/>
+  <rect x="666" y="353" width="294" height="52" rx="16" fill="#F6F7EA"/>
+  <rect x="666" y="435" width="294" height="52" rx="16" fill="#E8F5E9"/>
+  <circle cx="694" cy="215" r="11" fill="#1E7D42"/>
+  <circle cx="694" cy="297" r="11" fill="#4B73D9"/>
+  <circle cx="694" cy="379" r="11" fill="#B89422"/>
+  <circle cx="694" cy="461" r="11" fill="#1E7D42"/>
+  <text x="725" y="222" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#163721">Lead nurturing</text>
+  <text x="725" y="304" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#163721">CRM automation</text>
+  <text x="725" y="386" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#163721">Campaign insight</text>
+  <text x="725" y="468" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#163721">Retention metrics</text>
+  <path d="M1005 206c45 18 68 51 68 98 0 56-41 97-101 104" fill="none" stroke="#1E7D42" stroke-width="12" stroke-linecap="round"/>
+  <path d="M1028 392l-56 16 33 47" fill="none" stroke="#1E7D42" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
