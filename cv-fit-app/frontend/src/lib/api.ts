@@ -118,3 +118,25 @@ export async function generateWritingAPI(payload: WriterPayload) {
   return res.json();
 }
 
+export interface JobSearchRequest {
+  cvText: string;
+  targetRole?: string;
+  location?: string;
+  dateRange?: "1d" | "3d" | "7d" | "14d" | "30d";
+  sources?: string[];
+}
+
+export async function searchJobsAPI(payload: JobSearchRequest) {
+  const res = await fetch("/api/jobs/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
+  return res.json();
+}
+
+

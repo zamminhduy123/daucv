@@ -3,7 +3,7 @@ Pydantic response models — outbound payloads returned to API clients.
 """
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from typing import Annotated, Any, Dict, List
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from app.models.domain import (
     LiveMetrics,
@@ -169,3 +169,49 @@ class WriterResponse(BaseModel):
     subject_line: str       # Catchy subject line (empty if not applicable)
     content: str            # Main generated letter/message
     tips: List[str]         # 1-2 quick actionable tips
+
+
+# ---------------------------------------------------------------------------
+# Job Finder response
+# ---------------------------------------------------------------------------
+
+class CandidateProfileResponse(BaseModel):
+    target_roles: List[str]
+    skills: List[str]
+    seniority: Literal["intern", "fresher", "junior", "middle", "senior", "unknown"]
+    location: str
+    years_of_experience: float
+    queries: List[str]
+
+
+# ---------------------------------------------------------------------------
+# Job search response models
+# ---------------------------------------------------------------------------
+
+class JobSourceStatus(BaseModel):
+    source: str
+    status: Literal["success", "failed", "timeout"]
+    count: int
+    error: Optional[str] = None
+
+
+class JobResult(BaseModel):
+    id: str
+    source: Literal["itviec", "topcv", "vietnamworks", "glints", "ybox", "jobsgo", "careerviet", "vieclam24h"]
+    title: str
+    company: Optional[str] = None
+    location: Optional[str] = None
+    salary: Optional[str] = None
+    level: Optional[Literal["intern", "fresher", "junior", "middle", "senior", "unknown"]] = None
+    skills: List[str] = Field(default_factory=list)
+    posted_text: Optional[str] = None
+    url: str
+    description_snippet: Optional[str] = None
+
+
+class RankedJobResult(JobResult):
+    match_score: int = Field(ge=0, le=100)
+    match_label: Literal["good_match", "stretch"]
+    match_reasons: List[str] = Field(default_factory=list)
+    missing_skills: List[str] = Field(default_factory=list)
+

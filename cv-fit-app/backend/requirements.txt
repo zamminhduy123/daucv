@@ -42,3 +42,4 @@ uvloop==0.22.1
 watchfiles==1.1.1
 websockets==16.0
 edge_tts
+playwright>=4.30.0

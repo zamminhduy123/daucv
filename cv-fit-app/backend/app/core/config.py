@@ -26,7 +26,7 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 from app.services.llm_provider import OpenAIProvider, QwenCustomProvider
 
 PROVIDERS = [
-    # 1. Primary: Local Qwen (or your preferred local setup)
+    # 1. Primary: Qwen llama-server
     QwenCustomProvider(
         name="Local-Qwen",
         model=os.getenv("QWEN_MODEL", "qwen2.5-7b-instruct"),

@@ -8,7 +8,7 @@ This is the single source of truth for the ``app`` object.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, health, user
+from app.api.routes import admin, health, jobs, user
 
 
 def create_app() -> FastAPI:
@@ -28,6 +28,7 @@ def create_app() -> FastAPI:
     # --- Routers -----------------------------------------------------------
     application.include_router(health.router)
     application.include_router(user.router)
+    application.include_router(jobs.router)
     application.include_router(admin.router)
 
     return application

@@ -291,3 +291,28 @@ def build_writer_prompt(
     )
 
     return prompt
+
+
+def build_job_parser_prompt() -> str:
+    return (
+        "You are an expert recruitment assistant specializing in the Vietnamese job market.\n\n"
+        "Your task is to analyze the provided CV text and extract a structured candidate profile for a job search system.\n\n"
+        "GUIDELINES FOR EXTRACTION:\n"
+        "1. **Target Roles**: Extract 1-3 target roles (e.g., 'Frontend Developer', 'AI Engineer'). Focus on roles the candidate is qualified for based on their work history.\n"
+        "2. **Skills**: Extract a comprehensive list of technical and soft skills mentioned in the CV (e.g., 'ReactJS', 'Python', 'Docker', 'Git').\n"
+        "3. **Years of Experience**: Calculate the TOTAL years of experience in the candidate's relevant field. Sum up the durations of all work items (e.g., 2 years and 3 months = 2.25). Be precise!\n"
+        "4. **Seniority**: Classify the seniority level based on the total years of relevant experience:\n"
+        "   - 'intern': For students or candidates seeking internship roles (0-6 months of experience).\n"
+        "   - 'fresher': Entry-level, graduated, but has less than 1 year of total full-time work experience.\n"
+        "   - 'junior': Between 1 to 3 years of experience. (If candidate has 2 years of experience as FE, they are junior, NOT fresher!).\n"
+        "   - 'middle': Between 3 to 5 years of experience.\n"
+        "   - 'senior': 5+ years of experience.\n"
+        "   - 'unknown': If experience cannot be determined.\n"
+        "5. **Location**: Preferred work city in Vietnam (e.g., 'Hà Nội', 'Hồ Chí Minh', 'Đà Nẵng', or 'Remote'). If not explicitly stated, infer from the candidate's location of current company or university.\n"
+        "6. **Queries**: Generate 2-4 broad, standard job search query strings commonly used in the Vietnamese job market.\n"
+        "   - Do NOT include specific seniority levels (like 'Junior', 'Middle', 'Senior', 'Fresher') in the queries, as Vietnamese job boards rarely index these in titles.\n"
+        "   - Do NOT include narrow technology stacks (like 'FastAPI', 'PyTorch', 'NextJS') unless they are extremely common primary skills (like 'ReactJS', 'Python', 'NodeJS', 'Java').\n"
+        "   - Examples for an AI candidate: ['AI Engineer', 'Machine Learning', 'Python Developer', 'Data Scientist'].\n"
+        "   - Examples for a Frontend candidate: ['Frontend Developer', 'ReactJS Developer', 'Web Developer'].\n"
+        "   - Keep queries simple, standard, and plain text. Do not use quotes or boolean operators.\n"
+    )

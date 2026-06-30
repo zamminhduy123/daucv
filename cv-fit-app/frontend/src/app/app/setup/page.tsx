@@ -49,6 +49,7 @@ export default function SetupPage() {
         onAnalyze={() => handleSaveAndNavigate("/app/analyzer")}
         onInterview={() => handleSaveAndNavigate("/app/interview")}
         onWrite={() => handleSaveAndNavigate("/app/writer")}
+        onSearchJobs={() => handleSaveAndNavigate("/app/jobs")}
         isAnalyzing={false}
         isStartingInterview={false}
         isWriting={false}

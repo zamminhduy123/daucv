@@ -18,6 +18,7 @@ from app.models.requests import (
     InterviewFinishRequest,
     TTSRequest,
     WriterRequest,
+    ParseProfileRequest,
 )
 from app.models.responses import (
     CVAnalysisLLMResponse,
@@ -25,6 +26,7 @@ from app.models.responses import (
     FinalInterviewReport,
     InterviewTurnResponse,
     WriterResponse,
+    CandidateProfileResponse,
 )
 from app.prompts.system_prompts import (
     CV_ANALYSIS_CONTEXT_WITH_JD,
@@ -37,6 +39,7 @@ from app.prompts.system_prompts import (
     build_interview_finish_prompt,
     build_upload_and_match_prompt,
     build_writer_prompt,
+    build_job_parser_prompt,
 )
 from app.services.ai_service import call_llm_with_fallback
 from app.services.cv_quality_checks import build_scored_analysis
@@ -153,6 +156,44 @@ async def analyze_cv(req: AnalyzeCVRequest, background_tasks: BackgroundTasks):
         raise HTTPException(
             status_code=500,
             detail=f"Analysis failed: {e}",
+        )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/jobs/parse-profile
+# ---------------------------------------------------------------------------
+
+@router.post("/jobs/parse-profile", response_model=CandidateProfileResponse)
+async def parse_profile(req: ParseProfileRequest, background_tasks: BackgroundTasks):
+    """
+    Parse candidate CV to get structured profile + search queries using LLM.
+    """
+    cv_text = req.cv_text.strip()
+    if not cv_text:
+        raise HTTPException(
+            status_code=422,
+            detail="Nội dung CV không được để trống.",
+        )
+
+    system_prompt = build_job_parser_prompt()
+    user_content = f"Nội dung CV:\n{cv_text}"
+
+    try:
+        parsed = await call_llm_with_fallback(
+            system_prompt,
+            user_content,
+            CandidateProfileResponse,
+            feature_name="job_parser",
+            prompt_version="1.0.0",
+            background_tasks=background_tasks,
+        )
+        return parsed
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Profile parsing failed: {e}",
         )
 
 

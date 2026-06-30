@@ -2,7 +2,7 @@
 Pydantic request models — inbound payloads from API clients.
 """
 
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 from typing import List, Optional
 
 from app.models.domain import Message
@@ -55,3 +55,26 @@ class WriterRequest(BaseModel):
     tone: str               # e.g. "Chuyên nghiệp", "Ngắn gọn", "Tự tin"
     jd_text: Optional[str] = ""
     custom_prompt: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Job Finder routes
+# ---------------------------------------------------------------------------
+
+class ParseProfileRequest(BaseModel):
+    cv_text: str
+
+
+# ---------------------------------------------------------------------------
+# Job search
+# ---------------------------------------------------------------------------
+
+class JobSearchRequest(BaseModel):
+    model_config = {"populate_by_name": True}
+
+    cv_text: str = Field(validation_alias=AliasChoices("cvText", "cv_text"))
+    target_role: Optional[str] = Field(default=None, validation_alias=AliasChoices("targetRole", "target_role"))
+    location: Optional[str] = None
+    date_range: Optional[str] = Field(default=None, validation_alias=AliasChoices("dateRange", "date_range"))
+    sources: Optional[List[str]] = None
+
