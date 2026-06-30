@@ -66,7 +66,7 @@ const INTERVIEW_TYPES: {
 
 export default function InterviewPage() {
   const router = useRouter();
-  const { cvText, jdText, hasData, cache, setCachedInterview } = useWorkspace();
+  const { cvText, jdText, hasData, isLoaded, cache, setCachedInterview } = useWorkspace();
 
   const [isStarting, setIsStarting] = useState(false);
   const [interviewState, setInterviewState] = useState<InterviewState | null>(
@@ -82,10 +82,10 @@ export default function InterviewPage() {
 
   // Route guard: redirect if no data
   useEffect(() => {
-    if (!hasData) {
+    if (isLoaded && !hasData) {
       router.replace("/app/setup");
     }
-  }, [hasData, router]);
+  }, [isLoaded, hasData, router]);
 
   const handleBack = () => {
     hasTriggered.current = false;
@@ -94,7 +94,7 @@ export default function InterviewPage() {
     setIsSettingUp(true);
   };
 
-  if (!hasData) return null;
+  if (!isLoaded || !hasData) return null;
 
   const startNow = () => {
     setIsSettingUp(false);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Download } from "lucide-react";
+import { Download, Briefcase } from "lucide-react";
 import { motion } from "framer-motion";
 
 import LoadingOverlay from "@/components/workspace/LoadingOverlay";
@@ -15,7 +15,7 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 
 export default function AnalyzerPage() {
   const router = useRouter();
-  const { cvText, jdText, hasData, cache, setCachedAnalysis } = useWorkspace();
+  const { cvText, jdText, hasData, isLoaded, cache, setCachedAnalysis } = useWorkspace();
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<CVAnalysisResponse | null>(
@@ -26,10 +26,10 @@ export default function AnalyzerPage() {
 
   // Route guard: redirect if no data
   useEffect(() => {
-    if (!hasData) {
+    if (isLoaded && !hasData) {
       router.replace("/app/setup");
     }
-  }, [hasData, router]);
+  }, [isLoaded, hasData, router]);
 
   // Auto-analyze on mount (only once, skip if cached)
   useEffect(() => {
@@ -61,7 +61,7 @@ export default function AnalyzerPage() {
     setError("");
   };
 
-  if (!hasData) return null; // Will redirect via useEffect
+  if (!isLoaded || !hasData) return null; // Will redirect via useEffect if isLoaded and no data
 
   return (
     <div className="relative">
@@ -93,6 +93,13 @@ export default function AnalyzerPage() {
             className="flex flex-wrap gap-4 justify-center mt-4"
           >
             <button
+              onClick={() => router.push("/app/jobs")}
+              className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2 cursor-pointer"
+            >
+              <Briefcase className="w-5 h-5" />
+              Tìm việc phù hợp
+            </button>
+            <button
               onClick={handleExportPDF}
               className="px-8 py-4 bg-[var(--primary)] text-white rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
             >
@@ -108,6 +115,7 @@ export default function AnalyzerPage() {
           </motion.div>
         </div>
       )}
+
 
       <style>{`
         @media print {

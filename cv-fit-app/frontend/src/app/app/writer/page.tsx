@@ -34,7 +34,7 @@ const TONES = ["Chuyên nghiệp", "Ngắn gọn", "Tự tin"];
 
 export default function WriterPage() {
   const router = useRouter();
-  const { cvText, jdText, hasData, cache, setCachedWriter } = useWorkspace();
+  const { cvText, jdText, hasData, isLoaded, cache, setCachedWriter } = useWorkspace();
 
   const [writingType, setWritingType] = useState("email");
   const [tone, setTone] = useState("Chuyên nghiệp");
@@ -57,8 +57,8 @@ export default function WriterPage() {
 
   // Route guard
   useEffect(() => {
-    if (!hasData) router.replace("/app/setup");
-  }, [hasData, router]);
+    if (isLoaded && !hasData) router.replace("/app/setup");
+  }, [isLoaded, hasData, router]);
 
   const handleGenerate = async () => {
     setError("");
@@ -92,7 +92,7 @@ export default function WriterPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (!hasData) return null;
+  if (!isLoaded || !hasData) return null;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-7xl relative">

@@ -32,6 +32,7 @@ interface WorkspaceState {
 }
 
 interface WorkspaceContextType extends WorkspaceState {
+  isLoaded: boolean;
   setCvText: (text: string) => void;
   setCvFileName: (name: string) => void;
   setJdText: (text: string) => void;
@@ -51,37 +52,41 @@ const WorkspaceContext = createContext<WorkspaceContextType | null>(null);
 const STORAGE_KEY = "dau_workspace";
 const CACHE_KEY = "dau_workspace_cache";
 
-function loadFromStorage(): WorkspaceState {
-  if (typeof window === "undefined") return { cvText: "", cvFileName: "CV của tôi", jdText: "" };
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore parse errors */ }
-  return { cvText: "", cvFileName: "CV của tôi", jdText: "" };
-}
-
-function loadCacheFromStorage(): WorkspaceCache {
-  if (typeof window === "undefined") return { ...EMPTY_CACHE };
-  try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return { ...EMPTY_CACHE };
-}
-
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<WorkspaceState>(loadFromStorage);
-  const [cache, setCache] = useState<WorkspaceCache>(loadCacheFromStorage);
+  const [state, setState] = useState<WorkspaceState>({ cvText: "", cvFileName: "CV của tôi", jdText: "" });
+  const [cache, setCache] = useState<WorkspaceCache>({ ...EMPTY_CACHE });
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Sync state from sessionStorage on mount
+  useEffect(() => {
+    const rawState = sessionStorage.getItem(STORAGE_KEY);
+    if (rawState) {
+      try {
+        setState(JSON.parse(rawState));
+      } catch {}
+    }
+
+    const rawCache = sessionStorage.getItem(CACHE_KEY);
+    if (rawCache) {
+      try {
+        setCache(JSON.parse(rawCache));
+      } catch {}
+    }
+
+    setIsLoaded(true);
+  }, []);
 
   // Sync workspace to sessionStorage
   useEffect(() => {
+    if (!isLoaded) return;
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+  }, [state, isLoaded]);
 
   // Sync cache to sessionStorage
   useEffect(() => {
+    if (!isLoaded) return;
     sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  }, [cache]);
+  }, [cache, isLoaded]);
 
   const setCvText = useCallback((cvText: string) => setState((s) => ({ ...s, cvText })), []);
   const setCvFileName = useCallback((cvFileName: string) => setState((s) => ({ ...s, cvFileName })), []);
@@ -120,6 +125,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     <WorkspaceContext.Provider
       value={{
         ...state,
+        isLoaded,
         setCvText,
         setCvFileName,
         setJdText,
