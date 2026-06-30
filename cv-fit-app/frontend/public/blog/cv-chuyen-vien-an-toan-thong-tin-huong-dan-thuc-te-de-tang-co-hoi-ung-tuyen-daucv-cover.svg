@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for CV chuyên viên an toàn thông tin</title>
+  <desc id="desc">A branded DauCV cover image for an article about writing an information security CV.</desc>
+  <defs>
+    <linearGradient id="bg-security" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6fbf8"/>
+      <stop offset="0.55" stop-color="#edf8f2"/>
+      <stop offset="1" stop-color="#ddeef8"/>
+    </linearGradient>
+    <filter id="soft-security" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#173d2f" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg-security)"/>
+  <rect x="765" y="86" width="305" height="470" rx="36" fill="#ffffff" filter="url(#soft-security)"/>
+  <rect x="803" y="134" width="229" height="338" rx="24" fill="#ecf8f1" stroke="#b9e4cb" stroke-width="4"/>
+  <path d="M918 190L1014 229V297C1014 373 976 423 918 444C860 423 822 373 822 297V229Z" fill="#1f8a5b"/>
+  <path d="M884 306L909 331L958 276" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <g stroke="#2f6f86" stroke-width="7" stroke-linecap="round">
+    <path d="M842 502H994"/>
+    <path d="M842 530H947"/>
+    <path d="M842 558H974"/>
+  </g>
+  <g opacity="0.72" stroke="#79c7a0" stroke-width="3" fill="none">
+    <path d="M130 552C261 471 393 614 544 517C658 444 622 339 735 286"/>
+    <path d="M93 447C213 376 296 474 401 420C494 372 471 281 576 247"/>
+    <path d="M602 114C713 130 776 207 768 307"/>
+  </g>
+  <g transform="translate(86 96)">
+    <rect width="148" height="48" rx="24" fill="#1f8a5b"/>
+    <text x="74" y="31" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#ffffff">DauCV</text>
+    <text x="0" y="125" font-family="Inter, Arial, sans-serif" font-size="50" font-weight="800" fill="#173d2f">CV an toàn thông tin</text>
+    <text x="0" y="184" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700" fill="#256b4c">Biến kỹ năng bảo mật</text>
+    <text x="0" y="227" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700" fill="#256b4c">thành bằng chứng tin cậy</text>
+    <rect x="0" y="286" width="512" height="86" rx="18" fill="#ffffff" opacity="0.88"/>
+    <text x="28" y="321" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#1f8a5b">SOC • IAM • Cloud security</text>
+    <text x="28" y="354" font-family="Inter, Arial, sans-serif" font-size="20" fill="#36564b">Viết rõ phạm vi, công cụ và mức giảm rủi ro</text>
+  </g>
+</svg>
