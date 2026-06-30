@@ -206,7 +206,7 @@ export default function InterviewRoom({ cvText, jdText, initialState, totalQuest
           <header className="py-3 md:py-3.5 border-b border-[#2F4F4F]/5 flex items-center justify-between px-3 md:px-6 shrink-0 bg-white z-10 shadow-sm relative">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="relative w-8 h-8 rounded-full bg-[#E8EFD5] shadow-sm flex items-center justify-center shrink-0">
-                <Image src="/main-icon.webp" alt="Bé Đậu" width={16} height={16} />
+                <Image src="/main-icon.webp" alt="Bé Đậu" width={16} height={16} style={{ width: "auto", height: "auto" }} />
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] md:text-xs font-semibold text-(--primary) uppercase tracking-wider truncate">

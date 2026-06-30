@@ -78,7 +78,7 @@ export default function ResultsPage() {
       {/* NAV */}
       <header style={{ maxWidth: 1400, margin: "0 auto", padding: "1.5rem 3rem", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(47,79,79,0.08)" }} className="no-print">
         <Link href="/" className="font-heading" style={{ fontSize: "1.75rem", fontWeight: 700, textDecoration: "none", color: "#2F4F4F", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <Image src="/main-icon.webp" alt="Đậu" width={32} height={32} /> Đậu
+          <Image src="/main-icon.webp" alt="Đậu" width={32} height={32} style={{ width: "auto", height: "auto" }} /> Đậu
         </Link>
         <Link href="/app" style={{ fontSize: "0.875rem", color: "#5A6D6D", textDecoration: "none", fontWeight: 500 }}>← Làm lại</Link>
       </header>
@@ -180,7 +180,7 @@ export default function ResultsPage() {
         {/* INTERVIEW CTA */}
         <div className="no-print" style={{ textAlign: "center", padding: "2rem" }}>
           <Link
-            href="/interview"
+            href="/app/interview"
             className="btn-green"
             style={{ padding: "1.25rem 3rem", fontSize: "1.15rem" }}
           >

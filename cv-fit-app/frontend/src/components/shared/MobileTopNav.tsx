@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Mic, LayoutTemplate, Clock, Menu, X, Coffee, QrCode, PenLine, PenTool, BookOpen } from "lucide-react";
+import { FileText, Mic, LayoutTemplate, Clock, Menu, X, Coffee, QrCode, PenLine, PenTool, BookOpen, Briefcase } from "lucide-react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -11,6 +11,7 @@ import Image from "next/image";
 const NAV_ITEMS = [
   { label: "Nhập CV & JD", icon: PenLine, href: "/app/setup", requiresCV: false },
   { label: "Phân tích CV", icon: FileText, href: "/app/analyzer", requiresCV: true },
+  { label: "Tìm việc làm", icon: Briefcase, href: "/app/jobs", requiresCV: true },
   { label: "Phỏng vấn 1-1", icon: Mic, href: "/app/interview", requiresCV: true },
   { label: "Trợ lý Viết", icon: PenTool, href: "/app/writer", requiresCV: true },
   { label: "Thư viện Mẫu CV", icon: LayoutTemplate, href: "/app/templates", requiresCV: false },
@@ -18,11 +19,12 @@ const NAV_ITEMS = [
   { label: "Lịch sử", icon: Clock, href: "/app/history", requiresCV: false },
 ];
 
+
 export default function MobileTopNav() {
   const [showQR, setShowQR] = useState(false);
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const { cvText } = useWorkspace();
+  const { cvText, isLoaded } = useWorkspace();
   const hasCV = !!cvText?.trim();
 
   return (
@@ -30,7 +32,7 @@ export default function MobileTopNav() {
       {/* Mobile top bar */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 flex-shrink-0">
         <Link href="/" className="flex items-center gap-2 no-underline">
-          <Image src="/main-icon.webp" alt="Đậu" width={28} height={28} />
+          <Image src="/main-icon.webp" alt="Đậu" width={28} height={28} style={{ width: "auto", height: "auto" }} />
           <span className="font-heading font-bold text-[#2F4F4F] text-xl">ĐẬU</span>
         </Link>
         <button
@@ -58,7 +60,7 @@ export default function MobileTopNav() {
           >
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <div className="flex items-center gap-2">
-                <Image src="/main-icon.webp" alt="Đậu" width={32} height={32} />
+                <Image src="/main-icon.webp" alt="Đậu" width={32} height={32} style={{ width: "auto", height: "auto" }} />
                 <span className="font-heading font-bold text-[#2F4F4F] text-2xl">ĐẬU</span>
               </div>
               <button
@@ -70,7 +72,7 @@ export default function MobileTopNav() {
             </div>
 
             <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-              {!hasCV && (
+              {isLoaded && !hasCV && (
                 <div className="mb-4 p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
                   <p className="text-[11px] text-blue-600 leading-relaxed font-medium">
                     Nhập CV để mở khoá tính năng Phân tích & Phỏng vấn
@@ -79,7 +81,7 @@ export default function MobileTopNav() {
               )}
               {NAV_ITEMS.map(({ label, icon: Icon, href, requiresCV }) => {
                 const isActive = pathname === href || pathname.startsWith(href + "/");
-                const isDisabled = requiresCV && !hasCV;
+                const isDisabled = isLoaded && requiresCV && !hasCV;
                 
                 return (
                   <Link

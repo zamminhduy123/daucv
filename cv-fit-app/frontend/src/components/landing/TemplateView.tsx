@@ -161,6 +161,7 @@ ${template.education}`;
                       alt="CV Expert Mascot" 
                       width={100} 
                       height={100} 
+                      style={{ width: "auto", height: "auto" }}
                       className="mb-4 drop-shadow-md"
                     />
                     <div className="mt-4 text-center">
@@ -263,9 +264,9 @@ ${template.education}`;
                   <div className="p-8 lg:p-12 bg-white text-left" style={{ fontFamily: 'Arial, sans-serif' }}>
                     {/* Header */}
                     <div className="text-center border-b-2 border-[#2F4F4F]/10 pb-6 mb-6">
-                      <h1 className="text-3xl font-bold text-[#2F4F4F] mb-2">
+                      <div className="text-3xl font-bold text-[#2F4F4F] mb-2">
                         {data.template.name}
-                      </h1>
+                      </div>
                       <p className="text-xl text-(--primary) font-semibold mb-3">
                         {data.template.title}
                       </p>

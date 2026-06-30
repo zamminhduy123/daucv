@@ -107,7 +107,7 @@ export default function InterviewReport({ report, interviewType = "general", onR
             <p className="text-xs text-gray-500">Hãy tiếp tục học hỏi và bạn sẽ còn tiến xa hơn nữa.</p>
           </div>
           <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm border border-green-100">
-            <Image src="/main-icon.webp" alt="Bé Đậu" width={40} height={40} />
+            <Image src="/main-icon.webp" alt="Bé Đậu" width={40} height={40} style={{ width: "auto", height: "auto" }} />
           </div>
         </div>
       </div>

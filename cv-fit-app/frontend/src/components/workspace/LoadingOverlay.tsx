@@ -36,6 +36,7 @@ export default function LoadingOverlay({messages = MESSAGES} : {messages?: strin
             alt="Đang xử lý..." 
             width={80} 
             height={80} 
+            style={{ width: "auto", height: "auto" }}
             className="drop-shadow-md"
           />
         </div>

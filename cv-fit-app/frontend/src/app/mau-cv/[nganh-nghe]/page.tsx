@@ -172,13 +172,19 @@ export async function generateMetadata({ params }: { params: Promise<{ 'nganh-ng
     return {
       title: `Cách viết CV ngành ${nganhNghe || ''} chuẩn ATS | Đậu (daucv.com)`,
       description: `Hướng dẫn cách viết CV ngành ${nganhNghe || ''} chuyên nghiệp để vượt qua vòng lọc hồ sơ ATS. AI của Đậu giúp bạn tối ưu CV chuẩn nhất.`,
+      alternates: {
+        canonical: `https://daucv.com/mau-cv/${nganhNghe}`,
+      },
     };
   }
 
   return {
     title: `${data.title} chuẩn ATS 2026 | Đậu (daucv.com)`,
     description: `Tải xuống ${data.title} và xem hướng dẫn chi tiết cách viết CV chuyên nghiệp để vượt qua vòng lọc hồ sơ ATS. Công cụ AI sửa CV hoàn toàn tự động.`,
-    keywords: data.keywords.join(", ")
+    keywords: data.keywords.join(", "),
+    alternates: {
+      canonical: `https://daucv.com/mau-cv/${nganhNghe}`,
+    },
   };
 }
 

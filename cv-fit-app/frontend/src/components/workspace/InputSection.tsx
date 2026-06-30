@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, FileText, X, CheckCircle, AlertTriangle, Sparkles, Mic, Loader2, PenTool } from "lucide-react";
+import { Upload, FileText, X, CheckCircle, AlertTriangle, Sparkles, Mic, Loader2, PenTool, Briefcase } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { WorkspaceInputs } from "@/types";
 import { wordCount } from "@/lib/utils";
@@ -14,6 +14,7 @@ interface InputSectionProps {
   onAnalyze: () => void;
   onInterview: () => void;
   onWrite: () => void;
+  onSearchJobs: () => void;
   isAnalyzing: boolean;
   isStartingInterview: boolean;
   isWriting: boolean;
@@ -68,6 +69,7 @@ export default function InputSection({
   onAnalyze, 
   onInterview, 
   onWrite,
+  onSearchJobs,
   isAnalyzing, 
   isStartingInterview, 
   isWriting,
@@ -394,12 +396,12 @@ export default function InputSection({
                 <h3 className="font-heading font-bold text-[#2F4F4F] text-sm">Chọn tính năng bạn muốn sử dụng:</h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3 mb-4 sm:mb-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-4 sm:mb-0">
                 {/* Action Card 1: Analyze */}
                 <button
                   onClick={handleAnalyzeClick}
                   disabled={isAnalyzing || isStartingInterview || isWriting}
-                  className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 p-3 md:p-4 rounded-2xl bg-white border-2 border-(--primary)/20 hover:border-(--primary) hover:bg-[#F9F9F2] transition-all text-left group shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 p-3 md:p-4 rounded-2xl bg-white border-2 border-(--primary)/20 hover:border-(--primary) hover:bg-[#F9F9F2] transition-all text-left group shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-(--primary)/10 text-(--primary) flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                     {isAnalyzing ? <Loader2 className="animate-spin w-4 h-4 md:w-5 md:h-5" /> : <Sparkles className="w-4 h-4 md:w-5 md:h-5" />}
@@ -416,7 +418,7 @@ export default function InputSection({
                 <button
                   onClick={handleInterviewClick}
                   disabled={isAnalyzing || isStartingInterview || isWriting}
-                  className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 p-3 md:p-4 rounded-2xl bg-white border-2 border-orange-400/20 hover:border-orange-400 hover:bg-orange-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 p-3 md:p-4 rounded-2xl bg-white border-2 border-orange-400/20 hover:border-orange-400 hover:bg-orange-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-orange-400/10 text-orange-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                     {isStartingInterview ? <Loader2 className="animate-spin w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
@@ -433,7 +435,7 @@ export default function InputSection({
                 <button
                   onClick={handleWriteClick}
                   disabled={isAnalyzing || isStartingInterview || isWriting}
-                  className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 p-3 md:p-4 rounded-2xl bg-white border-2 border-purple-400/20 hover:border-purple-400 hover:bg-purple-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 p-3 md:p-4 rounded-2xl bg-white border-2 border-purple-400/20 hover:border-purple-400 hover:bg-purple-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-purple-400/10 text-purple-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                     {isWriting ? <Loader2 className="animate-spin w-4 h-4 md:w-5 md:h-5" /> : <PenTool className="w-4 h-4 md:w-5 md:h-5" />}
@@ -443,6 +445,23 @@ export default function InputSection({
                       {isWriting ? "Đang xử lý..." : "Trợ lý Viết"}
                     </h3>
                     <p className="text-[11px] text-[#5A6D6D] leading-tight">Email, LinkedIn, Zalo...</p>
+                  </div>
+                </button>
+
+                {/* Action Card 4: Job Finder */}
+                <button
+                  onClick={onSearchJobs}
+                  disabled={isAnalyzing || isStartingInterview || isWriting}
+                  className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 p-3 md:p-4 rounded-2xl bg-white border-2 border-emerald-450/20 hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <Briefcase className="w-4 h-4 md:w-5 md:h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-bold text-[#2F4F4F] text-sm mb-0.5 group-hover:text-emerald-600 transition-colors">
+                      Tìm việc làm
+                    </h3>
+                    <p className="text-[11px] text-[#5A6D6D] leading-tight">Tìm việc phù hợp CV.</p>
                   </div>
                 </button>
               </div>

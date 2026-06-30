@@ -32,6 +32,9 @@ export async function generateMetadata(props: { params: Params }): Promise<Metad
     return {
       title: `${post.title} | Đậu Blog`,
       description: post.description,
+      alternates: {
+        canonical: `https://daucv.com/blog/${params.slug}`,
+      },
     };
   } catch (error) {
     return {
@@ -92,10 +95,38 @@ export default async function BlogPostPage(props: { params: Params }) {
     const relatedPosts = allPosts.filter(p => p.slug !== post.slug).slice(0, 3);
     const headings = extractHeadings(post.content);
 
-    console.log(relatedPosts)
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": post.title,
+      "description": post.description,
+      "image": post.coverImage,
+      "datePublished": post.date,
+      "author": {
+        "@type": "Person",
+        "name": post.author,
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Đậu CV",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://daucv.com/main-icon.webp"
+        }
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": `https://daucv.com/blog/${post.slug}`
+      }
+    };
 
     return (
       <div className="min-h-screen bg-[#F9F9F2]">
+        {/* Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <LandingNavbar />
         
         <div className="max-w-[1200px] mx-auto py-12 px-6">          

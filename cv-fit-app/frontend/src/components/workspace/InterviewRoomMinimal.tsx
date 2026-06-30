@@ -473,7 +473,7 @@ export default function InterviewRoomMinimal({
         <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center rounded-3xl border border-[#2F4F4F]/8 bg-white/85 px-5 shadow-[0_8px_24px_rgba(47,79,79,0.04)] backdrop-blur">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-[#EEF6EA]">
-              <Image src="/main-icon.webp" alt="Bé Đậu" width={20} height={20} className="drop-shadow-sm" />
+              <Image src="/main-icon.webp" alt="Bé Đậu" width={20} height={20} style={{ width: "auto", height: "auto" }} className="drop-shadow-sm" />
             </div>
             <span className="font-heading text-[17px] font-bold tracking-tight">Phỏng vấn AI</span>
           </div>
@@ -500,7 +500,7 @@ export default function InterviewRoomMinimal({
               <div className="flex w-full max-w-[820px] items-center justify-between gap-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#6B7A7A]">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EEF6EA]">
-                    <Image src="/main-icon.webp" alt="Bé Đậu" width={14} height={14} />
+                    <Image src="/main-icon.webp" alt="Bé Đậu" width={14} height={14} style={{ width: "auto", height: "auto" }} />
                   </span>
                   <span>Bé Đậu · Mở đầu</span>
                 </div>

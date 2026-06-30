@@ -29,6 +29,7 @@ export default function Logo({ asLink = true, size = "md" }: LogoProps) {
         alt="Đậu" 
         width={imgSizeMap[size]} 
         height={imgSizeMap[size]} 
+        style={{ width: "auto", height: "auto" }}
         className="leading-none drop-shadow-sm"
       />
       ĐẬU

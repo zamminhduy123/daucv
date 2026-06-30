@@ -122,7 +122,7 @@ ${template.education}`;
           className="hidden lg:flex justify-center"
         >
           <div className="relative bg-white p-8 rounded-3xl border-2 border-[var(--primary)]/20 shadow-xl flex flex-col items-center justify-center h-52 w-52">
-            <Image src="/main-icon.webp" alt="Bé Đậu CV Expert" width={80} height={80} className="mb-3 drop-shadow-md" />
+            <Image src="/main-icon.webp" alt="Bé Đậu CV Expert" width={80} height={80} style={{ width: "auto", height: "auto" }} className="mb-3 drop-shadow-md" />
             <p className="font-semibold text-[#2F4F4F] text-sm">Bé Đậu - CV Expert</p>
             <p className="text-xs text-[#5A6D6D]">Chuyên gia tối ưu CV</p>
           </div>

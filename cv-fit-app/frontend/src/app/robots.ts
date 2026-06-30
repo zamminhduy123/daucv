@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: '/api/',
+      disallow: ['/api/', '/app/'],
     },
     sitemap: 'https://daucv.com/sitemap.xml', // Update this when you have your production domain
   };

@@ -29,7 +29,7 @@ export default function Footer() {
           <h4 className="text-[#2F4F4F] font-bold text-sm uppercase tracking-wider">Sản phẩm</h4>
           <ul className="space-y-2 text-sm">
             <li><Link href="/app" className="hover:text-(--primary) transition-colors">Phân tích CV</Link></li>
-            <li><Link href="/interview" className="hover:text-(--primary) transition-colors">Luyện phỏng vấn AI</Link></li>
+            <li><Link href="/app/interview" className="hover:text-(--primary) transition-colors">Luyện phỏng vấn AI</Link></li>
             <li><Link href="#" className="hover:text-(--primary) transition-colors">Hướng dẫn sử dụng</Link></li>
           </ul>
         </div>

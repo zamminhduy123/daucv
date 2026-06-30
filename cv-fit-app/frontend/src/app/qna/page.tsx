@@ -24,6 +24,9 @@ export const metadata: Metadata = {
   title: "Câu hỏi thường gặp về CV chuẩn ATS, AI sửa CV và luyện phỏng vấn | Đậu",
   description:
     "Giải đáp các câu hỏi thường gặp về CV chuẩn ATS, kiểm tra điểm ATS, tối ưu CV theo Job Description, AI sửa CV và luyện phỏng vấn bằng AI với Đậu.",
+  alternates: {
+    canonical: "https://daucv.com/qna",
+  },
   openGraph: {
     title: "Câu hỏi thường gặp về CV chuẩn ATS, AI sửa CV và luyện phỏng vấn | Đậu",
     description:

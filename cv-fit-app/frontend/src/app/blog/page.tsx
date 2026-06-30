@@ -10,6 +10,9 @@ import { BlogCTA } from '@/components/blog';
 export const metadata: Metadata = {
   title: 'Blog | Đậu CV',
   description: 'Khám phá các bài viết chia sẻ kinh nghiệm viết CV chuẩn ATS và kỹ năng phỏng vấn.',
+  alternates: {
+    canonical: 'https://daucv.com/blog',
+  },
 };
 
 export default function BlogIndexPage() {
