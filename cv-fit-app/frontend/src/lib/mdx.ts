@@ -16,7 +16,11 @@ export interface BlogPost {
   tags: string[];
   authorAvatar: string;
   content: string;
+  prevSlug?: string;
+  nextSlug?: string;
 }
+
+export type OmitBlogPost = Omit<BlogPost, 'content'>;
 
 export function getPostBySlug(slug: string): BlogPost {
   const realSlug = slug.replace(/\.mdx$/, '');

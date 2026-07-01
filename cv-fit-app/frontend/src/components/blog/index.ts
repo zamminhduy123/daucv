@@ -7,3 +7,4 @@ export * from './ChecklistSection';
 export * from './BlogCTA';
 export * from './CommentsSection';
 export * from './BlogContentLayout';
+export { default as BlogCard } from './BlogCard';

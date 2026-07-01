@@ -3,9 +3,15 @@ import { getAllPosts } from '@/lib/mdx';
 import { nganhNgheList } from './mau-cv/[nganh-nghe]/page';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://daucv.com'; // Update this when you have your production domain
+  const baseUrl = 'https://daucv.com';
   const posts = getAllPosts();
   const industries = Object.keys(nganhNgheList);
+
+  // Collect all unique tags across posts
+  const allTags = new Set<string>();
+  posts.forEach((post) => {
+    post.tags?.forEach((tag) => allTags.add(tag));
+  });
 
   return [
     {
@@ -31,6 +37,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(post.date),
       changeFrequency: 'weekly' as const,
       priority: 0.7,
+    })),
+    ...Array.from(allTags).map((tag) => ({
+      url: `${baseUrl}/blog/tag/${encodeURIComponent(tag)}`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.6,
     })),
     ...industries.map((industry) => ({
       url: `${baseUrl}/mau-cv/${industry}`,

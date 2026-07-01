@@ -3,10 +3,10 @@ import { notFound } from 'next/navigation';
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import { getPostBySlug, getAllPosts } from '@/lib/mdx';
 import Link from 'next/link';
-import { 
-  ChevronRight, Calendar, Clock, Share2, Mail, 
-  Link as LinkIcon, CheckCircle2, ArrowRight, MessageSquare, 
-  List, BookOpen, Sparkles 
+import {
+  ChevronRight, ChevronLeft, Calendar, Clock, Share2, Mail,
+  Link as LinkIcon, CheckCircle2, ArrowRight, MessageSquare,
+  List, BookOpen, Sparkles
 } from 'lucide-react';
 import { LandingNavbar } from "@/components/shared/TopNavbar";
 import Footer from "@/components/landing/Footer";
@@ -15,6 +15,8 @@ import {
   BlogMeta, BlogHero, TakeawaysBox, FeatureGrid, 
   StepList, ChecklistSection, BlogCTA, CommentsSection, BlogContentLayout 
 } from "@/components/blog";
+
+const FALLBACK_OG_IMAGE = '/trophy.webp';
 
 type Params = Promise<{ slug: string }>;
 
@@ -29,11 +31,35 @@ export async function generateMetadata(props: { params: Params }): Promise<Metad
   const params = await props.params;
   try {
     const post = getPostBySlug(params.slug);
+    const ogImage = post.coverImage || FALLBACK_OG_IMAGE;
     return {
       title: `${post.title} | Đậu Blog`,
       description: post.description,
+      keywords: post.tags,
       alternates: {
         canonical: `https://daucv.com/blog/${params.slug}`,
+      },
+      openGraph: {
+        title: post.title,
+        description: post.description,
+        url: `https://daucv.com/blog/${params.slug}`,
+        type: 'article',
+        publishedTime: post.date,
+        tags: post.tags,
+        images: [
+          {
+            url: ogImage,
+            alt: post.title,
+            width: 1200,
+            height: 630,
+          },
+        ],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: post.title,
+        description: post.description,
+        images: [ogImage],
       },
     };
   } catch (error) {
@@ -92,7 +118,39 @@ export default async function BlogPostPage(props: { params: Params }) {
   try {
     const post = getPostBySlug(params.slug);
     const allPosts = getAllPosts();
-    const relatedPosts = allPosts.filter(p => p.slug !== post.slug).slice(0, 3);
+    const sortedPosts = [...allPosts].sort((a, b) => (a.date < b.date ? -1 : 1));
+
+    // Use frontmatter prevSlug/nextSlug if available, fallback to sorted order
+    let prevPost = null;
+    let nextPost = null;
+    if ('prevSlug' in post) {
+      const prevSlug = (post as any).prevSlug;
+      const nextSlug = (post as any).nextSlug;
+      if (prevSlug && prevSlug !== 'null') {
+        prevPost = allPosts.find(p => p.slug === prevSlug);
+      }
+      if (nextSlug && nextSlug !== 'null') {
+        nextPost = allPosts.find(p => p.slug === nextSlug);
+      }
+    }
+    if (!prevPost) {
+      const idx = sortedPosts.findIndex(p => p.slug === post.slug);
+      if (idx > 0) prevPost = sortedPosts[idx - 1];
+    }
+    if (!nextPost) {
+      const idx = sortedPosts.findIndex(p => p.slug === post.slug);
+      if (idx < sortedPosts.length - 1) nextPost = sortedPosts[idx + 1];
+    }
+    const sharedTagPosts = sortedPosts
+      .filter(p => p.slug !== post.slug)
+      .map(p => ({
+        ...p,
+        sharedTags: p.tags.filter(t => post.tags.includes(t)),
+      }))
+      .filter(p => p.sharedTags.length > 0)
+      .sort((a, b) => b.sharedTags.length - a.sharedTags.length)
+      .slice(0, 3);
+    const relatedPosts = sharedTagPosts.length > 0 ? sharedTagPosts : allPosts.filter(p => p.slug !== post.slug).slice(0, 3);
     const headings = extractHeadings(post.content);
 
     const jsonLd = {
@@ -219,6 +277,32 @@ export default async function BlogPostPage(props: { params: Params }) {
                 <MDXRemote source={post.content} components={mdxComponents} />
               </article>
 
+              {/* Prev/Next Post Navigation */}
+              <nav className="mt-12 grid grid-cols-2 gap-4">
+                {prevPost && (
+                  <Link href={`/blog/${prevPost.slug}`} className="group flex flex-col gap-1 p-4 bg-white rounded-2xl border border-[#2F4F4F]/5 hover:border-[var(--primary)]/30 transition-colors">
+                    <div className="flex items-center gap-1 text-xs text-[#5A6D6D]">
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>Bài viết trước</span>
+                    </div>
+                    <span className="text-sm font-semibold text-[#2F4F4F] group-hover:text-[var(--primary)] transition-colors line-clamp-2">
+                      {prevPost.title}
+                    </span>
+                  </Link>
+                )}
+                {nextPost && (
+                  <Link href={`/blog/${nextPost.slug}`} className="group flex flex-col gap-1 p-4 bg-white rounded-2xl border border-[#2F4F4F]/5 hover:border-[var(--primary)]/30 transition-colors text-right">
+                    <div className="flex items-center justify-end gap-1 text-xs text-[#5A6D6D]">
+                      <span>Bài viết tiếp theo</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-sm font-semibold text-[#2F4F4F] group-hover:text-[var(--primary)] transition-colors line-clamp-2">
+                      {nextPost.title}
+                    </span>
+                  </Link>
+                )}
+              </nav>
+
               {/* CTA Banner */}
               {/* <div className="mt-12 bg-gradient-to-br from-[#2E7D32] to-[#1B5E20] rounded-3xl p-8 md:p-12 text-center text-white shadow-lg relative overflow-hidden">
                 <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
@@ -259,6 +343,13 @@ export default async function BlogPostPage(props: { params: Params }) {
                             {rp.title}
                           </h4>
                           <p className="text-xs text-gray-500">{rp.date}</p>
+                          {rp.sharedTags && rp.sharedTags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {rp.sharedTags.slice(0, 2).map(tag => (
+                                <span key={tag} className="text-[10px] bg-[#E8F5E9] text-[#2E7D32] px-1.5 py-0.5 rounded-full">{tag}</span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </Link>
                     ))}
