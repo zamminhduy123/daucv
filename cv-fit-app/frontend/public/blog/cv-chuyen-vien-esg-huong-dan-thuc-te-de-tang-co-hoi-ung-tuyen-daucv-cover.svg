@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for ESG specialist CV guide</title>
+  <desc id="desc">A branded DauCV blog cover with sustainability metrics and career document imagery.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7fbf0"/>
+      <stop offset="0.48" stop-color="#e4f5d9"/>
+      <stop offset="1" stop-color="#e7f2ff"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f4faf0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#245026" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <path d="M0 491 C158 427 275 445 430 501 C598 563 810 594 1200 475 L1200 675 L0 675 Z" fill="#d7ecc2"/>
+  <path d="M1015 76 C1091 120 1134 200 1122 285 C1029 271 953 224 910 151 C944 101 977 82 1015 76 Z" fill="#7dbb53" opacity="0.28"/>
+  <path d="M1015 76 C1010 151 984 218 929 267" fill="none" stroke="#4d8f35" stroke-width="9" stroke-linecap="round" opacity="0.32"/>
+  <g transform="translate(78 66)">
+    <rect x="0" y="0" width="154" height="56" rx="18" fill="#2d7d32"/>
+    <text x="26" y="37" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="800">DauCV</text>
+  </g>
+  <g transform="translate(92 176)">
+    <text x="0" y="0" fill="#1f4a22" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Vietnamese SEO Guide</text>
+    <text x="0" y="82" fill="#17351a" font-family="Inter, Arial, sans-serif" font-size="68" font-weight="850">CV chuyen</text>
+    <text x="0" y="156" fill="#17351a" font-family="Inter, Arial, sans-serif" font-size="68" font-weight="850">vien ESG</text>
+    <text x="2" y="219" fill="#42623e" font-family="Inter, Arial, sans-serif" font-size="29" font-weight="500">Bien tac dong ben vung thanh bang chung nghe nghiep</text>
+  </g>
+  <g transform="translate(713 120)" filter="url(#shadow)">
+    <rect x="0" y="0" width="380" height="420" rx="34" fill="url(#panel)"/>
+    <rect x="42" y="45" width="152" height="18" rx="9" fill="#2d7d32"/>
+    <rect x="42" y="88" width="282" height="13" rx="6.5" fill="#cfddc7"/>
+    <rect x="42" y="116" width="230" height="13" rx="6.5" fill="#dfe9d9"/>
+    <g transform="translate(58 174)">
+      <circle cx="52" cy="52" r="52" fill="#e8f6dd"/>
+      <path d="M26 60 C27 35 43 22 69 18 C79 47 70 70 47 84 C44 65 37 58 26 60 Z" fill="#4f9c3b"/>
+      <path d="M46 82 C56 58 66 42 84 28" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(182 168)">
+      <rect x="0" y="0" width="126" height="18" rx="9" fill="#9bb58e"/>
+      <rect x="0" y="42" width="160" height="18" rx="9" fill="#2d7d32"/>
+      <rect x="0" y="84" width="104" height="18" rx="9" fill="#b1c7a6"/>
+    </g>
+    <g transform="translate(47 310)">
+      <rect x="0" y="0" width="77" height="54" rx="15" fill="#f7fbf0"/>
+      <text x="18" y="36" fill="#2d7d32" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="850">E</text>
+      <rect x="101" y="0" width="77" height="54" rx="15" fill="#f1f7ff"/>
+      <text x="119" y="36" fill="#3867c8" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="850">S</text>
+      <rect x="202" y="0" width="77" height="54" rx="15" fill="#fff6e3"/>
+      <text x="220" y="36" fill="#b07812" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="850">G</text>
+    </g>
+  </g>
+  <g transform="translate(621 468)">
+    <rect x="0" y="0" width="142" height="82" rx="24" fill="#244a2a"/>
+    <path d="M41 44 L63 60 L103 25" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

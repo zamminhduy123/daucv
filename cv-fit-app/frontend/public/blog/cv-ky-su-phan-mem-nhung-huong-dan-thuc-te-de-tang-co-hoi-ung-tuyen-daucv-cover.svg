@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for embedded software engineer CV guide</title>
+  <desc id="desc">A branded DauCV blog cover with embedded software, chip, and ATS document imagery.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4f9ff"/>
+      <stop offset="0.55" stop-color="#e3efff"/>
+      <stop offset="1" stop-color="#e9f8ec"/>
+    </linearGradient>
+    <linearGradient id="chip" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1d3557"/>
+      <stop offset="1" stop-color="#2f8f5b"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="20" stdDeviation="20" flood-color="#10233d" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <path d="M0 518 C176 438 344 466 516 527 C748 610 929 541 1200 444 L1200 675 L0 675 Z" fill="#d1e5ff"/>
+  <path d="M1000 34 L1200 34 L1200 216 C1123 196 1054 155 1000 92 Z" fill="#2f8f5b" opacity="0.16"/>
+  <g transform="translate(78 66)">
+    <rect x="0" y="0" width="154" height="56" rx="18" fill="#1f7a4d"/>
+    <text x="26" y="37" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="800">DauCV</text>
+  </g>
+  <g transform="translate(92 174)">
+    <text x="0" y="0" fill="#284c7d" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Career Tech SEO</text>
+    <text x="0" y="82" fill="#13243b" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="850">CV ky su</text>
+    <text x="0" y="155" fill="#13243b" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="850">phan mem nhung</text>
+    <text x="2" y="218" fill="#425a78" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="500">Tu C/C++, firmware, RTOS den thanh tich ro rang</text>
+  </g>
+  <g transform="translate(729 112)" filter="url(#shadow)">
+    <rect x="0" y="0" width="338" height="338" rx="42" fill="url(#chip)"/>
+    <rect x="62" y="62" width="214" height="214" rx="28" fill="#f8fbff" opacity="0.94"/>
+    <rect x="97" y="104" width="147" height="18" rx="9" fill="#1d3557"/>
+    <rect x="97" y="151" width="98" height="14" rx="7" fill="#87a3c8"/>
+    <rect x="97" y="188" width="142" height="14" rx="7" fill="#2f8f5b"/>
+    <rect x="97" y="225" width="115" height="14" rx="7" fill="#b7c8df"/>
+    <g stroke="#1d3557" stroke-width="12" stroke-linecap="round">
+      <path d="M-22 70 H0"/>
+      <path d="M-22 128 H0"/>
+      <path d="M-22 186 H0"/>
+      <path d="M-22 244 H0"/>
+      <path d="M338 70 H360"/>
+      <path d="M338 128 H360"/>
+      <path d="M338 186 H360"/>
+      <path d="M338 244 H360"/>
+      <path d="M70 -22 V0"/>
+      <path d="M128 -22 V0"/>
+      <path d="M186 -22 V0"/>
+      <path d="M244 -22 V0"/>
+      <path d="M70 338 V360"/>
+      <path d="M128 338 V360"/>
+      <path d="M186 338 V360"/>
+      <path d="M244 338 V360"/>
+    </g>
+  </g>
+  <g transform="translate(665 429)" filter="url(#shadow)">
+    <rect x="0" y="0" width="267" height="126" rx="27" fill="#ffffff"/>
+    <text x="35" y="52" fill="#1d3557" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="24" font-weight="700">&lt;ATS ready /&gt;</text>
+    <rect x="35" y="76" width="73" height="13" rx="6.5" fill="#2f8f5b"/>
+    <rect x="123" y="76" width="98" height="13" rx="6.5" fill="#a7bad4"/>
+  </g>
+</svg>
