@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Clock } from 'lucide-react';
 
 interface BlogCardProps {
@@ -20,9 +21,22 @@ interface BlogCardProps {
 }
 
 export default function BlogCard({ post, tag }: BlogCardProps) {
+  const router = useRouter();
+
   return (
-    <Link href={`/blog/${post.slug}`} className="group block h-full">
-      <article className="bg-white p-4 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow group flex flex-col h-full cursor-pointer">
+    <div
+      className="group block h-full cursor-pointer"
+      onClick={() => router.push(`/blog/${post.slug}`)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          router.push(`/blog/${post.slug}`);
+        }
+      }}
+      role="link"
+      tabIndex={0}
+    >
+      <article className="bg-white p-4 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow group flex flex-col h-full">
 
         {/* Image Area */}
         <div className="w-full h-48 rounded-2xl flex items-center justify-center mb-6 relative overflow-hidden bg-gray-50">
@@ -53,7 +67,7 @@ export default function BlogCard({ post, tag }: BlogCardProps) {
             {post.description}
           </p>
 
-          {/* Tags */}
+          {/* Tags — clickable links that don't trigger the card's onClick */}
           {post.tags && post.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-4">
               {post.tags.slice(0, 3).map((t) => (
@@ -92,6 +106,6 @@ export default function BlogCard({ post, tag }: BlogCardProps) {
         </div>
 
       </article>
-    </Link>
+    </div>
   );
 }

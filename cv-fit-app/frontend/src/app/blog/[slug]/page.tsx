@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MDXRemote } from 'next-mdx-remote/rsc';
-import { getPostBySlug, getAllPosts } from '@/lib/mdx';
+import { getPostBySlug, getAllPosts, type OmitBlogPost } from '@/lib/mdx';
 import Link from 'next/link';
 import {
   ChevronRight, ChevronLeft, Calendar, Clock, Share2, Mail,
@@ -141,16 +141,23 @@ export default async function BlogPostPage(props: { params: Params }) {
       const idx = sortedPosts.findIndex(p => p.slug === post.slug);
       if (idx < sortedPosts.length - 1) nextPost = sortedPosts[idx + 1];
     }
+    type PostWithSharedTags = OmitBlogPost & { sharedTags: string[] };
     const sharedTagPosts = sortedPosts
       .filter(p => p.slug !== post.slug)
-      .map(p => ({
+      .map((p): PostWithSharedTags => ({
         ...p,
         sharedTags: p.tags.filter(t => post.tags.includes(t)),
       }))
-      .filter(p => p.sharedTags.length > 0)
+      .filter((p): p is PostWithSharedTags => p.sharedTags.length > 0)
       .sort((a, b) => b.sharedTags.length - a.sharedTags.length)
       .slice(0, 3);
-    const relatedPosts = sharedTagPosts.length > 0 ? sharedTagPosts : allPosts.filter(p => p.slug !== post.slug).slice(0, 3);
+    const fallbackPosts: PostWithSharedTags[] = allPosts
+      .filter(p => p.slug !== post.slug)
+      .slice(0, 3)
+      .map(p => ({ ...p, sharedTags: [] }));
+    const relatedPosts: PostWithSharedTags[] = sharedTagPosts.length > 0
+      ? sharedTagPosts
+      : fallbackPosts;
     const headings = extractHeadings(post.content);
 
     const jsonLd = {
