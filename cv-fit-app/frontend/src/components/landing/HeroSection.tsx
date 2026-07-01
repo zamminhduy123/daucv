@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ArrowRight, Play, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
 
 export default function HeroSection() {
   return (
@@ -50,15 +50,6 @@ export default function HeroSection() {
             </Link>
           </div>
 
-          {/* Bullet Points */}
-          <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 sm:gap-6 text-sm text-[#5A6D6D] font-medium">
-            <span className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-(--primary)" /> Hoàn toàn miễn phí
-            </span>
-            <span className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-(--primary)" /> Không lưu trữ dữ liệu người dùng
-            </span>
-          </div>
         </div>
 
         {/* Right Column - Image */}

@@ -33,7 +33,7 @@ export default function WhySection() {
             <div className="mt-7 rounded-3xl border border-[#F5CEC6] bg-white/85 p-5 flex items-center gap-3 shadow-[0_4px_20px_rgba(240,91,66,0.08)]">
               <ArrowRight className="w-6 h-6 mt-0.5 text-[#F05B42] shrink-0" />
               <p className="text-sm font-bold text-[#D8482E] leading-snug">
-                Tối ưu CV theo từng JD giúp tăng 300% cơ hội qua vòng hồ sơ.
+                Tối ưu CV theo từng JD giúp tăng đáng kể cơ hội qua vòng hồ sơ.
               </p>
             </div>
           </CardContent>
