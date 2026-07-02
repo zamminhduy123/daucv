@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for HR data analyst CV article</title>
+  <desc id="desc">Branded DauCV blog cover with people analytics chart and resume scoring elements.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ecfeff"/>
+      <stop offset="0.48" stop-color="#f0fdf4"/>
+      <stop offset="1" stop-color="#d9f99d"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f7fee7"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#0f766e" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <path d="M78 112h520M76 496h432" stroke="#99f6e4" stroke-width="32" stroke-linecap="round" opacity="0.48"/>
+  <path d="M760 65c122 44 201 144 207 254 7 129-81 230-229 270h462V0H760z" fill="#22c55e" opacity="0.1"/>
+  <g transform="translate(72 58)">
+    <rect width="164" height="48" rx="24" fill="#0f766e"/>
+    <text x="28" y="31" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="800">DauCV</text>
+  </g>
+  <g filter="url(#shadow)" transform="translate(652 92)">
+    <rect width="438" height="392" rx="30" fill="url(#card)" stroke="#a7f3d0" stroke-width="2"/>
+    <rect x="38" y="38" width="362" height="58" rx="18" fill="#ccfbf1"/>
+    <text x="64" y="74" fill="#0f766e" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="900">People analytics CV</text>
+    <g transform="translate(54 132)">
+      <line x1="0" y1="170" x2="320" y2="170" stroke="#cbd5e1" stroke-width="4"/>
+      <line x1="0" y1="24" x2="0" y2="170" stroke="#cbd5e1" stroke-width="4"/>
+      <rect x="34" y="88" width="44" height="82" rx="12" fill="#14b8a6"/>
+      <rect x="104" y="52" width="44" height="118" rx="12" fill="#22c55e"/>
+      <rect x="174" y="108" width="44" height="62" rx="12" fill="#84cc16"/>
+      <rect x="244" y="34" width="44" height="136" rx="12" fill="#16a34a"/>
+      <path d="M45 80l78-44 72 56 83-78" fill="none" stroke="#14532d" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="45" cy="80" r="10" fill="#14532d"/>
+      <circle cx="123" cy="36" r="10" fill="#14532d"/>
+      <circle cx="195" cy="92" r="10" fill="#14532d"/>
+      <circle cx="278" cy="14" r="10" fill="#14532d"/>
+    </g>
+    <g transform="translate(56 334)">
+      <circle cx="28" cy="28" r="28" fill="#dcfce7"/>
+      <circle cx="96" cy="28" r="28" fill="#ccfbf1"/>
+      <circle cx="164" cy="28" r="28" fill="#ecfccb"/>
+      <path d="M20 29l7 8 14-18M88 29l7 8 14-18M156 29l7 8 14-18" stroke="#166534" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <rect x="222" y="14" width="134" height="14" rx="7" fill="#0f766e"/>
+      <rect x="222" y="38" width="92" height="14" rx="7" fill="#94a3b8"/>
+    </g>
+  </g>
+  <g filter="url(#shadow)" transform="translate(522 322) rotate(8)">
+    <rect width="188" height="220" rx="24" fill="#ffffff" stroke="#a7f3d0" stroke-width="2"/>
+    <rect x="30" y="34" width="70" height="14" rx="7" fill="#0f766e"/>
+    <rect x="30" y="72" width="128" height="10" rx="5" fill="#94a3b8"/>
+    <rect x="30" y="98" width="110" height="10" rx="5" fill="#cbd5e1"/>
+    <rect x="30" y="124" width="128" height="10" rx="5" fill="#cbd5e1"/>
+    <circle cx="58" cy="174" r="24" fill="#dcfce7"/>
+    <path d="M50 175l7 8 14-18" stroke="#16a34a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  <text x="74" y="186" fill="#134e4a" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="900">CV phan tich</text>
+  <text x="74" y="254" fill="#134e4a" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="900">du lieu nhan su</text>
+  <text x="78" y="314" fill="#0f766e" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">Bien HR metrics, dashboard va insight thanh bullet co suc nang</text>
+  <g transform="translate(78 362)">
+    <rect width="142" height="40" rx="20" fill="#0f766e"/>
+    <rect x="158" width="158" height="40" rx="20" fill="#ffffff" stroke="#99f6e4"/>
+    <rect x="332" width="176" height="40" rx="20" fill="#ffffff" stroke="#bbf7d0"/>
+    <text x="24" y="27" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="800">HR analytics</text>
+    <text x="183" y="27" fill="#0f766e" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="800">Dashboard</text>
+    <text x="358" y="27" fill="#0f766e" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="800">ATS keyword</text>
+  </g>
+</svg>
