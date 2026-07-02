@@ -1,3 +1,6 @@
+'use client';
+
+import { motion } from 'framer-motion';
 import { FileCheck, Target, Wand2, MessageSquare } from 'lucide-react';
 import Image from 'next/image';
 
@@ -15,7 +18,11 @@ interface FeatureCardProps {
 
 function FeatureCard({ icon, title, description, visual, bg }: FeatureCardProps) {
   return (
-    <div className={`${bg} rounded-3xl p-6 sm:p-8 border border-gray-100 flex flex-col min-h-[280px] sm:min-h-[300px]`}>
+    <motion.div
+      className={`${bg} rounded-3xl p-6 sm:p-8 border border-gray-100 flex flex-col min-h-[280px] sm:min-h-[300px]`}
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+    >
       {/* Header: icon + title */}
       <div className="flex items-center gap-3 mb-3">
         <div className="bg-white rounded-xl shadow-sm p-2 w-10 h-10 flex items-center justify-center flex-shrink-0">
@@ -29,7 +36,7 @@ function FeatureCard({ icon, title, description, visual, bg }: FeatureCardProps)
 
       {/* Visual — pushed to bottom */}
       <div className="mt-auto">{visual}</div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -228,19 +235,54 @@ export default function FeaturesSection() {
   return (
     <section id="tính-năng" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-12">
       <div className="flex flex-col items-center justify-center mb-8">
-        <h2 className="font-heading font-bold text-[#2F4F4F] text-3xl md:text-4xl mb-4">
+        <motion.h2
+          className="font-heading font-bold text-[#2F4F4F] text-3xl md:text-4xl mb-4"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+        >
           Đậu đồng hành với bạn mọi lúc
-        </h2>
-        <p className="text-sm text-gray-600 leading-relaxed">
+        </motion.h2>
+        <motion.p
+          className="text-sm text-gray-600 leading-relaxed"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+        >
           Từ chỉnh sửa CV đến khi bạn nhận được offer!
-        </p>
+        </motion.p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ amount: 0.1, once: true }}
+        variants={{
+          hidden: {},
+          visible: {
+            transition: { staggerChildren: 0.12 },
+          },
+        }}
+      >
         {FEATURES.map((f) => (
-          <FeatureCard key={f.title} {...f} />
+          <motion.div
+            key={f.title}
+            variants={{
+              hidden: { opacity: 0, y: 24 },
+              visible: {
+                opacity: 1,
+                y: 0,
+                transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
+              },
+            }}
+          >
+            <FeatureCard {...f} />
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </section>
   );
 }

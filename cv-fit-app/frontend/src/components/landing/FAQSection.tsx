@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { ArrowRight, FileText, Search, Shield, Languages, Mic } from 'lucide-react';
 import {
   Accordion,
@@ -63,46 +66,77 @@ export function FAQSection({ showTitle = true, showViewMore = true }: FAQSection
   };
 
   return (
-    <section className="fade-up bg-(--bg)">
+    <section className="bg-(--bg)">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <div className="max-w-3xl mx-auto py-20 px-6">
         {showTitle && (
-          <h2 className="text-3xl font-bold text-center text-brand-text mb-12">
+          <motion.h2
+            className="text-3xl font-bold text-center text-brand-text mb-12"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
             Câu hỏi thường gặp
-          </h2>
+          </motion.h2>
         )}
-        <Accordion type="single" collapsible className="space-y-4">
-          {faqData.map(({ icon: Icon, question, answer, deepLink, deepLinkText }, index) => (
-            <AccordionItem
-              key={index}
-              value={`item-${index}`}
-              className="border border-gray-100 rounded-2xl px-6 bg-white shadow-sm transition-all duration-200 data-[state=open]:border-[#5A9E40]/40 data-[state=open]:bg-[#f6fcf4]"
-            >
-              <AccordionTrigger className="flex items-center gap-4 hover:no-underline text-base md:text-lg font-semibold text-[#2F4F4F] py-5 text-left [&>svg]:text-gray-400 [&[data-state=open]>svg]:text-[#5A9E40]">
-                <Icon size={20} className="text-[#5A9E40] shrink-0" strokeWidth={2.5} />
-                <span className="flex-1">{question}</span>
-              </AccordionTrigger>
-              <AccordionContent className="text-gray-600 leading-relaxed pb-5 pl-9 md:pl-[3.25rem] text-sm md:text-base">
-                <p>{answer}</p>
-                {/* Deep-link to /qna anchor */}
-                <Link
-                  href={deepLink}
-                  className="inline-flex items-center gap-1.5 mt-3 text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-dark)] transition-colors group"
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ amount: 0.05, once: true }}
+          variants={{
+            hidden: {},
+            visible: {
+              transition: { staggerChildren: 0.08 },
+            },
+          }}
+        >
+          <Accordion type="single" collapsible className="space-y-4">
+            {faqData.map(({ icon: Icon, question, answer, deepLink, deepLinkText }, index) => (
+              <motion.div
+                key={index}
+                variants={{
+                  hidden: { opacity: 0, y: 16 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1] } },
+                }}
+              >
+                <AccordionItem
+                  value={`item-${index}`}
+                  className="border border-gray-100 rounded-2xl px-6 bg-white shadow-sm transition-all duration-200 data-[state=open]:border-[#5A9E40]/40 data-[state=open]:bg-[#f6fcf4]"
                 >
-                  {deepLinkText}
-                  <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+                  <AccordionTrigger className="flex items-center gap-4 hover:no-underline text-base md:text-lg font-semibold text-[#2F4F4F] py-5 text-left [&>svg]:text-gray-400 [&[data-state=open]>svg]:text-[#5A9E40]">
+                    <Icon size={20} className="text-[#5A9E40] shrink-0" strokeWidth={2.5} />
+                    <span className="flex-1">{question}</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="text-gray-600 leading-relaxed pb-5 pl-9 md:pl-[3.25rem] text-sm md:text-base">
+                    <p>{answer}</p>
+                    {/* Deep-link to /qna anchor */}
+                    <Link
+                      href={deepLink}
+                      className="inline-flex items-center gap-1.5 mt-3 text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-dark)] transition-colors group"
+                    >
+                      {deepLinkText}
+                      <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
+                    </Link>
+                  </AccordionContent>
+                </AccordionItem>
+              </motion.div>
+            ))}
+          </Accordion>
+        </motion.div>
 
         {/* View more link */}
         {showViewMore && (
-          <div className="mt-10 text-center">
+          <motion.div
+            className="mt-10 text-center"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+          >
             <Link
               href="/qna"
               className="inline-flex items-center gap-2 text-sm font-medium text-[var(--primary)] hover:text-[var(--primary-dark)] transition-colors group"
@@ -110,7 +144,7 @@ export function FAQSection({ showTitle = true, showViewMore = true }: FAQSection
               Xem thêm cẩm nang & giải đáp thắc mắc 📚
               <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
             </Link>
-          </div>
+          </motion.div>
         )}
       </div>
     </section>
