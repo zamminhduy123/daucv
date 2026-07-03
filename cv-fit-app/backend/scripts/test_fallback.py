@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 import sys
-from pathlib import Path
 
 # Ensure we can import from the parent 'backend' directory
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -36,7 +35,9 @@ async def test_individual_providers():
                 response_model=MockTestResponse,
                 temperature=0.0,
             )
-            print(f"✅ {provider.name} SUCCESS! Response: {result.data.model_dump_json()}")
+            print(
+                f"✅ {provider.name} SUCCESS! Response: {result.data.model_dump_json()}"
+            )
             print(f"📈 Tokens: {result.input_tokens} in / {result.output_tokens} out")
         except Exception as e:
             print(f"❌ {provider.name} FAILED! Error: {e}")
@@ -54,7 +55,11 @@ async def test_real_fallback_with_bad_key():
     valid_provider = None
     for p in original_providers:
         # Check if it has a likely valid key
-        if isinstance(p, OpenAIProvider) and p.client.api_key and p.client.api_key != "":
+        if (
+            isinstance(p, OpenAIProvider)
+            and p.client.api_key
+            and p.client.api_key != ""
+        ):
             valid_provider = p
             break
 
@@ -83,10 +88,12 @@ async def test_real_fallback_with_bad_key():
         result = await call_llm_with_fallback(
             system_prompt="You are a test bot. Return a JSON object with 'test_message'='Fallback Worked' and 'success'=true.",
             user_input="Hello",
-            response_model=TestResponse,
+            response_model=MockTestResponse,
             max_retries=1,
         )
-        print(f"\n✅ Real Fallback logic successfully bypassed the bad key! Result: {result}")
+        print(
+            f"\n✅ Real Fallback logic successfully bypassed the bad key! Result: {result}"
+        )
     except Exception as e:
         print(f"\n❌ Real Fallback logic failed: {e}")
     finally:
@@ -135,10 +142,12 @@ async def test_fallback_mechanism():
         result = await call_llm_with_fallback(
             system_prompt="Return a valid JSON",
             user_input="Hello",
-            response_model=TestResponse,
+            response_model=MockTestResponse,
             max_retries=1,
         )
-        print(f"\n✅ Fallback logic successfully bypassed errors and retrieved: {result}")
+        print(
+            f"\n✅ Fallback logic successfully bypassed errors and retrieved: {result}"
+        )
     except Exception as e:
         print(f"\n❌ Fallback logic failed unexpectedly: {e}")
     finally:

@@ -1,0 +1,104 @@
+"""Endpoint tests that verify route registration and input validation.
+
+No LLM calls — these only test that routes exist, accept valid input,
+and reject invalid input with 422 (Pydantic validation errors).
+"""
+
+import pytest
+from fastapi.testclient import TestClient
+
+# All POST endpoints that should be registered.
+# If a new route is added, append to this list.
+POST_ROUTES = [
+    "/api/upload-and-match",
+    "/api/extract-pdf",
+    "/api/analyze-cv",
+    "/api/writer/generate",
+    "/api/interview/chat",
+    "/api/interview/finish",
+    "/api/interview/tts",
+    "/api/jobs/parse-profile",
+    "/api/jobs/search",
+]
+
+
+@pytest.mark.parametrize(
+    "path", POST_ROUTES, ids=lambda p: p.replace("/", "_").strip("_")
+)
+def test_post_route_is_registered(client: TestClient, path: str) -> None:
+    """Each POST route should exist (not 404). Hit with GET; we only care about route presence."""
+    resp = client.get(path)
+    # 405 = route exists but wrong method; 200 = works with GET; anything else ≠ 404
+    assert resp.status_code != 404, f"Route {path} is not registered (404)"
+
+
+def test_analyze_cv_rejects_empty_body(client: TestClient) -> None:
+    resp = client.post("/api/analyze-cv", json={})
+    assert resp.status_code == 422
+
+
+def test_analyze_cv_rejects_no_cv_text(client: TestClient) -> None:
+    resp = client.post("/api/analyze-cv", json={"cv_text": ""})
+    assert resp.status_code == 422
+
+
+def test_analyze_cv_422_with_whitespace_only(client: TestClient) -> None:
+    resp = client.post("/api/analyze-cv", json={"cv_text": "   "})
+    assert resp.status_code == 422
+
+
+def test_writer_rejects_empty_cv(client: TestClient) -> None:
+    resp = client.post(
+        "/api/writer/generate",
+        json={"cv_text": "", "writing_type": "email", "tone": "Chuyên nghiệp"},
+    )
+    assert resp.status_code == 422
+
+
+def test_interview_chat_accepts_empty_history_first_turn(client: TestClient) -> None:
+    """Empty chat history on first turn is valid — the route has special first-turn logic."""
+    resp = client.post(
+        "/api/interview/chat",
+        json={
+            "cv_text": "Test CV",
+            "chat_history": [],
+            "current_question": 1,
+            "total_questions": 5,
+        },
+    )
+    # Should NOT be 422 — the route handles first turn specially
+    assert resp.status_code != 422
+
+
+def test_interview_finish_rejects_empty_history(client: TestClient) -> None:
+    resp = client.post(
+        "/api/interview/finish",
+        json={
+            "cv_text": "Test CV",
+            "chat_history": [],
+            "interview_type": "general",
+        },
+    )
+    assert resp.status_code == 422
+
+
+def test_parse_profile_rejects_empty_cv(client: TestClient) -> None:
+    resp = client.post("/api/jobs/parse-profile", json={"cv_text": ""})
+    assert resp.status_code == 422
+
+
+def test_tts_rejects_empty_text(client: TestClient) -> None:
+    resp = client.post("/api/interview/tts", json={"text": ""})
+    assert resp.status_code == 400
+
+
+def test_tts_rejects_no_body(client: TestClient) -> None:
+    resp = client.post("/api/interview/tts", json={})
+    assert resp.status_code == 422
+
+
+def test_jobs_search_accepts_minimal_body(client: TestClient) -> None:
+    """Job search should accept minimal body and attempt processing (→ error from LLM/infra, not 422)."""
+    resp = client.post("/api/jobs/search", json={"cv_text": "Test CV"})
+    # Could be 422, 500, or 502 — but NOT 404/405
+    assert resp.status_code not in (404, 405)

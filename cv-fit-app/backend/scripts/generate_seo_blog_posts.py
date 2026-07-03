@@ -15,9 +15,9 @@ import random
 import re
 import sys
 import unicodedata
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
 from zoneinfo import ZoneInfo
 
 import yaml
@@ -105,7 +105,12 @@ def coerce_str_list(value: object) -> list[str]:
             if isinstance(item, str) and item.strip():
                 items.append(item.strip())
             elif isinstance(item, dict):
-                text = item.get("text") or item.get("description") or item.get("content") or item.get("title")
+                text = (
+                    item.get("text")
+                    or item.get("description")
+                    or item.get("content")
+                    or item.get("title")
+                )
                 if isinstance(text, str) and text.strip():
                     items.append(text.strip())
         return items
@@ -139,12 +144,18 @@ class ArticleSection(BaseModel):
             return value
         data = dict(value)
         title = first_value(data, ["title", "heading", "header"], "Nội dung cần lưu ý")
-        paragraphs = coerce_str_list(first_value(data, ["paragraphs", "content", "body", "description"], []))
-        bullets = coerce_str_list(first_value(data, ["bullets", "bullet_points", "items", "tips"], []))
+        paragraphs = coerce_str_list(
+            first_value(data, ["paragraphs", "content", "body", "description"], [])
+        )
+        bullets = coerce_str_list(
+            first_value(data, ["bullets", "bullet_points", "items", "tips"], [])
+        )
         if not paragraphs and bullets:
             paragraphs = [bullets.pop(0)]
         if not paragraphs:
-            paragraphs = ["Phần này tập trung vào các điểm thực tế giúp người đọc tối ưu CV hiệu quả hơn."]
+            paragraphs = [
+                "Phần này tập trung vào các điểm thực tế giúp người đọc tối ưu CV hiệu quả hơn."
+            ]
 
         data["title"] = clip_text(title, "Nội dung cần lưu ý", 90)
         data["paragraphs"] = [clip_text(item, item, 500) for item in paragraphs[:4]]
@@ -163,10 +174,20 @@ class FeatureItem(BaseModel):
         if not isinstance(value, dict):
             return value
         data = dict(value)
-        data["icon"] = clip_text(first_value(data, ["icon"], "CheckCircle2"), "CheckCircle2", 40)
-        data["title"] = clip_text(first_value(data, ["title", "heading"], "Điểm cần tối ưu"), "Điểm cần tối ưu", 50)
+        data["icon"] = clip_text(
+            first_value(data, ["icon"], "CheckCircle2"), "CheckCircle2", 40
+        )
+        data["title"] = clip_text(
+            first_value(data, ["title", "heading"], "Điểm cần tối ưu"),
+            "Điểm cần tối ưu",
+            50,
+        )
         data["description"] = clip_text(
-            first_value(data, ["description", "content", "text"], "Một điểm quan trọng giúp CV rõ ràng và thân thiện hơn với ATS."),
+            first_value(
+                data,
+                ["description", "content", "text"],
+                "Một điểm quan trọng giúp CV rõ ràng và thân thiện hơn với ATS.",
+            ),
             "Một điểm quan trọng giúp CV rõ ràng và thân thiện hơn với ATS.",
             180,
         )
@@ -183,9 +204,15 @@ class StepItem(BaseModel):
         if not isinstance(value, dict):
             return value
         data = dict(value)
-        data["title"] = clip_text(first_value(data, ["title", "heading"], "Bước tối ưu"), "Bước tối ưu", 70)
+        data["title"] = clip_text(
+            first_value(data, ["title", "heading"], "Bước tối ưu"), "Bước tối ưu", 70
+        )
         data["description"] = clip_text(
-            first_value(data, ["description", "content", "text"], "Thực hiện bước này để CV rõ ràng và sát hơn với vị trí ứng tuyển."),
+            first_value(
+                data,
+                ["description", "content", "text"],
+                "Thực hiện bước này để CV rõ ràng và sát hơn với vị trí ứng tuyển.",
+            ),
             "Thực hiện bước này để CV rõ ràng và sát hơn với vị trí ứng tuyển.",
             220,
         )
@@ -218,9 +245,19 @@ class ArticleDraft(BaseModel):
             return value
 
         data = dict(value)
-        title = clip_text(first_value(data, ["title", "headline"], "Cách viết CV chuẩn ATS cho người tìm việc"), "Cách viết CV chuẩn ATS cho người tìm việc", 90)
+        title = clip_text(
+            first_value(
+                data, ["title", "headline"], "Cách viết CV chuẩn ATS cho người tìm việc"
+            ),
+            "Cách viết CV chuẩn ATS cho người tìm việc",
+            90,
+        )
         description = clip_text(
-            first_value(data, ["description", "meta_description", "summary"], "Hướng dẫn thực tế giúp bạn viết CV rõ ràng, chuẩn ATS và tăng cơ hội được nhà tuyển dụng phản hồi."),
+            first_value(
+                data,
+                ["description", "meta_description", "summary"],
+                "Hướng dẫn thực tế giúp bạn viết CV rõ ràng, chuẩn ATS và tăng cơ hội được nhà tuyển dụng phản hồi.",
+            ),
             "Hướng dẫn thực tế giúp bạn viết CV rõ ràng, chuẩn ATS và tăng cơ hội được nhà tuyển dụng phản hồi.",
             170,
         )
@@ -230,13 +267,35 @@ class ArticleDraft(BaseModel):
         if len(sections) < 4:
             sections = [
                 *sections,
-                {"title": "Vì sao CV chuẩn ATS quan trọng", "paragraphs": ["CV chuẩn ATS giúp hệ thống tuyển dụng đọc đúng thông tin, từ đó tăng khả năng hồ sơ được chuyển đến nhà tuyển dụng thật."]},
-                {"title": "Cách chọn từ khóa từ mô tả công việc", "paragraphs": ["Hãy đọc kỹ JD, chọn các kỹ năng và yêu cầu thật sự khớp với kinh nghiệm của bạn, rồi đưa vào CV bằng ngôn ngữ tự nhiên."]},
-                {"title": "Những lỗi định dạng cần tránh", "paragraphs": ["Tránh dùng quá nhiều bảng, icon, ảnh và bố cục nhiều cột vì các yếu tố này có thể khiến ATS đọc sai nội dung."]},
-                {"title": "Cách kiểm tra CV trước khi gửi", "paragraphs": ["Copy nội dung CV sang trình soạn thảo văn bản đơn giản để xem thứ tự thông tin có còn rõ ràng hay không."]},
+                {
+                    "title": "Vì sao CV chuẩn ATS quan trọng",
+                    "paragraphs": [
+                        "CV chuẩn ATS giúp hệ thống tuyển dụng đọc đúng thông tin, từ đó tăng khả năng hồ sơ được chuyển đến nhà tuyển dụng thật."
+                    ],
+                },
+                {
+                    "title": "Cách chọn từ khóa từ mô tả công việc",
+                    "paragraphs": [
+                        "Hãy đọc kỹ JD, chọn các kỹ năng và yêu cầu thật sự khớp với kinh nghiệm của bạn, rồi đưa vào CV bằng ngôn ngữ tự nhiên."
+                    ],
+                },
+                {
+                    "title": "Những lỗi định dạng cần tránh",
+                    "paragraphs": [
+                        "Tránh dùng quá nhiều bảng, icon, ảnh và bố cục nhiều cột vì các yếu tố này có thể khiến ATS đọc sai nội dung."
+                    ],
+                },
+                {
+                    "title": "Cách kiểm tra CV trước khi gửi",
+                    "paragraphs": [
+                        "Copy nội dung CV sang trình soạn thảo văn bản đơn giản để xem thứ tự thông tin có còn rõ ràng hay không."
+                    ],
+                },
             ][:4]
 
-        intro = coerce_str_list(first_value(data, ["intro", "introduction", "opening"], []))
+        intro = coerce_str_list(
+            first_value(data, ["intro", "introduction", "opening"], [])
+        )
         if not intro:
             intro = [
                 description,
@@ -247,7 +306,9 @@ class ArticleDraft(BaseModel):
         if len(tags) < 3:
             tags = [*tags, "CV", "ATS", "Tìm việc"][:3]
 
-        takeaways = coerce_str_list(first_value(data, ["takeaways", "key_takeaways", "learning_points"], []))
+        takeaways = coerce_str_list(
+            first_value(data, ["takeaways", "key_takeaways", "learning_points"], [])
+        )
         if len(takeaways) < 3:
             takeaways = [
                 "Biết cách nhận diện yêu cầu quan trọng trong mô tả công việc.",
@@ -258,20 +319,43 @@ class ArticleDraft(BaseModel):
         features = first_value(data, ["features", "feature_items"], [])
         if not isinstance(features, list) or len(features) < 3:
             features = [
-                {"icon": "ScanLine", "title": "Dễ đọc với ATS", "description": "Bố cục rõ ràng giúp hệ thống tuyển dụng nhận diện đúng thông tin chính trong CV."},
-                {"icon": "Search", "title": "Đúng từ khóa", "description": "Từ khóa được chọn từ JD và đặt tự nhiên trong kinh nghiệm, kỹ năng và dự án."},
-                {"icon": "CheckCircle2", "title": "Sẵn sàng ứng tuyển", "description": "Checklist cuối bài giúp bạn rà soát nhanh trước khi gửi hồ sơ."},
+                {
+                    "icon": "ScanLine",
+                    "title": "Dễ đọc với ATS",
+                    "description": "Bố cục rõ ràng giúp hệ thống tuyển dụng nhận diện đúng thông tin chính trong CV.",
+                },
+                {
+                    "icon": "Search",
+                    "title": "Đúng từ khóa",
+                    "description": "Từ khóa được chọn từ JD và đặt tự nhiên trong kinh nghiệm, kỹ năng và dự án.",
+                },
+                {
+                    "icon": "CheckCircle2",
+                    "title": "Sẵn sàng ứng tuyển",
+                    "description": "Checklist cuối bài giúp bạn rà soát nhanh trước khi gửi hồ sơ.",
+                },
             ]
 
         steps = first_value(data, ["steps", "action_steps", "process"], [])
         if not isinstance(steps, list) or len(steps) < 3:
             steps = [
-                {"title": "Đọc kỹ mô tả công việc", "description": "Gạch chân kỹ năng, công cụ, trách nhiệm và tiêu chí bắt buộc xuất hiện trong JD."},
-                {"title": "So khớp với kinh nghiệm thật", "description": "Chỉ đưa vào CV những keyword bạn có thể chứng minh bằng dự án, kết quả hoặc trách nhiệm cụ thể."},
-                {"title": "Kiểm tra định dạng", "description": "Đảm bảo CV copy được nội dung, tiêu đề rõ ràng và không phụ thuộc vào icon hoặc hình ảnh."},
+                {
+                    "title": "Đọc kỹ mô tả công việc",
+                    "description": "Gạch chân kỹ năng, công cụ, trách nhiệm và tiêu chí bắt buộc xuất hiện trong JD.",
+                },
+                {
+                    "title": "So khớp với kinh nghiệm thật",
+                    "description": "Chỉ đưa vào CV những keyword bạn có thể chứng minh bằng dự án, kết quả hoặc trách nhiệm cụ thể.",
+                },
+                {
+                    "title": "Kiểm tra định dạng",
+                    "description": "Đảm bảo CV copy được nội dung, tiêu đề rõ ràng và không phụ thuộc vào icon hoặc hình ảnh.",
+                },
             ]
 
-        checklist_items = coerce_str_list(first_value(data, ["checklist_items", "checklist", "final_checklist"], []))
+        checklist_items = coerce_str_list(
+            first_value(data, ["checklist_items", "checklist", "final_checklist"], [])
+        )
         if len(checklist_items) < 4:
             checklist_items = [
                 "Tiêu đề các phần như Kinh nghiệm, Kỹ năng, Học vấn rõ ràng.",
@@ -282,22 +366,54 @@ class ArticleDraft(BaseModel):
 
         data["title"] = title
         data["description"] = description
-        data["primary_keyword"] = clip_text(first_value(data, ["primary_keyword", "keyword", "main_keyword"], tags[0]), tags[0], 80)
-        data["category"] = clip_text(first_value(data, ["category"], "CV & Resumes"), "CV & Resumes", 40)
+        data["primary_keyword"] = clip_text(
+            first_value(data, ["primary_keyword", "keyword", "main_keyword"], tags[0]),
+            tags[0],
+            80,
+        )
+        data["category"] = clip_text(
+            first_value(data, ["category"], "CV & Resumes"), "CV & Resumes", 40
+        )
         data["tags"] = [clip_text(tag, tag, 30) for tag in tags[:6]]
-        data["read_time"] = clip_text(first_value(data, ["read_time", "estimated_read_time"], "5 min read"), "5 min read", 20)
+        data["read_time"] = clip_text(
+            first_value(data, ["read_time", "estimated_read_time"], "5 min read"),
+            "5 min read",
+            20,
+        )
         data["intro"] = [clip_text(item, item, 500) for item in intro[:4]]
         data["takeaways"] = [clip_text(item, item, 180) for item in takeaways[:5]]
-        data["feature_title"] = clip_text(first_value(data, ["feature_title"], "Những điểm cần tối ưu"), "Những điểm cần tối ưu", 80)
+        data["feature_title"] = clip_text(
+            first_value(data, ["feature_title"], "Những điểm cần tối ưu"),
+            "Những điểm cần tối ưu",
+            80,
+        )
         data["features"] = features[:4]
         data["sections"] = sections[:7]
-        data["checklist_title"] = clip_text(first_value(data, ["checklist_title"], "Checklist trước khi gửi CV"), "Checklist trước khi gửi CV", 80)
-        data["checklist_items"] = [clip_text(item, item, 180) for item in checklist_items[:8]]
-        data["steps_title"] = clip_text(first_value(data, ["steps_title"], "Các bước tối ưu CV"), "Các bước tối ưu CV", 80)
+        data["checklist_title"] = clip_text(
+            first_value(data, ["checklist_title"], "Checklist trước khi gửi CV"),
+            "Checklist trước khi gửi CV",
+            80,
+        )
+        data["checklist_items"] = [
+            clip_text(item, item, 180) for item in checklist_items[:8]
+        ]
+        data["steps_title"] = clip_text(
+            first_value(data, ["steps_title"], "Các bước tối ưu CV"),
+            "Các bước tối ưu CV",
+            80,
+        )
         data["steps"] = steps[:5]
-        data["cta_title"] = clip_text(first_value(data, ["cta_title"], "Tối ưu CV của bạn với Đậu"), "Tối ưu CV của bạn với Đậu", 80)
+        data["cta_title"] = clip_text(
+            first_value(data, ["cta_title"], "Tối ưu CV của bạn với Đậu"),
+            "Tối ưu CV của bạn với Đậu",
+            80,
+        )
         data["cta_description"] = clip_text(
-            first_value(data, ["cta_description"], "Dùng Đậu để phân tích CV, tìm điểm cần cải thiện và chuẩn bị hồ sơ ứng tuyển tự tin hơn."),
+            first_value(
+                data,
+                ["cta_description"],
+                "Dùng Đậu để phân tích CV, tìm điểm cần cải thiện và chuẩn bị hồ sơ ứng tuyển tự tin hơn.",
+            ),
             "Dùng Đậu để phân tích CV, tìm điểm cần cải thiện và chuẩn bị hồ sơ ứng tuyển tự tin hơn.",
             180,
         )
@@ -305,14 +421,31 @@ class ArticleDraft(BaseModel):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate Vietnamese SEO MDX blog posts.")
+    parser = argparse.ArgumentParser(
+        description="Generate Vietnamese SEO MDX blog posts."
+    )
     parser.add_argument("--min", type=int, default=2, help="Minimum posts to generate.")
     parser.add_argument("--max", type=int, default=4, help="Maximum posts to generate.")
     parser.add_argument("--count", type=int, help="Exact number of posts to generate.")
-    parser.add_argument("--dry-run", action="store_true", help="Generate and print metadata without writing files.")
-    parser.add_argument("--topic", action="append", default=[], help="Optional topic seed. Can be repeated.")
-    parser.add_argument("--date", help="Publish date in YYYY-MM-DD. Defaults to Asia/Ho_Chi_Minh today.")
-    parser.add_argument("--allow-fallback", action="store_true", help="Allow offline template fallback if all providers fail.")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Generate and print metadata without writing files.",
+    )
+    parser.add_argument(
+        "--topic",
+        action="append",
+        default=[],
+        help="Optional topic seed. Can be repeated.",
+    )
+    parser.add_argument(
+        "--date", help="Publish date in YYYY-MM-DD. Defaults to Asia/Ho_Chi_Minh today."
+    )
+    parser.add_argument(
+        "--allow-fallback",
+        action="store_true",
+        help="Allow offline template fallback if all providers fail.",
+    )
     return parser.parse_args()
 
 
@@ -364,7 +497,9 @@ def unique_slug(title: str, existing_slugs: set[str]) -> str:
     return slug
 
 
-def choose_cover_image(existing_posts: list[dict[str, str]], used_this_run: set[str]) -> str:
+def choose_cover_image(
+    existing_posts: list[dict[str, str]], used_this_run: set[str]
+) -> str:
     used_images = {
         str(post.get("coverImage", "")).strip()
         for post in existing_posts
@@ -376,7 +511,9 @@ def choose_cover_image(existing_posts: list[dict[str, str]], used_this_run: set[
         if image not in used_images and image not in used_this_run
     ]
     if not available:
-        available = [image for image in COVER_IMAGES if image not in used_this_run] or COVER_IMAGES
+        available = [
+            image for image in COVER_IMAGES if image not in used_this_run
+        ] or COVER_IMAGES
     cover_image = random.choice(available)
     used_this_run.add(cover_image)
     return cover_image
@@ -405,7 +542,9 @@ def yaml_list(items: Iterable[str]) -> str:
 
 
 def js_array(items: Iterable[str], indent: str = "  ") -> str:
-    body = ",\n".join(f'{indent}{json.dumps(item, ensure_ascii=False)}' for item in items)
+    body = ",\n".join(
+        f"{indent}{json.dumps(item, ensure_ascii=False)}" for item in items
+    )
     return "[\n" + body + "\n]"
 
 
@@ -414,17 +553,15 @@ def render_feature_grid(article: ArticleDraft) -> str:
     for feature in article.features:
         rows.append(
             "    { "
-            f'icon: {json.dumps(feature.icon, ensure_ascii=False)}, '
-            f'title: {json.dumps(feature.title, ensure_ascii=False)}, '
-            f'description: {json.dumps(feature.description, ensure_ascii=False)}'
+            f"icon: {json.dumps(feature.icon, ensure_ascii=False)}, "
+            f"title: {json.dumps(feature.title, ensure_ascii=False)}, "
+            f"description: {json.dumps(feature.description, ensure_ascii=False)}"
             " }"
         )
     return (
         "<FeatureGrid \n"
         f"  title={json.dumps(article.feature_title, ensure_ascii=False)}\n"
-        "  features={[\n"
-        + ",\n".join(rows)
-        + "\n  ]} \n"
+        "  features={[\n" + ",\n".join(rows) + "\n  ]} \n"
         "/>"
     )
 
@@ -434,16 +571,14 @@ def render_step_list(article: ArticleDraft) -> str:
     for step in article.steps:
         rows.append(
             "    { "
-            f'title: {json.dumps(step.title, ensure_ascii=False)}, '
-            f'description: {json.dumps(step.description, ensure_ascii=False)}'
+            f"title: {json.dumps(step.title, ensure_ascii=False)}, "
+            f"description: {json.dumps(step.description, ensure_ascii=False)}"
             " }"
         )
     return (
         "<StepList \n"
         f"  title={json.dumps(article.steps_title, ensure_ascii=False)}\n"
-        "  steps={[\n"
-        + ",\n".join(rows)
-        + "\n  ]} \n"
+        "  steps={[\n" + ",\n".join(rows) + "\n  ]} \n"
         "/>"
     )
 
@@ -470,9 +605,7 @@ def render_article(article: ArticleDraft, publish_date: str, cover_image: str) -
 
     lines.extend(
         [
-            "<TakeawaysBox takeaways={"
-            + js_array(article.takeaways)
-            + "} />",
+            "<TakeawaysBox takeaways={" + js_array(article.takeaways) + "} />",
             "",
             render_feature_grid(article),
             "",
@@ -493,9 +626,7 @@ def render_article(article: ArticleDraft, publish_date: str, cover_image: str) -
         [
             "<ChecklistSection ",
             f"  title={json.dumps(article.checklist_title, ensure_ascii=False)}",
-            "  items={"
-            + js_array(article.checklist_items)
-            + "} ",
+            "  items={" + js_array(article.checklist_items) + "} ",
             "/>",
             "",
             "<BlogCTA ",
@@ -553,7 +684,11 @@ def validate_editorial_quality(article: ArticleDraft) -> None:
             *article.intro,
             *article.takeaways,
             *article.checklist_items,
-            *(paragraph for section in article.sections for paragraph in section.paragraphs),
+            *(
+                paragraph
+                for section in article.sections
+                for paragraph in section.paragraphs
+            ),
             *(bullet for section in article.sections for bullet in section.bullets),
         ]
     ).lower()
@@ -564,12 +699,23 @@ def validate_editorial_quality(article: ArticleDraft) -> None:
     thin_sections = [
         section.title
         for section in article.sections
-        if sum(len(paragraph.split()) for paragraph in section.paragraphs) < 70 and len(section.bullets) < 2
+        if sum(len(paragraph.split()) for paragraph in section.paragraphs) < 70
+        and len(section.bullets) < 2
     ]
     if thin_sections:
         issues.append(f"thin sections: {', '.join(thin_sections[:3])}")
 
-    concrete_markers = ["ví dụ", "trước:", "sau:", "jd", "bullet", "số liệu", "kết quả", "công cụ", "portfolio"]
+    concrete_markers = [
+        "ví dụ",
+        "trước:",
+        "sau:",
+        "jd",
+        "bullet",
+        "số liệu",
+        "kết quả",
+        "công cụ",
+        "portfolio",
+    ]
     marker_count = sum(all_text.count(marker) for marker in concrete_markers)
     if marker_count < 4:
         issues.append("not enough concrete examples or CV-specific details")
@@ -578,7 +724,9 @@ def validate_editorial_quality(article: ArticleDraft) -> None:
         raise ValueError("; ".join(issues))
 
 
-def build_prompt(existing_posts: list[dict[str, str]], topic_seed: str, publish_date: str) -> tuple[str, str]:
+def build_prompt(
+    existing_posts: list[dict[str, str]], topic_seed: str, publish_date: str
+) -> tuple[str, str]:
     existing_summary = "\n".join(
         f"- {post['slug']}: {post['title']}" for post in existing_posts[-60:]
     )
@@ -662,16 +810,17 @@ def fallback_title(topic_seed: str) -> str:
         "từ khóa trong JD và CV": "Từ khóa trong JD và CV: cách chọn đúng keyword mà không biến hồ sơ thành máy móc",
         "đánh giá CV trước khi ứng tuyển": "Đánh giá CV trước khi ứng tuyển: checklist tự rà soát trong 15 phút",
     }
-    return mapping.get(topic_seed, f"{topic_seed[:1].upper()}{topic_seed[1:]}: hướng dẫn thực tế để tăng cơ hội ứng tuyển")
+    return mapping.get(
+        topic_seed,
+        f"{topic_seed[:1].upper()}{topic_seed[1:]}: hướng dẫn thực tế để tăng cơ hội ứng tuyển",
+    )
 
 
 def fallback_article(topic_seed: str) -> ArticleDraft:
     title = fallback_title(topic_seed)
     category = infer_category(topic_seed)
     primary_keyword = topic_seed
-    description = (
-        f"Hướng dẫn thực tế về {topic_seed} dành cho người tìm việc tại Việt Nam, giúp CV rõ ràng hơn, chuẩn ATS hơn và tăng cơ hội được mời phỏng vấn."
-    )
+    description = f"Hướng dẫn thực tế về {topic_seed} dành cho người tìm việc tại Việt Nam, giúp CV rõ ràng hơn, chuẩn ATS hơn và tăng cơ hội được mời phỏng vấn."
     intro = [
         f"{topic_seed[:1].upper()}{topic_seed[1:]} là truy vấn rất sát với nhu cầu thật của người tìm việc, vì phần lớn ứng viên biết mình cần sửa CV nhưng chưa rõ nên bắt đầu từ đâu.",
         "Thay vì thêm thật nhiều từ khóa hoặc trang trí quá mức, bạn nên tập trung vào thông tin mà nhà tuyển dụng cần đọc nhanh: bối cảnh công việc, hành động bạn đã làm và kết quả có thể chứng minh.",
@@ -684,9 +833,21 @@ def fallback_article(topic_seed: str) -> ArticleDraft:
     ]
     feature_title = "3 nguyên tắc giúp CV thuyết phục hơn"
     features = [
-        FeatureItem(icon="ScanLine", title="Ưu tiên độ rõ ràng", description="Thông tin phải dễ đọc với cả ATS lẫn recruiter, tránh bố cục làm đẹp nhưng khó quét."),
-        FeatureItem(icon="Target", title="Bám sát vị trí ứng tuyển", description="Mỗi kinh nghiệm và kỹ năng nên được chọn theo mục tiêu ứng tuyển thay vì kể dàn trải."),
-        FeatureItem(icon="CheckCircle2", title="Dùng bằng chứng cụ thể", description="Chỉ số, phạm vi công việc và kết quả thực tế luôn mạnh hơn mô tả chung chung."),
+        FeatureItem(
+            icon="ScanLine",
+            title="Ưu tiên độ rõ ràng",
+            description="Thông tin phải dễ đọc với cả ATS lẫn recruiter, tránh bố cục làm đẹp nhưng khó quét.",
+        ),
+        FeatureItem(
+            icon="Target",
+            title="Bám sát vị trí ứng tuyển",
+            description="Mỗi kinh nghiệm và kỹ năng nên được chọn theo mục tiêu ứng tuyển thay vì kể dàn trải.",
+        ),
+        FeatureItem(
+            icon="CheckCircle2",
+            title="Dùng bằng chứng cụ thể",
+            description="Chỉ số, phạm vi công việc và kết quả thực tế luôn mạnh hơn mô tả chung chung.",
+        ),
     ]
     sections = [
         ArticleSection(
@@ -746,9 +907,18 @@ def fallback_article(topic_seed: str) -> ArticleDraft:
         "Email, số điện thoại, LinkedIn hoặc portfolio đã được kiểm tra lại.",
     ]
     steps = [
-        StepItem(title="Đọc JD và khoanh vùng điểm khớp", description="Tìm 3-5 yêu cầu quan trọng nhất rồi đánh dấu những trải nghiệm có thể chứng minh chúng trong CV."),
-        StepItem(title="Viết lại phần kinh nghiệm theo tác động", description="Chuyển các dòng mô tả nhiệm vụ thành bullet có bối cảnh, hành động và kết quả để recruiter hiểu nhanh giá trị của bạn."),
-        StepItem(title="Rà soát bằng công cụ trước khi nộp", description="Dùng Đậu để kiểm tra độ khớp với JD, phát hiện chỗ thiếu từ khóa hoặc phần diễn đạt còn yếu trước khi gửi hồ sơ."),
+        StepItem(
+            title="Đọc JD và khoanh vùng điểm khớp",
+            description="Tìm 3-5 yêu cầu quan trọng nhất rồi đánh dấu những trải nghiệm có thể chứng minh chúng trong CV.",
+        ),
+        StepItem(
+            title="Viết lại phần kinh nghiệm theo tác động",
+            description="Chuyển các dòng mô tả nhiệm vụ thành bullet có bối cảnh, hành động và kết quả để recruiter hiểu nhanh giá trị của bạn.",
+        ),
+        StepItem(
+            title="Rà soát bằng công cụ trước khi nộp",
+            description="Dùng Đậu để kiểm tra độ khớp với JD, phát hiện chỗ thiếu từ khóa hoặc phần diễn đạt còn yếu trước khi gửi hồ sơ.",
+        ),
     ]
     return ArticleDraft(
         title=title,
@@ -771,7 +941,12 @@ def fallback_article(topic_seed: str) -> ArticleDraft:
     )
 
 
-async def generate_one(existing_posts: list[dict[str, str]], topic_seed: str, publish_date: str, allow_fallback: bool) -> ArticleDraft:
+async def generate_one(
+    existing_posts: list[dict[str, str]],
+    topic_seed: str,
+    publish_date: str,
+    allow_fallback: bool,
+) -> ArticleDraft:
     from app.core.config import PROVIDERS
 
     system_prompt, user_prompt = build_prompt(existing_posts, topic_seed, publish_date)
@@ -792,37 +967,45 @@ async def generate_one(existing_posts: list[dict[str, str]], topic_seed: str, pu
             print(f"[seo-blog] Provider {provider.name} failed: {exc}", file=sys.stderr)
 
     if allow_fallback:
-        print(f"[seo-blog] Falling back to offline template for topic: {topic_seed}", file=sys.stderr)
+        print(
+            f"[seo-blog] Falling back to offline template for topic: {topic_seed}",
+            file=sys.stderr,
+        )
         article = fallback_article(topic_seed)
         validate_editorial_quality(article)
         return article
 
-    raise RuntimeError(f"All providers failed quality or schema checks. Last error: {last_error}")
+    raise RuntimeError(
+        f"All providers failed quality or schema checks. Last error: {last_error}"
+    )
 
 
 async def main() -> int:
     print("Starting generation...")
     args = parse_args()
-    if args.count is not None:
-        count = args.count
-    else:
-        count = random.randint(args.min, args.max)
+    count = args.count if args.count is not None else random.randint(args.min, args.max)
 
     if count < 1:
         raise ValueError("count must be at least 1")
 
-    publish_date = args.date or datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date().isoformat()
+    publish_date = (
+        args.date or datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date().isoformat()
+    )
     BLOG_DIR.mkdir(parents=True, exist_ok=True)
 
     existing_posts = load_existing_posts()
     existing_slugs = {post["slug"] for post in existing_posts}
     used_covers: set[str] = set()
-    topic_pool = args.topic[:] or random.sample(SEO_CLUSTERS, k=min(count, len(SEO_CLUSTERS)))
+    topic_pool = args.topic[:] or random.sample(
+        SEO_CLUSTERS, k=min(count, len(SEO_CLUSTERS))
+    )
 
     created: list[dict[str, str]] = []
     for index in range(count):
         topic_seed = topic_pool[index % len(topic_pool)]
-        article = await generate_one(existing_posts, topic_seed, publish_date, args.allow_fallback)
+        article = await generate_one(
+            existing_posts, topic_seed, publish_date, args.allow_fallback
+        )
         slug = unique_slug(article.title, existing_slugs)
         cover_image = choose_cover_image(existing_posts, used_covers)
         output = render_article(article, publish_date, cover_image)
@@ -843,7 +1026,11 @@ async def main() -> int:
         existing_posts.append(post_record)
         created.append(post_record)
 
-    print(json.dumps({"count": len(created), "posts": created}, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {"count": len(created), "posts": created}, ensure_ascii=False, indent=2
+        )
+    )
     return 0
 
 
