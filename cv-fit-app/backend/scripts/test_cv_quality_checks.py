@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pytest
 from pydantic import ValidationError
@@ -95,13 +95,19 @@ def test_build_scored_analysis_uses_weighted_subscores_and_penalties():
     assert isinstance(response, CVAnalysisResponse)
     assert response.score_breakdown is not None
     assert response.score_breakdown.raw_score == 72
+    # Aggressive penalties: High=8, unsupported_claim=2, total=10
     assert response.score_breakdown.weighted_missing_requirement_score == 8
     assert response.score_breakdown.critical_missing_penalty == 0
     assert response.score_breakdown.high_missing_penalty == 8
     assert response.score_breakdown.missing_requirement_penalty == 8
     assert response.score_breakdown.unsupported_claim_penalty == 2
+    assert response.score_breakdown.total_penalty == 10
+    # role_fit_score = raw_score (no penalty)
+    assert response.role_fit_score == 72
+    # CV Match = raw_score - aggressive_penalty
     assert response.match_score == 62
     assert response.score_breakdown.final_score == 62
+    assert response.match_headline == "Có tiềm năng, nhưng CV cần tối ưu thêm theo JD."
 
 
 def test_llm_schema_does_not_include_or_accept_match_score():
@@ -119,8 +125,10 @@ def test_llm_schema_does_not_include_or_accept_match_score():
 def test_api_schema_includes_backend_score_fields():
     schema = CVAnalysisResponse.model_json_schema()
 
+    assert "role_fit_score" in schema["properties"]
     assert "match_score" in schema["properties"]
     assert "score_breakdown" in schema["properties"]
+    assert "role_fit_score" in schema["required"]
     assert "match_score" in schema["required"]
     assert "score_breakdown" in schema["required"]
 
@@ -248,5 +256,6 @@ def test_run_deterministic_eval_returns_scored_response():
     assert result.schema_valid is True
     assert isinstance(result.warnings, list)
     assert isinstance(result.scored_response, CVAnalysisResponse)
+    assert result.scored_response.role_fit_score == 72
     assert result.scored_response.match_score == 62
     assert result.placeholder_metrics

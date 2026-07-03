@@ -156,8 +156,8 @@ class CVAnalysisLLMResponse(BaseModel):
 
 
 class CVAnalysisResponse(CVAnalysisLLMResponse):
-    match_score: int = Field(ge=0, le=100)
-    role_fit_score: int = Field(ge=0, le=100)
+    role_fit_score: int = Field(ge=0, le=100)           # Raw LLM assessment — what a human would score
+    match_score: int = Field(ge=0, le=100)              # "CV Match" — penalized by missing JD keywords
     score_breakdown: ScoreBreakdown
 
 

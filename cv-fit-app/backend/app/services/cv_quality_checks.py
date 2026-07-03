@@ -116,9 +116,11 @@ def check_score_consistency(response: CVAnalysisResponse) -> List[str]:
 
 def build_scored_analysis(response: CVAnalysisLLMResponse) -> CVAnalysisResponse:
     """
-    Calculate the overall match score from sub-scores and deterministic
-    penalties. The LLM still explains the assessment, but code owns the final
-    numeric score so it is stable across runs.
+    Calculate scores from sub-scores and deterministic penalties.
+
+    Two scores are produced:
+      - role_fit_score  ("Role Fit")  = raw LLM sub-score average — what a human gives
+      - match_score     ("CV Match")  = role_fit_score minus penalties for missing JD keywords
     """
     raw_score = round(
         SCORE_WEIGHTS["technical_match"] * response.technical_match
@@ -135,8 +137,8 @@ def build_scored_analysis(response: CVAnalysisLLMResponse) -> CVAnalysisResponse
     high_missing_count = sum(
         1 for item in response.prioritized_keywords if item.priority == "High"
     )
-    weighted_missing_requirement_score = sum(
-        PRIORITY_WEIGHTS[item.priority] for item in response.prioritized_keywords
+    weighted_missing_requirement_score = round(
+        sum(PRIORITY_WEIGHTS[item.priority] for item in response.prioritized_keywords)
     )
     unsupported_claim_count = sum(
         1
@@ -144,15 +146,17 @@ def build_scored_analysis(response: CVAnalysisLLMResponse) -> CVAnalysisResponse
         if edit.rewrite_risk == "risky" or edit.unsupported_assumptions
     )
 
+    # Aggressive penalties for "CV Match" — HR/ATS screening reality
     critical_missing_penalty = 12 * critical_missing_count
     high_missing_penalty = 8 * high_missing_count
-    missing_requirement_penalty = weighted_missing_requirement_score
+    missing_requirement_penalty = round(weighted_missing_requirement_score)
     unsupported_claim_penalty = 2 * unsupported_claim_count
     total_penalty = (
         missing_requirement_penalty
         + unsupported_claim_penalty
     )
-    final_score = max(0, min(100, round(raw_score - total_penalty)))
+    # CV Match score — raw score minus penalties (can be low when JD keywords missing)
+    match_score = max(0, min(100, round(raw_score - total_penalty)))
 
     score_breakdown = ScoreBreakdown(
         weights=SCORE_WEIGHTS,
@@ -166,20 +170,20 @@ def build_scored_analysis(response: CVAnalysisLLMResponse) -> CVAnalysisResponse
         missing_requirement_penalty=missing_requirement_penalty,
         unsupported_claim_penalty=unsupported_claim_penalty,
         total_penalty=total_penalty,
-        final_score=final_score,
+        final_score=match_score,
     )
     match_headline, match_summary = _build_deterministic_match_copy(
         response=response,
         role_fit_score=raw_score,
-        final_score=final_score,
+        match_score=match_score,
         total_penalty=total_penalty,
     )
     response_data = response.model_dump()
     response_data.update(
         match_headline=match_headline,
         match_summary=match_summary,
-        match_score=final_score,
         role_fit_score=raw_score,
+        match_score=match_score,
         score_breakdown=score_breakdown,
     )
     return CVAnalysisResponse(**response_data)
@@ -189,28 +193,36 @@ def _build_deterministic_match_copy(
     *,
     response: CVAnalysisLLMResponse,
     role_fit_score: int,
-    final_score: int,
+    match_score: int,
     total_penalty: int,
 ) -> tuple[str, str]:
+    """Build headline + summary explaining Role Fit and CV Match scores."""
     penalty_reason = _summarize_penalty_reason(response)
 
-    if final_score >= 85:
+    # Headlines based on CV Match (the penalized score — what HR/ATS screens see)
+    if match_score >= 85:
         headline = "Rất phù hợp — CV đã bám sát JD và có tín hiệu ứng tuyển mạnh."
-    elif final_score >= 70:
+    elif match_score >= 70:
         headline = "Phù hợp tốt — CV có nền tảng mạnh nhưng vẫn còn điểm cần tối ưu."
-    elif role_fit_score >= 80 and final_score >= 55:
-        headline = "Có tiềm năng cao, nhưng CV cần tối ưu theo JD."
-    elif final_score >= 55:
-        headline = "Có tiềm năng, cần bổ sung thêm tín hiệu phù hợp JD."
-    elif final_score >= 40:
+    elif match_score >= 55:
+        headline = "Có tiềm năng, nhưng CV cần tối ưu thêm theo JD."
+    elif match_score >= 40:
         headline = "Chưa đủ khớp — CV cần cải thiện rõ trước khi ứng tuyển."
     else:
         headline = "Không phù hợp — CV thiếu nhiều yêu cầu quan trọng của JD."
 
-    if total_penalty > 0 and role_fit_score - final_score >= 10:
+    # Summary: explain the gap between Role Fit and CV Match
+    if role_fit_score - match_score >= 10:
         summary = (
             f"Role Fit hiện là {role_fit_score}%, cho thấy nền tảng ứng viên khá tốt. "
-            f"CV Match còn {final_score}% vì bị trừ {total_penalty} điểm do {penalty_reason}. "
+            f"Nhưng CV Match chỉ {match_score}% vì bị trừ {total_penalty} điểm "
+            f"do {penalty_reason}. "
+            f"{response.match_summary}"
+        )
+    elif total_penalty > 0 and total_penalty >= 3:
+        summary = (
+            f"CV Match: {match_score}%. "
+            f"Bị trừ {total_penalty} điểm do {penalty_reason}. "
             f"{response.match_summary}"
         )
     else:

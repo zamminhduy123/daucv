@@ -15,6 +15,7 @@ import {
   XCircle,
   HelpCircle,
   ClipboardCheck,
+  UserCheck,
 } from "lucide-react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 
@@ -70,45 +71,74 @@ const PRIORITY_BADGE_STYLE: Record<PrioritizedKeyword["priority"], string> = {
   Low: "bg-green-50 text-green-600",
 };
 
-// SVG circular progress ring
-function CircularScore({ score, label }: { score: number; label: string }) {
+// SVG circular progress ring — color tracks score severity
+function CircularScore({
+  score,
+  label,
+  sublabel,
+  icon: Icon,
+}: {
+  score: number;
+  label: string;
+  sublabel?: string;
+  icon: React.ElementType;
+}) {
   const radius = 57;
   const circumference = 2 * Math.PI * radius;
   const strokeDash = (score / 100) * circumference;
 
+  // Color tracks severity: green (good) → amber (ok) → red (bad)
+  const strokeColor =
+    score >= 70 ? "#059669" : score >= 45 ? "#d97706" : "#dc2626";
+
   return (
-    <div className="relative w-full aspect-square">
-      <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-        {/* Background ring */}
-        <circle
-          cx="60"
-          cy="60"
-          r={radius}
-          strokeWidth="5"
-          fill="none"
-          className="stroke-gray-100"
-        />
-        {/* Progress ring */}
-        <circle
-          cx="60"
-          cy="60"
-          r={radius}
-          strokeWidth="5"
-          fill="none"
-          stroke="var(--primary)"
-          strokeLinecap="round"
-          strokeDasharray={`${strokeDash} ${circumference}`}
-          style={{ transition: "stroke-dasharray 1s ease" }}
-        />
-      </svg>
-      {/* Center text — number + label stacked */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-        <div className="flex items-baseline gap-0.5">
-          <span className="text-5xl font-semibold text-[#1F2E2E] leading-none">{score}</span>
-          <span className="text-xl font-bold text-[#1F2E2E] leading-none">%</span>
+    <div className="flex flex-col items-center gap-2">
+      <div className="relative w-[140px] h-[140px]">
+        <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+          {/* Background ring */}
+          <circle
+            cx="60"
+            cy="60"
+            r={radius}
+            strokeWidth="5"
+            fill="none"
+            className="stroke-gray-100"
+          />
+          {/* Progress ring */}
+          <circle
+            cx="60"
+            cy="60"
+            r={radius}
+            strokeWidth="5"
+            fill="none"
+            stroke={strokeColor}
+            strokeLinecap="round"
+            strokeDasharray={`${strokeDash} ${circumference}`}
+            style={{ transition: "stroke-dasharray 1s ease" }}
+          />
+        </svg>
+        {/* Center text */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0">
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-4xl font-semibold text-[#1F2E2E] leading-none">{score}</span>
+            <span className="text-lg font-bold text-[#1F2E2E] leading-none">%</span>
+          </div>
+          <span className="text-[10px] font-semibold text-gray-400 tracking-wide mt-0.5">
+            {label}
+          </span>
         </div>
-        <span className="text-xs font-semibold text-gray-400 tracking-wide mt-1">
-          {label}
+      </div>
+      {/* Sublabel below gauge */}
+      {sublabel && (
+        <p className="text-[10px] text-gray-500 text-center leading-tight max-w-[140px]">
+          {sublabel}
+        </p>
+      )}
+      {/* Bottom icon indicator */}
+      <div className="flex items-center gap-1.5">
+        <Icon size={14} className={score >= 70 ? "text-green-600" : score >= 45 ? "text-yellow-600" : "text-red-600"} />
+        <span className="text-xs font-semibold text-gray-500">
+          {label === "Role Fit" ? "Con đọc sẽ thấy…" : "Bị trừ điểm vì thiếu JD"}
         </span>
       </div>
     </div>
@@ -118,10 +148,15 @@ function CircularScore({ score, label }: { score: number; label: string }) {
 export default function MatchDashboard({ result }: { result: CVAnalysisResponse }) {
   const { jdText } = useWorkspace();
   const isGeneral = !jdText?.trim();
+
+  // Two scores: Role Fit (raw LLM) and CV Match (penalized)
   const roleFitScore = result.role_fit_score ?? result.score_breakdown?.raw_score ?? result.match_score;
-  const penalty = result.score_breakdown?.total_penalty ?? Math.max(0, roleFitScore - result.match_score);
-  const shouldShowPenaltyContext = !isGeneral && roleFitScore - result.match_score >= 8;
-  const scoreLabel = isGeneral ? "ATS Score" : "CV Match";
+  const matchScore = result.match_score;
+  const penaltyGap = roleFitScore - matchScore;
+  const showPenaltyContext = !isGeneral && penaltyGap >= 8;
+
+  // Penalty reason sublabel for CV Match gauge
+  const penaltyReason = _getPenaltyReason(result);
 
   return (
     <div>
@@ -147,26 +182,41 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white border border-gray-100 rounded-[2rem] p-6 md:p-8 shadow-sm flex flex-col xl:flex-row gap-8 items-center w-full mb-8"
+        className="bg-white border border-gray-100 rounded-[2rem] p-6 md:p-8 shadow-sm flex flex-col xl:flex-row gap-8 w-full mb-8"
       >
-        {/* LEFT — Circular score, fills the column */}
-        <div className="xl:w-[20%] w-full max-w-[200px] mx-auto xl:mx-0 flex-shrink-0">
-          <CircularScore score={result.match_score} label={scoreLabel} />
+        {/* LEFT — Gauges column */}
+        <div className="flex xl:flex-col flex-row xl:items-center justify-center gap-8 xl:gap-6 flex-shrink-0">
+          {/* Role Fit gauge */}
+          <CircularScore
+            score={roleFitScore}
+            label="Role Fit"
+            icon={UserCheck}
+          />
+
+          {/* CV Match gauge (only when JD provided) */}
+          {!isGeneral && (
+            <CircularScore
+              score={matchScore}
+              label="CV Match"
+              sublabel={showPenaltyContext ? penaltyReason : undefined}
+              icon={AlertTriangle}
+            />
+          )}
         </div>
 
-        {/* RIGHT — Headline spanning above summary + 6 cards */}
+        {/* RIGHT — Headline + 6 sub-score cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 flex-1 text-justify">
-          {/* Summary + 6 cards side by side */}
+          {/* Summary + penalty context */}
           <div className="flex flex-col gap-2 items-start mt-4">
-            {/* Headline spans full width */}
             <h2 className="text-xl lg:max-w-[90%] font-bold text-[#2F4F4F] leading-tight">
               {result.match_headline}
             </h2>
-            {/* Summary text */}
             <p className="text-xs text-gray-500 leading-relaxed flex-shrink-0 text-justify lg:max-w-[90%]">
               {result.match_summary}
             </p>
-            {shouldShowPenaltyContext && (
+
+            {/* Penalty explanation card */}
+            {showPenaltyContext && (
               <div className="mt-3 w-full lg:max-w-[90%] rounded-2xl border border-orange-100 bg-orange-50/70 px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -174,8 +224,9 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                       Vì sao điểm CV Match thấp hơn?
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-orange-800">
-                      Role Fit của bạn là <span className="font-bold">{roleFitScore}%</span>, nhưng điểm cuối bị trừ{" "}
-                      <span className="font-bold">{penalty}</span> điểm vì CV còn thiếu hoặc chưa xác nhận một số tín hiệu ưu tiên trong JD.
+                      Role Fit của bạn là <span className="font-bold">{roleFitScore}%</span>
+                      , nhưng điểm cuối bị trừ{" "}
+                      <span className="font-bold">{penaltyGap}</span> điểm vì CV còn thiếu hoặc chưa xác nhận một số tín hiệu ưu tiên trong JD.
                     </p>
                   </div>
                   <div className="flex-shrink-0 text-right">
@@ -186,6 +237,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
               </div>
             )}
           </div>
+
           {/* 6 mini-score cards */}
           <div className="grid grid-cols-2 lg:grid-cols-3 mt-4 lg:mt-0 gap-3 flex-1 w-full">
             {SUB_SCORES.map(({ key, label, icon: Icon, iconBg, iconColor }, i) => (
@@ -342,4 +394,24 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
       )}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Helper: summarize penalty reason for CV Match sublabel
+// ---------------------------------------------------------------------------
+
+function _getPenaltyReason(result: CVAnalysisResponse): string {
+  const { score_breakdown, prioritized_keywords } = result;
+  const criticalCount = score_breakdown.critical_missing_count;
+  const highCount = score_breakdown.high_missing_count;
+
+  const parts: string[] = [];
+  if (criticalCount) parts.push(`${criticalCount} yêu cầu Critical`);
+  if (highCount) parts.push(`${highCount} yêu cầu High-priority`);
+
+  if (parts.length === 0) {
+    return `Bị trừ ${score_breakdown.total_penalty} điểm`;
+  }
+
+  return `Bị trừ ${score_breakdown.total_penalty} điểm vì còn thiếu ${parts.join(", ")}`;
 }
