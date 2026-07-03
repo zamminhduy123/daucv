@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for CV kỹ sư dữ liệu</title>
+  <desc id="desc">Branded DauCV blog cover with data pipeline and analytics motifs.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F1FBF7"/>
+      <stop offset="0.46" stop-color="#E7F5FF"/>
+      <stop offset="1" stop-color="#FFF7E6"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0F8F6B"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#0F172A" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <circle cx="1010" cy="104" r="120" fill="#BDEBD9" opacity="0.55"/>
+  <circle cx="105" cy="585" r="160" fill="#BFDBFE" opacity="0.42"/>
+  <rect x="76" y="64" width="1048" height="547" rx="28" fill="#FFFFFF" opacity="0.92" filter="url(#shadow)"/>
+  <rect x="112" y="104" width="204" height="54" rx="27" fill="#E8F5E9"/>
+  <text x="139" y="139" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="800" fill="#167A55">DauCV</text>
+  <text x="222" y="139" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" fill="#2E7D32">Blog</text>
+  <text x="112" y="235" font-family="Inter, Arial, sans-serif" font-size="62" font-weight="850" fill="#102A43">CV kỹ sư dữ liệu</text>
+  <text x="112" y="294" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700" fill="#2563EB">Biến pipeline, SQL và cloud thành bằng chứng tuyển dụng</text>
+  <text x="112" y="356" font-family="Inter, Arial, sans-serif" font-size="25" fill="#415A77">Tối ưu hồ sơ cho ATS, recruiter và vị trí data engineering tại Việt Nam.</text>
+  <g transform="translate(112 425)">
+    <rect width="196" height="52" rx="26" fill="#ECFDF5"/>
+    <text x="28" y="34" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#047857">Data stack</text>
+    <rect x="216" width="176" height="52" rx="26" fill="#EFF6FF"/>
+    <text x="244" y="34" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#1D4ED8">SQL + ETL</text>
+    <rect x="412" width="154" height="52" rx="26" fill="#FFF7ED"/>
+    <text x="440" y="34" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#C2410C">ATS fit</text>
+  </g>
+  <g transform="translate(760 160)">
+    <rect x="0" y="0" width="272" height="340" rx="26" fill="url(#panel)"/>
+    <rect x="34" y="44" width="204" height="32" rx="16" fill="#FFFFFF" opacity="0.25"/>
+    <rect x="34" y="100" width="90" height="154" rx="16" fill="#D1FAE5" opacity="0.95"/>
+    <rect x="150" y="138" width="88" height="116" rx="16" fill="#DBEAFE" opacity="0.95"/>
+    <path d="M78 290 C128 238 176 322 230 272" fill="none" stroke="#FDE68A" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="78" cy="290" r="12" fill="#FDE68A"/>
+    <circle cx="230" cy="272" r="12" fill="#FDE68A"/>
+    <path d="M-64 132 H0 M272 214 H338" stroke="#0F766E" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="-86" cy="132" r="20" fill="#14B8A6"/>
+    <circle cx="360" cy="214" r="20" fill="#2563EB"/>
+  </g>
+</svg>
