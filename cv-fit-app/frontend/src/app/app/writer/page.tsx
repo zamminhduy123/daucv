@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { generateWritingAPI } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/errorMessages";
 
 interface WriterResult {
   subject_line: string;
@@ -76,7 +77,7 @@ export default function WriterPage() {
       setCachedWriter(cacheKey, data); // Save to cache
     } catch (err: unknown) {
       console.error(err);
-      setError("Lỗi tạo nội dung. Vui lòng thử lại!");
+      setError(apiErrorMessage(err));
     } finally {
       setIsGenerating(false);
     }

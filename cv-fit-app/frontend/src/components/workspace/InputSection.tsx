@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { WorkspaceInputs } from "@/types";
 import { wordCount } from "@/lib/utils";
 import { extractPdfAPI } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/errorMessages";
 import { useToast } from "@/components/ui/use-toast";
 
 interface InputSectionProps {
@@ -130,7 +131,7 @@ export default function InputSection({
     } catch (err: unknown) {
       updatePdfTarget(target, null, "");
       clearPdfInputValue(target);
-      setExtractError(target, `${label}: Đã có lỗi xảy ra khi trích xuất, vui lòng thử lại.`);
+      setExtractError(target, `${label}: ${apiErrorMessage(err)}`);
       console.error(err);
     } finally {
       setExtracting(target, false);

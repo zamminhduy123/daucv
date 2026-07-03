@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { searchJobsAPI, generateWritingAPI } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/errorMessages";
 import { RankedJobResult, JobSourceStatus, CandidateProfile } from "@/lib/jobs/types";
 
 type DateRangeFilter = "1d" | "3d" | "7d" | "14d" | "30d";
@@ -141,8 +142,8 @@ export default function JobsPage() {
       toast.success(`Tìm thấy ${response.jobs.length} công việc phù hợp!`);
     } catch (err: unknown) {
       console.error("Lỗi khi quét tìm việc làm:", err);
-      setError("Không thể tải danh sách công việc. Vui lòng thử lại!");
-      toast.error("Tìm kiếm thất bại. Lỗi kết nối server!");
+      setError(apiErrorMessage(err));
+      toast.error(apiErrorMessage(err));
     } finally {
       setIsLoading(false);
       setLoadingStep("");
@@ -200,9 +201,9 @@ export default function JobsPage() {
         content: response.content || ""
       });
       toast.success("Đã tạo Cover Letter thành công!");
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error("Không thể tạo Cover Letter. Vui lòng thử lại!");
+      toast.error(apiErrorMessage(err));
     } finally {
       setIsGeneratingLetter(false);
     }
@@ -483,7 +484,8 @@ export default function JobsPage() {
           <p className="text-slate-500 text-sm mt-1 max-w-sm">{error}</p>
           <button
             onClick={() => handleSearch(false)}
-            className="mt-4 px-6 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl text-sm shadow hover:scale-[1.02] active:scale-98 transition-all"
+            disabled={isLoading}
+            className="mt-4 px-6 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl text-sm shadow hover:scale-[1.02] active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Thử lại
           </button>

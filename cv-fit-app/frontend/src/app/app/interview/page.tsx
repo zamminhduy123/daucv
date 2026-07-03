@@ -6,6 +6,8 @@ import LoadingOverlay from "@/components/workspace/LoadingOverlay";
 import InterviewRoomMinimal from "@/components/workspace/InterviewRoomMinimal";
 import type { InterviewState } from "@/components/workspace/InterviewRoomMinimal";
 import { sendInterviewChatAPI } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/errorMessages";
+import { toast } from "sonner";
 import { useWorkspace } from "@/context/WorkspaceContext";
 
 const INTERVIEW_LOADING_MESSAGES = [
@@ -106,9 +108,9 @@ export default function InterviewPage() {
         setInterviewState(data);
         setCachedInterview(data);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error(err);
-        setError("Lỗi bắt đầu phỏng vấn. Vui lòng thử lại!");
+        setError(apiErrorMessage(err));
       })
       .finally(() => {
         setIsStarting(false);

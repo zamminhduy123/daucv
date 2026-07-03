@@ -21,6 +21,7 @@ import { useInterviewApi, Message } from "@/hooks/useInterviewApi";
 import SupportCard from "@/components/workspace/SupportCard";
 import { useTTS } from "@/hooks/useTTS";
 import { finishInterviewAPI } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/errorMessages";
 import InterviewReport, { FinalInterviewReport } from "./InterviewReport";
 import LoadingOverlay from "./LoadingOverlay";
 import { useWorkspace } from "@/context/WorkspaceContext";
@@ -132,9 +133,9 @@ export default function InterviewRoom({ cvText, jdText, initialState, totalQuest
           interviewType
         );
         setReport(data);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error(err);
-        alert("Lỗi khi tạo báo cáo kết quả. Vui lòng thử lại!");
+        alert(`Lỗi khi tạo báo cáo: ${apiErrorMessage(err)}`);
       } finally {
         setIsGeneratingReport(false);
       }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { sendInterviewChatAPI } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/errorMessages";
 
 export interface Message {
   role: "user" | "assistant";
@@ -74,7 +75,8 @@ export function useInterviewApi(initialMessages: Message[], initialMetrics?: Liv
       setLiveMetrics(data.metrics);
     } catch (error) {
       console.error(error);
-      setMessages([...newHistory, { role: "assistant", content: "⚠️ Đậu đang gặp sự cố một chút, hãy thử lại nhé..." }]);
+      const friendlyMsg = apiErrorMessage(error);
+      setMessages([...newHistory, { role: "assistant", content: `⚠️ ${friendlyMsg}` }]);
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Briefcase } from "lucide-react";
+import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 import LoadingOverlay from "@/components/workspace/LoadingOverlay";
@@ -11,6 +12,7 @@ import DiffViewer from "@/components/workspace/DiffViewer";
 import SupportCard from "@/components/workspace/SupportCard";
 import type { CVAnalysisResponse } from "@/types";
 import { analyzeCVAPI } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/errorMessages";
 import { useWorkspace } from "@/context/WorkspaceContext";
 
 export default function AnalyzerPage() {
@@ -45,7 +47,7 @@ export default function AnalyzerPage() {
         setCachedAnalysis(data); // Save to cache
       } catch (err: unknown) {
         console.error(err);
-        setError("Lỗi từ server. Vui lòng thử lại!");
+        setError(apiErrorMessage(err));
       } finally {
         setIsAnalyzing(false);
       }
@@ -55,8 +57,10 @@ export default function AnalyzerPage() {
   }, [hasData, cvText, jdText, analysisResult, setCachedAnalysis]);
 
   const handleExportPDF = () => window.print();
-  const handleReanalyze = async () => {
+  const handleReanalyze = () => {
+    toast.info("Đang phân tích lại CV...");
     hasTriggered.current = false;
+    setIsAnalyzing(true);
     setAnalysisResult(null);
     setError("");
   };

@@ -16,7 +16,7 @@ export async function extractPdfAPI(file: File) {
   });
 
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await parseApiError(res);
   }
   return res.json();
 }
@@ -29,14 +29,14 @@ export async function analyzeCVAPI(cvText: string, jdText: string) {
   });
 
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await parseApiError(res);
   }
   return res.json();
 }
 
 export async function sendInterviewChatAPI(
-  jdText: string, 
-  cvText: string, 
+  jdText: string,
+  cvText: string,
   chatHistory: Array<{role: string, content: string}>,
   currentQuestion: number = 1,
   totalQuestions: number = 5,
@@ -56,7 +56,7 @@ export async function sendInterviewChatAPI(
   });
 
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await parseApiError(res);
   }
   return res.json();
 }
@@ -79,7 +79,7 @@ export async function finishInterviewAPI(
   });
 
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await parseApiError(res);
   }
   return res.json();
 }
@@ -92,7 +92,7 @@ export async function generateTTSAPI(text: string) {
   });
 
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await parseApiError(res);
   }
   return res.blob();
 }
@@ -113,7 +113,7 @@ export async function generateWritingAPI(payload: WriterPayload) {
   });
 
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await parseApiError(res);
   }
   return res.json();
 }
@@ -134,9 +134,70 @@ export async function searchJobsAPI(payload: JobSearchRequest) {
   });
 
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await parseApiError(res);
   }
   return res.json();
+}
+
+// ── Error classification ─────────────────────────────────────────────────────
+
+/**
+ * Classify an HTTP error response into a structured error type.
+ *
+ * Used by consumer pages to show contextually accurate messages instead of
+ * generic "Lỗi từ server" text.
+ *
+ * Returns:
+ *   - { type: "ai_overloaded" }      → 503 with "overload" in the message
+ *   - { type: "auth_error" }         → 401 / 403
+ *   - { type: "timeout" }            → 408 / 504
+ *   - { type: "server_error" }       → 5xx
+ *   - { type: "client_error" }       → 4xx (other)
+ *   - { type: "network_error" }      → fetch crashed (no response)
+ */
+export async function parseApiError(res: Response): Promise<ApiError> {
+  const message = await res.text().catch(() => "Không thể đọc phản hồi từ server");
+  const status = res.status;
+
+  if (status === 503 && message.toLowerCase().includes("overload")) {
+    return { type: "ai_overloaded", message, status };
+  }
+  if (status === 401 || status === 403) {
+    return { type: "auth_error", message, status };
+  }
+  if (status === 408 || status === 504) {
+    return { type: "timeout", message, status };
+  }
+  if (status >= 500) {
+    return { type: "server_error", message, status };
+  }
+  if (status >= 400) {
+    return { type: "client_error", message, status };
+  }
+
+  return { type: "unknown", message, status };
+}
+
+/** Thrown when a fetch call crashes (no HTTP response at all). */
+export function parseNetworkError(err: unknown): ApiError {
+  return {
+    type: "network_error",
+    message: err instanceof Error ? err.message : "Không có kết nối mạng",
+    status: 0,
+  };
+}
+
+export interface ApiError {
+  type:
+    | "ai_overloaded"
+    | "auth_error"
+    | "timeout"
+    | "server_error"
+    | "client_error"
+    | "network_error"
+    | "unknown";
+  message: string;
+  status: number;
 }
 
 
