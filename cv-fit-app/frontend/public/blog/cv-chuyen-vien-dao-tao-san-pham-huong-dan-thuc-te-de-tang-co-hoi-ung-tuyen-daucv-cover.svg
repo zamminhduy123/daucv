@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for CV chuyen vien dao tao san pham</title>
+  <desc id="desc">Branded DauCV blog cover about product trainer CVs.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e8f5e9"/>
+      <stop offset="0.48" stop-color="#dcedc8"/>
+      <stop offset="1" stop-color="#fffde7"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2e7d32"/>
+      <stop offset="1" stop-color="#7cb342"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#33691e" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <path d="M0 505c144-42 292-36 444 18 174 62 344 61 510-4 86-34 168-48 246-42v198H0z" fill="#ffffff" opacity="0.58"/>
+  <circle cx="1044" cy="146" r="94" fill="#c5e1a5" opacity="0.46"/>
+  <circle cx="1018" cy="146" r="48" fill="#7cb342" opacity="0.35"/>
+  <g transform="translate(90 76)">
+    <rect x="0" y="0" width="186" height="56" rx="18" fill="#ffffff" opacity="0.92"/>
+    <text x="26" y="37" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="800" fill="#2e7d32">DauCV</text>
+  </g>
+  <g filter="url(#shadow)" transform="translate(690 128)">
+    <rect x="0" y="0" width="328" height="402" rx="34" fill="#ffffff"/>
+    <rect x="38" y="48" width="252" height="130" rx="26" fill="#f1f8e9"/>
+    <path d="M88 142V84l54 29z" fill="#43a047"/>
+    <rect x="168" y="86" width="84" height="14" rx="7" fill="#689f38"/>
+    <rect x="168" y="116" width="102" height="12" rx="6" fill="#aed581"/>
+    <rect x="168" y="144" width="72" height="12" rx="6" fill="#c5e1a5"/>
+    <rect x="38" y="224" width="252" height="14" rx="7" fill="#aed581"/>
+    <rect x="38" y="260" width="214" height="14" rx="7" fill="#dcedc8"/>
+    <rect x="38" y="296" width="252" height="14" rx="7" fill="#dcedc8"/>
+    <rect x="38" y="332" width="154" height="14" rx="7" fill="#dcedc8"/>
+  </g>
+  <g transform="translate(90 190)">
+    <text x="0" y="0" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="800" fill="#33691e">SEO BLOG</text>
+    <text x="0" y="76" font-family="Inter, Arial, sans-serif" font-size="56" font-weight="900" fill="#173719">CV chuyên viên</text>
+    <text x="0" y="142" font-family="Inter, Arial, sans-serif" font-size="56" font-weight="900" fill="#173719">đào tạo sản phẩm</text>
+    <text x="0" y="206" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="600" fill="#4b642f">Chuyển kinh nghiệm training, enablement</text>
+    <text x="0" y="242" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="600" fill="#4b642f">và demo sản phẩm thành bullet có sức nặng.</text>
+  </g>
+  <g transform="translate(90 552)">
+    <rect x="0" y="0" width="212" height="48" rx="24" fill="url(#accent)"/>
+    <text x="28" y="31" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="800" fill="#ffffff">Từ khóa đúng</text>
+    <rect x="232" y="0" width="224" height="48" rx="24" fill="#ffffff" opacity="0.95"/>
+    <text x="260" y="31" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="800" fill="#2e7d32">DauCV.com/blog</text>
+  </g>
+</svg>
