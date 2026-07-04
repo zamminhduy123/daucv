@@ -16,17 +16,17 @@ from app.models.requests import (
     AnalyzeCVRequest,
     InterviewChatRequest,
     InterviewFinishRequest,
+    ParseProfileRequest,
     TTSRequest,
     WriterRequest,
-    ParseProfileRequest,
 )
 from app.models.responses import (
+    CandidateProfileResponse,
     CVAnalysisLLMResponse,
     CVAnalysisResponse,
     FinalInterviewReport,
     InterviewTurnResponse,
     WriterResponse,
-    CandidateProfileResponse,
 )
 from app.prompts.system_prompts import (
     CV_ANALYSIS_CONTEXT_WITH_JD,
@@ -37,9 +37,9 @@ from app.prompts.system_prompts import (
     build_cv_analysis_prompt,
     build_interview_chat_prompt,
     build_interview_finish_prompt,
+    build_job_parser_prompt,
     build_upload_and_match_prompt,
     build_writer_prompt,
-    build_job_parser_prompt,
 )
 from app.services.ai_service import call_llm_with_fallback
 from app.services.cv_quality_checks import build_scored_analysis
@@ -51,6 +51,7 @@ router = APIRouter(prefix="/api", tags=["user"])
 # ---------------------------------------------------------------------------
 # POST /api/upload-and-match
 # ---------------------------------------------------------------------------
+
 
 @router.post("/upload-and-match", response_model=MatchResult)
 async def upload_and_match(
@@ -74,7 +75,9 @@ async def upload_and_match(
         raise HTTPException(status_code=422, detail=f"Could not parse PDF: {e}")
 
     if not cv_text:
-        raise HTTPException(status_code=422, detail="PDF appears to be empty or image-only.")
+        raise HTTPException(
+            status_code=422, detail="PDF appears to be empty or image-only."
+        )
 
     system_prompt = build_upload_and_match_prompt()
 
@@ -100,6 +103,7 @@ async def upload_and_match(
 # POST /api/extract-pdf
 # ---------------------------------------------------------------------------
 
+
 @router.post("/extract-pdf")
 async def extract_pdf(file: UploadFile = File(...)):
     if file.content_type != "application/pdf":
@@ -115,6 +119,7 @@ async def extract_pdf(file: UploadFile = File(...)):
 # ---------------------------------------------------------------------------
 # POST /api/analyze-cv
 # ---------------------------------------------------------------------------
+
 
 @router.post("/analyze-cv", response_model=CVAnalysisResponse)
 async def analyze_cv(req: AnalyzeCVRequest, background_tasks: BackgroundTasks):
@@ -133,7 +138,9 @@ async def analyze_cv(req: AnalyzeCVRequest, background_tasks: BackgroundTasks):
 
     if jd_text.strip():
         context_instruction = CV_ANALYSIS_CONTEXT_WITH_JD
-        user_content = f"CV của ứng viên:\n{extracted_text}\n\nMô tả Công việc (JD):\n{jd_text}"
+        user_content = (
+            f"CV của ứng viên:\n{extracted_text}\n\nMô tả Công việc (JD):\n{jd_text}"
+        )
     else:
         context_instruction = CV_ANALYSIS_CONTEXT_WITHOUT_JD
         user_content = f"CV của ứng viên:\n{extracted_text}"
@@ -162,6 +169,7 @@ async def analyze_cv(req: AnalyzeCVRequest, background_tasks: BackgroundTasks):
 # ---------------------------------------------------------------------------
 # POST /api/jobs/parse-profile
 # ---------------------------------------------------------------------------
+
 
 @router.post("/jobs/parse-profile", response_model=CandidateProfileResponse)
 async def parse_profile(req: ParseProfileRequest, background_tasks: BackgroundTasks):
@@ -200,6 +208,7 @@ async def parse_profile(req: ParseProfileRequest, background_tasks: BackgroundTa
 # ---------------------------------------------------------------------------
 # POST /api/interview/chat
 # ---------------------------------------------------------------------------
+
 
 @router.post("/interview/chat", response_model=InterviewTurnResponse)
 async def interview_chat(req: InterviewChatRequest, background_tasks: BackgroundTasks):
@@ -241,7 +250,9 @@ async def interview_chat(req: InterviewChatRequest, background_tasks: Background
             )
 
     if req.jd_text.strip():
-        jd_context = f"You are interviewing the candidate for this specific JD:\n{req.jd_text}"
+        jd_context = (
+            f"You are interviewing the candidate for this specific JD:\n{req.jd_text}"
+        )
     else:
         jd_context = "The candidate did not provide a specific JD. Conduct a general interview based purely on their CV to assess their past experiences, strengths, and general career readiness."
 
@@ -256,13 +267,23 @@ async def interview_chat(req: InterviewChatRequest, background_tasks: Background
 
     contents = []
     for msg in req.chat_history:
-        contents.append({"role": "assistant" if msg.role == "assistant" else "user", "content": msg.content})
+        contents.append(
+            {
+                "role": "assistant" if msg.role == "assistant" else "user",
+                "content": msg.content,
+            }
+        )
 
     if not contents:
         # First turn logic setup since chat history is empty
         system_prompt += INTERVIEW_FIRST_TURN_ADDENDUM
         # Push default startup cue for the LLMs since content is blank
-        contents = [{"role": "user", "content": "Xin chào, tôi đã sẵn sàng tham gia buổi phỏng vấn."}]
+        contents = [
+            {
+                "role": "user",
+                "content": "Xin chào, tôi đã sẵn sàng tham gia buổi phỏng vấn.",
+            }
+        ]
 
     try:
         parsed = await call_llm_with_fallback(
@@ -284,14 +305,19 @@ async def interview_chat(req: InterviewChatRequest, background_tasks: Background
 # POST /api/interview/finish — Final Assessment Report
 # ---------------------------------------------------------------------------
 
+
 @router.post("/interview/finish", response_model=FinalInterviewReport)
-async def interview_finish(req: InterviewFinishRequest, background_tasks: BackgroundTasks):
+async def interview_finish(
+    req: InterviewFinishRequest, background_tasks: BackgroundTasks
+):
     """
     Takes the completed chat history and generates a comprehensive
     Final Assessment report with per-turn analysis.
     """
     if not req.chat_history:
-        raise HTTPException(status_code=422, detail="Chat history is empty. Cannot generate report.")
+        raise HTTPException(
+            status_code=422, detail="Chat history is empty. Cannot generate report."
+        )
 
     round_label = ROUND_LABELS.get(req.interview_type, ROUND_LABELS["general"])
 
@@ -308,7 +334,12 @@ async def interview_finish(req: InterviewFinishRequest, background_tasks: Backgr
 
     contents = []
     for msg in req.chat_history:
-        contents.append({"role": "assistant" if msg.role == "assistant" else "user", "content": msg.content})
+        contents.append(
+            {
+                "role": "assistant" if msg.role == "assistant" else "user",
+                "content": msg.content,
+            }
+        )
 
     try:
         parsed = await call_llm_with_fallback(
@@ -323,12 +354,15 @@ async def interview_finish(req: InterviewFinishRequest, background_tasks: Backgr
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Final assessment generation failed: {e}")
+        raise HTTPException(
+            status_code=502, detail=f"Final assessment generation failed: {e}"
+        )
 
 
 # ---------------------------------------------------------------------------
 # POST /api/interview/tts
 # ---------------------------------------------------------------------------
+
 
 @router.post("/interview/tts")
 async def generate_tts(req: TTSRequest):
@@ -351,6 +385,7 @@ async def generate_tts(req: TTSRequest):
 # POST /api/writer/generate — Writing Assistant
 # ---------------------------------------------------------------------------
 
+
 @router.post("/writer/generate", response_model=WriterResponse)
 async def writer_generate(req: WriterRequest, background_tasks: BackgroundTasks):
     """
@@ -368,7 +403,9 @@ async def writer_generate(req: WriterRequest, background_tasks: BackgroundTasks)
     )
 
     if req.jd_text.strip():
-        user_content = f"CV của ứng viên:\n{req.cv_text}\n\nMô tả Công việc (JD):\n{req.jd_text}"
+        user_content = (
+            f"CV của ứng viên:\n{req.cv_text}\n\nMô tả Công việc (JD):\n{req.jd_text}"
+        )
     else:
         user_content = f"CV của ứng viên:\n{req.cv_text}"
 

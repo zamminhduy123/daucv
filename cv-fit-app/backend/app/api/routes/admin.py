@@ -39,7 +39,7 @@ async def admin_metrics():
 
     records: list[dict] = []
     for fpath in log_files:
-        with open(fpath, "r", encoding="utf-8") as fh:
+        with open(fpath, encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if not line:

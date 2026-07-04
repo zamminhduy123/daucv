@@ -13,7 +13,6 @@ import re
 
 from httpx import AsyncClient, Timeout
 
-
 # Domain paths per source (for URL validation)
 _DOMAIN_PATHS: dict[str, list[str | type]] = {
     "itviec": ["/it-jobs/", "/jobs/"],
@@ -28,24 +27,97 @@ _DOMAIN_PATHS: dict[str, list[str | type]] = {
 
 # Skill dictionary for extraction
 _SKILLS = [
-    "python", "javascript", "typescript", "react", "reactjs", "next.js", "nextjs",
-    "vue", "vuejs", "angular", "nodejs", "node.js", "express", "nestjs",
-    "fastapi", "django", "flask", "spring", "spring boot", "java", "golang", "go",
-    "php", "ruby", "rails", "swift", "kotlin", "flutter", "dart", "rust", "c++", "c#", "c",
-    "sql", "mysql", "postgresql", "postgres", "mongodb", "nosql", "redis", "firebase",
-    "docker", "kubernetes", "aws", "gcp", "azure", "git", "gitlab", "github",
-    "ci/cd", "jenkins", "terraform", "ansible",
-    "machine learning", "deep learning", "ai", "nlp", "llm", "rag", "pytorch", "tensorflow",
-    "figma", "ui/ux", "agile", "scrum", "jest", "cypress",
-    "html", "css", "sass", "less", "tailwind", "bootstrap",
-    "rest api", "graphql", "microservices", "serverless",
+    "python",
+    "javascript",
+    "typescript",
+    "react",
+    "reactjs",
+    "next.js",
+    "nextjs",
+    "vue",
+    "vuejs",
+    "angular",
+    "nodejs",
+    "node.js",
+    "express",
+    "nestjs",
+    "fastapi",
+    "django",
+    "flask",
+    "spring",
+    "spring boot",
+    "java",
+    "golang",
+    "go",
+    "php",
+    "ruby",
+    "rails",
+    "swift",
+    "kotlin",
+    "flutter",
+    "dart",
+    "rust",
+    "c++",
+    "c#",
+    "c",
+    "sql",
+    "mysql",
+    "postgresql",
+    "postgres",
+    "mongodb",
+    "nosql",
+    "redis",
+    "firebase",
+    "docker",
+    "kubernetes",
+    "aws",
+    "gcp",
+    "azure",
+    "git",
+    "gitlab",
+    "github",
+    "ci/cd",
+    "jenkins",
+    "terraform",
+    "ansible",
+    "machine learning",
+    "deep learning",
+    "ai",
+    "nlp",
+    "llm",
+    "rag",
+    "pytorch",
+    "tensorflow",
+    "figma",
+    "ui/ux",
+    "agile",
+    "scrum",
+    "jest",
+    "cypress",
+    "html",
+    "css",
+    "sass",
+    "less",
+    "tailwind",
+    "bootstrap",
+    "rest api",
+    "graphql",
+    "microservices",
+    "serverless",
 ]
 
 _CITIES: dict[str, str] = {
-    "hồ chí minh": "Hồ Chí Minh", "ho chi minh": "Hồ Chí Minh",
-    "hcm": "Hồ Chí Minh", "sài gòn": "Hồ Chí Minh", "saigon": "Hồ Chí Minh",
-    "hà nội": "Hà Nội", "ha noi": "Hà Nội", "hn": "Hà Nội",
-    "đà nẵng": "Đà Nẵng", "da nang": "Đà Nẵng", "dn": "Đà Nẵng",
+    "hồ chí minh": "Hồ Chí Minh",
+    "ho chi minh": "Hồ Chí Minh",
+    "hcm": "Hồ Chí Minh",
+    "sài gòn": "Hồ Chí Minh",
+    "saigon": "Hồ Chí Minh",
+    "hà nội": "Hà Nội",
+    "ha noi": "Hà Nội",
+    "hn": "Hà Nội",
+    "đà nẵng": "Đà Nẵng",
+    "da nang": "Đà Nẵng",
+    "dn": "Đà Nẵng",
 }
 
 _SENIORITY: dict[str, list[str]] = {
@@ -60,6 +132,7 @@ _SENIORITY: dict[str, list[str]] = {
 def _is_job_url(url: str, source: str) -> bool:
     """Check if URL looks like a job listing."""
     from urllib.parse import urlparse
+
     path = urlparse(url).path.lower()
     patterns = _DOMAIN_PATHS.get(source, [])
     for p in patterns:
@@ -113,11 +186,11 @@ def _extract_skills(text: str) -> list[str]:
 
 def _parse_title_company(raw: str) -> tuple[str, str]:
     """Split 'Title | Company' style titles."""
-    parts = re.split(r'\s*(?:\||[-–—@])\s*', raw, maxsplit=1)
+    parts = re.split(r"\s*(?:\||[-–—@])\s*", raw, maxsplit=1)
     title = parts[0].strip()
     company = parts[1].strip() if len(parts) > 1 else "Không rõ công ty"
     # Clean Vietnamese prefixes
-    title = re.sub(r'^(tuyển dụng|tuyển)\s+', '', title, flags=re.I).strip()
+    title = re.sub(r"^(tuyển dụng|tuyển)\s+", "", title, flags=re.I).strip()
     title = title[0].upper() + title[1:] if title else title
     return title, company
 
@@ -140,7 +213,10 @@ async def search_via_engine(query: str, domain: str, limit: int = 4) -> list[dic
             try:
                 resp = await client.post(
                     "https://google.serper.dev/search",
-                    headers={"X-API-KEY": serper_key, "Content-Type": "application/json"},
+                    headers={
+                        "X-API-KEY": serper_key,
+                        "Content-Type": "application/json",
+                    },
                     json={"q": search_query, "num": limit},
                 )
                 if resp.status_code == 200:
@@ -150,14 +226,18 @@ async def search_via_engine(query: str, domain: str, limit: int = 4) -> list[dic
                         link = item.get("link") or item.get("url", "")
                         snippet = item.get("snippet", "")
                         if title and link:
-                            hits.append({"title": title, "link": link, "snippet": snippet})
+                            hits.append(
+                                {"title": title, "link": link, "snippet": snippet}
+                            )
             except Exception:
                 pass
 
         if not hits and google_key and google_cx:
             try:
-                url = (f"https://www.googleapis.com/customsearch/v1?"
-                       f"key={google_key}&cx={google_cx}&q={query}&num={limit}")
+                url = (
+                    f"https://www.googleapis.com/customsearch/v1?"
+                    f"key={google_key}&cx={google_cx}&q={query}&num={limit}"
+                )
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -166,7 +246,9 @@ async def search_via_engine(query: str, domain: str, limit: int = 4) -> list[dic
                         link = item.get("link", "")
                         snippet = item.get("snippet", "")
                         if title and link:
-                            hits.append({"title": title, "link": link, "snippet": snippet})
+                            hits.append(
+                                {"title": title, "link": link, "snippet": snippet}
+                            )
             except Exception:
                 pass
 
@@ -177,12 +259,18 @@ async def search_via_engine(query: str, domain: str, limit: int = 4) -> list[dic
         return []
 
     # Filter to job URLs only
-    job_source = domain.split("/")[-1].split(".")[-2] if "/" in domain else domain.split(".")[-2]
+    job_source = (
+        domain.split("/")[-1].split(".")[-2] if "/" in domain else domain.split(".")[-2]
+    )
     # Map domain to source label
     source_map = {
-        "itviec.com": "itviec", "topcv.vn": "topcv", "glints.com": "glints",
-        "jobsgo.vn": "jobsgo", "vieclam24h.vn": "vieclam24h",
-        "vietnamworks.com": "vietnamworks", "ybox.vn": "ybox",
+        "itviec.com": "itviec",
+        "topcv.vn": "topcv",
+        "glints.com": "glints",
+        "jobsgo.vn": "jobsgo",
+        "vieclam24h.vn": "vieclam24h",
+        "vietnamworks.com": "vietnamworks",
+        "ybox.vn": "ybox",
         "careerviet.vn": "careerviet",
     }
     source = source_map.get(domain, domain)
@@ -198,23 +286,27 @@ async def search_via_engine(query: str, domain: str, limit: int = 4) -> list[dic
         level = _infer_level(hit["title"])
         skills = _extract_skills(full_text)
 
-        results.append({
-            "id": f"se-{source}-{hashlib.md5((hit['link'] + str(len(results))).encode()).hexdigest()[:8]}",
-            "source": source,
-            "title": title,
-            "company": company,
-            "location": location,
-            "salary": salary,
-            "level": level,
-            "skills": skills,
-            "posted_text": "Hôm nay",
-            "url": hit["link"],
-            "description_snippet": hit["snippet"],
-        })
+        results.append(
+            {
+                "id": f"se-{source}-{hashlib.md5((hit['link'] + str(len(results))).encode()).hexdigest()[:8]}",
+                "source": source,
+                "title": title,
+                "company": company,
+                "location": location,
+                "salary": salary,
+                "level": level,
+                "skills": skills,
+                "posted_text": "Hôm nay",
+                "url": hit["link"],
+                "description_snippet": hit["snippet"],
+            }
+        )
 
     return results
 
 
-async def search_via_engine_for_source(source: str, query: str, domain: str, limit: int = 4) -> list[dict]:
+async def search_via_engine_for_source(
+    source: str, query: str, domain: str, limit: int = 4
+) -> list[dict]:
     """Convenience wrapper: search for a specific source."""
     return await search_via_engine(query, domain, limit)

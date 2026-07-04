@@ -21,6 +21,7 @@ _write_lock = threading.Lock()
 # Pydantic model — strongly typed log record
 # ---------------------------------------------------------------------------
 
+
 class LLMLogRecord(BaseModel):
     """Schema for a single LLM request log entry."""
 
@@ -67,6 +68,7 @@ class LLMLogRecord(BaseModel):
 # Writer function
 # ---------------------------------------------------------------------------
 
+
 def _get_daily_log_path():
     """Return the path for today's log file, e.g. ``logs/2026-05-13-requests.jsonl``."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -83,6 +85,5 @@ def log_llm_request(record: LLMLogRecord) -> None:
     line = record.model_dump_json() + "\n"
     path = _get_daily_log_path()
 
-    with _write_lock:
-        with open(path, "a", encoding="utf-8") as fh:
-            fh.write(line)
+    with _write_lock, open(path, "a", encoding="utf-8") as fh:
+        fh.write(line)

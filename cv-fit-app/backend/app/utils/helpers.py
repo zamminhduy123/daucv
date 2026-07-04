@@ -3,6 +3,7 @@ General-purpose helper functions.
 """
 
 import io
+
 import pdfplumber
 
 

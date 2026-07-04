@@ -7,12 +7,14 @@ and fabricated impact metrics before the response reaches the frontend.
 """
 
 import re
-from typing import List
 
 from pydantic import BaseModel, Field
 
-from app.models.responses import CVAnalysisLLMResponse, CVAnalysisResponse, ScoreBreakdown
-
+from app.models.responses import (
+    CVAnalysisLLMResponse,
+    CVAnalysisResponse,
+    ScoreBreakdown,
+)
 
 SCORE_WEIGHTS = {
     "technical_match": 0.30,
@@ -31,9 +33,31 @@ PRIORITY_WEIGHTS = {
 }
 
 _STOPWORDS = {
-    "and", "or", "the", "for", "with", "from", "into", "that", "this", "you",
-    "your", "are", "can", "will", "must", "need", "needs", "using", "use",
-    "job", "role", "skill", "skills", "experience", "knowledge",
+    "and",
+    "or",
+    "the",
+    "for",
+    "with",
+    "from",
+    "into",
+    "that",
+    "this",
+    "you",
+    "your",
+    "are",
+    "can",
+    "will",
+    "must",
+    "need",
+    "needs",
+    "using",
+    "use",
+    "job",
+    "role",
+    "skill",
+    "skills",
+    "experience",
+    "knowledge",
 }
 
 
@@ -48,13 +72,13 @@ class EvalResult(BaseModel):
     rewrite_safety: int = Field(ge=0, le=100)
     actionability: int = Field(ge=0, le=100)
     overall: int = Field(ge=0, le=100)
-    warnings: List[str]
-    hard_hallucinations: List[str]
-    soft_inferences: List[str]
-    useful_adjacent_recommendations: List[str]
-    placeholder_metrics: List[str]
-    unsupported_factual_claims: List[str]
-    needs_user_confirmation: List[str]
+    warnings: list[str]
+    hard_hallucinations: list[str]
+    soft_inferences: list[str]
+    useful_adjacent_recommendations: list[str]
+    placeholder_metrics: list[str]
+    unsupported_factual_claims: list[str]
+    needs_user_confirmation: list[str]
     scored_response: CVAnalysisResponse
 
 
@@ -78,12 +102,13 @@ def _tokens(text: str) -> set[str]:
 # 1. Score consistency
 # ---------------------------------------------------------------------------
 
-def check_score_consistency(response: CVAnalysisResponse) -> List[str]:
+
+def check_score_consistency(response: CVAnalysisResponse) -> list[str]:
     """
     Detect contradictions between ``match_score`` and the six sub-scores or
     the ``prioritized_keywords`` urgency level.
     """
-    warnings: List[str] = []
+    warnings: list[str] = []
 
     critical_missing_count = sum(
         1 for kw in response.prioritized_keywords if kw.priority == "Critical"
@@ -151,10 +176,7 @@ def build_scored_analysis(response: CVAnalysisLLMResponse) -> CVAnalysisResponse
     high_missing_penalty = 8 * high_missing_count
     missing_requirement_penalty = round(weighted_missing_requirement_score)
     unsupported_claim_penalty = 2 * unsupported_claim_count
-    total_penalty = (
-        missing_requirement_penalty
-        + unsupported_claim_penalty
-    )
+    total_penalty = missing_requirement_penalty + unsupported_claim_penalty
     # CV Match score — raw score minus penalties (can be low when JD keywords missing)
     match_score = max(0, min(100, round(raw_score - total_penalty)))
 
@@ -244,7 +266,7 @@ def _summarize_penalty_reason(response: CVAnalysisLLMResponse) -> str:
         if edit.rewrite_risk == "risky" or edit.unsupported_assumptions
     )
 
-    reasons: List[str] = []
+    reasons: list[str] = []
     if critical_count:
         reasons.append(f"{critical_count} yêu cầu Critical còn thiếu")
     if high_count:
@@ -259,10 +281,11 @@ def _summarize_penalty_reason(response: CVAnalysisLLMResponse) -> str:
 # 2. Missing-keyword grounding
 # ---------------------------------------------------------------------------
 
+
 def classify_keyword_grounding(
     response: CVAnalysisLLMResponse,
     jd_text: str,
-) -> dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """
     Classify keyword issues more carefully than "not in JD = hallucination".
 
@@ -276,7 +299,8 @@ def classify_keyword_grounding(
     jd_lower = _normalize(jd_text)
     jd_tokens = _tokens(jd_text)
     priority_by_keyword = {
-        _normalize(item.keyword): item.priority for item in response.prioritized_keywords
+        _normalize(item.keyword): item.priority
+        for item in response.prioritized_keywords
     }
 
     result = {
@@ -337,16 +361,16 @@ def _extract_metrics(text: str) -> set[str]:
 def classify_rewrite_grounding(
     response: CVAnalysisLLMResponse,
     cv_text: str,
-) -> dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """
     Extract numbers / percentages / multipliers from each
     ``suggested_edits[].improved_safe`` and classify unsupported claims.
     Placeholder metrics in ``improved_with_placeholders`` are expected and safe
     when they remain bracketed.
     """
-    unsupported_factual_claims: List[str] = []
-    placeholder_metrics: List[str] = []
-    needs_user_confirmation: List[str] = []
+    unsupported_factual_claims: list[str] = []
+    placeholder_metrics: list[str] = []
+    needs_user_confirmation: list[str] = []
     cv_metrics = _extract_metrics(cv_text)
 
     for edit in response.suggested_edits:
@@ -358,14 +382,22 @@ def classify_rewrite_grounding(
 
         for metric in sorted(novel_metrics):
             unsupported_factual_claims.append(
-                f"{edit.section}: metric \"{metric}\" appears in improved_safe but is not found in the original CV."
+                f'{edit.section}: metric "{metric}" appears in improved_safe but is not found in the original CV.'
             )
 
         placeholders = re.findall(r"\[[^\]]+\]", edit.improved_with_placeholders)
         for placeholder in placeholders:
             if _extract_metrics(placeholder) or any(
                 token in placeholder.lower()
-                for token in ("%", "before", "after", "user", "workflow", "request", "latency")
+                for token in (
+                    "%",
+                    "before",
+                    "after",
+                    "user",
+                    "workflow",
+                    "request",
+                    "latency",
+                )
             ):
                 placeholder_metrics.append(f"{edit.section}: {placeholder}")
 
@@ -382,7 +414,7 @@ def classify_rewrite_grounding(
 def detect_unsupported_metrics(
     response: CVAnalysisLLMResponse,
     cv_text: str,
-) -> List[str]:
+) -> list[str]:
     """Backward-compatible wrapper for older tests/scripts."""
     return classify_rewrite_grounding(response, cv_text)["unsupported_factual_claims"]
 
@@ -390,6 +422,7 @@ def detect_unsupported_metrics(
 # ---------------------------------------------------------------------------
 # 4. Run all checks
 # ---------------------------------------------------------------------------
+
 
 def run_deterministic_eval(
     response: CVAnalysisLLMResponse,
@@ -434,9 +467,10 @@ def run_deterministic_eval(
         100 if placeholder_metrics else 80 - 10 * len(unsupported_factual_claims)
     )
     rewrite_safety = _clamp_score(
-        100 - 25 * len(unsupported_factual_claims) - 10 * sum(
-            1 for edit in response.suggested_edits if edit.rewrite_risk == "risky"
-        )
+        100
+        - 25 * len(unsupported_factual_claims)
+        - 10
+        * sum(1 for edit in response.suggested_edits if edit.rewrite_risk == "risky")
     )
     score_consistency = _clamp_score(100 - 20 * len(score_warnings))
     cv_grounding = _clamp_score(
@@ -445,16 +479,18 @@ def run_deterministic_eval(
     actionability = _clamp_score(
         70 + 5 * len(response.suggested_edits) + 3 * len(needs_user_confirmation)
     )
-    overall = _clamp_score(round(
-        0.15 * score_consistency
-        + 0.12 * explicit_jd_keyword_accuracy
-        + 0.10 * semantic_keyword_usefulness
-        + 0.15 * cv_grounding
-        + 0.18 * truthfulness
-        + 0.10 * placeholder_handling
-        + 0.12 * rewrite_safety
-        + 0.08 * actionability
-    ))
+    overall = _clamp_score(
+        round(
+            0.15 * score_consistency
+            + 0.12 * explicit_jd_keyword_accuracy
+            + 0.10 * semantic_keyword_usefulness
+            + 0.15 * cv_grounding
+            + 0.18 * truthfulness
+            + 0.10 * placeholder_handling
+            + 0.12 * rewrite_safety
+            + 0.08 * actionability
+        )
+    )
 
     return EvalResult(
         score_consistency=score_consistency,

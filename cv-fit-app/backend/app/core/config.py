@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
 
 load_dotenv()
 
@@ -23,7 +22,7 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 # LLM Waterfall Provider Configuration
 # ---------------------------------------------------------------------------
 
-from app.services.llm_provider import OpenAIProvider, QwenCustomProvider
+from app.services.llm_provider import OpenAIProvider, QwenCustomProvider  # noqa: E402
 
 PROVIDERS = [
     # 1. Primary: Qwen llama-server
@@ -31,7 +30,9 @@ PROVIDERS = [
         name="Local-Qwen",
         model=os.getenv("QWEN_MODEL", "qwen2.5-7b-instruct"),
         api_key=os.getenv("QWEN_API_KEY", "not-needed"),
-        endpoint=os.getenv("QWEN_ENDPOINT", "http://localhost:8000/v1/chat/completions"),
+        endpoint=os.getenv(
+            "QWEN_ENDPOINT", "http://localhost:8000/v1/chat/completions"
+        ),
     ),
     # 2. Primary Fallback: Gemini (via OpenAI shim)
     OpenAIProvider(

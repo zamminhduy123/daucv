@@ -5,17 +5,14 @@ Each provider implements ``generate_structured`` which returns a ``ProviderResul
 containing the parsed Pydantic model and usage metrics (tokens).
 """
 
-import json
-import os
 import re
-import time
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Type, TypeVar
+from typing import Any, TypeVar
 
 import httpx
 from google import genai
 from openai import AsyncOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -39,7 +36,7 @@ class BaseAIProvider(ABC):
         self,
         system_prompt: str,
         user_content: Any,
-        response_model: Type[T],
+        response_model: type[T],
         temperature: float = 0.7,
     ) -> ProviderResult:
         pass
@@ -58,7 +55,7 @@ class OpenAIProvider(BaseAIProvider):
         self,
         system_prompt: str,
         user_content: Any,
-        response_model: Type[T],
+        response_model: type[T],
         temperature: float = 0.7,
     ) -> ProviderResult:
         messages = [{"role": "system", "content": system_prompt}]
@@ -104,7 +101,7 @@ class GeminiNativeProvider(BaseAIProvider):
         self,
         system_prompt: str,
         user_content: Any,
-        response_model: Type[T],
+        response_model: type[T],
         temperature: float = 0.7,
     ) -> ProviderResult:
         config = {
@@ -146,7 +143,7 @@ class OllamaProvider(BaseAIProvider):
         self,
         system_prompt: str,
         user_content: Any,
-        response_model: Type[T],
+        response_model: type[T],
         temperature: float = 0.7,
     ) -> ProviderResult:
         async with httpx.AsyncClient() as http_client:
@@ -197,7 +194,7 @@ class QwenCustomProvider(BaseAIProvider):
         self,
         system_prompt: str,
         user_content: Any,
-        response_model: Type[T],
+        response_model: type[T],
         temperature: float = 0.7,
     ) -> ProviderResult:
         async with httpx.AsyncClient() as http_client:
@@ -237,4 +234,3 @@ class QwenCustomProvider(BaseAIProvider):
                 output_tokens=usage.get("completion_tokens", 0),
                 raw_response=content,
             )
-

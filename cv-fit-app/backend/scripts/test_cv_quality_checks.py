@@ -61,7 +61,7 @@ def _analysis_response(**overrides):
                 unsupported_assumptions=[],
                 rewrite_risk="safe",
                 reason="Makes the skill list more specific.",
-            )
+            ),
         ],
         "cv_strengths": ["Clear backend experience", "Readable structure"],
         "prioritized_keywords": [
@@ -137,8 +137,7 @@ def test_llm_schema_trims_oversized_keyword_lists():
     payload = _analysis_response().model_dump()
     payload["missing_keywords"] = [f"keyword-{index}" for index in range(12)]
     payload["prioritized_keywords"] = [
-        {"keyword": f"keyword-{index}", "priority": "Low"}
-        for index in range(9)
+        {"keyword": f"keyword-{index}", "priority": "Low"} for index in range(9)
     ]
 
     response = CVAnalysisLLMResponse(**payload)
@@ -189,7 +188,10 @@ def test_metric_placeholders_do_not_count_as_fabricated_safe_metrics():
     response = _analysis_response()
 
     assert detect_unsupported_metrics(response, "Worked on backend services.") == []
-    assert response.suggested_edits[0].upgraded_text == response.suggested_edits[0].improved_safe
+    assert (
+        response.suggested_edits[0].upgraded_text
+        == response.suggested_edits[0].improved_safe
+    )
 
 
 def test_keyword_grounding_allows_soft_inference_and_adjacent_recommendations():
@@ -208,7 +210,9 @@ def test_keyword_grounding_allows_soft_inference_and_adjacent_recommendations():
     )
 
     assert any("Backend scalability" in item for item in result["soft_inferences"])
-    assert any("RAG evaluation" in item for item in result["useful_adjacent_recommendations"])
+    assert any(
+        "RAG evaluation" in item for item in result["useful_adjacent_recommendations"]
+    )
     assert any("Quantum ledger" in item for item in result["hard_hallucinations"])
 
 
@@ -242,7 +246,9 @@ def test_rewrite_grounding_separates_placeholders_from_unsupported_facts():
 
     assert any("35" in item for item in result["unsupported_factual_claims"])
     assert any("[X%]" in item for item in result["placeholder_metrics"])
-    assert any("Exact latency reduction" in item for item in result["needs_user_confirmation"])
+    assert any(
+        "Exact latency reduction" in item for item in result["needs_user_confirmation"]
+    )
 
 
 def test_run_deterministic_eval_returns_scored_response():

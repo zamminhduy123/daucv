@@ -10,6 +10,7 @@ makes them easy to version, A/B test, and review in code review.
 # CV Upload & Match
 # ---------------------------------------------------------------------------
 
+
 def build_upload_and_match_prompt() -> str:
     return (
         "Bạn là Bé Đậu - một chuyên gia nhân sự và người đồng hành (career coach) tận tâm tại thị trường Việt Nam. "
@@ -31,6 +32,7 @@ def build_upload_and_match_prompt() -> str:
 # ---------------------------------------------------------------------------
 # CV Analysis
 # ---------------------------------------------------------------------------
+
 
 def build_cv_analysis_prompt(context_instruction: str) -> str:
     return (
@@ -81,9 +83,7 @@ def build_cv_analysis_prompt(context_instruction: str) -> str:
     )
 
 
-CV_ANALYSIS_CONTEXT_WITH_JD = (
-    "Nhiệm vụ: Phân tích CV ứng viên dựa trên Mô tả Công việc (JD) được cung cấp và trả về kết quả phân tích."
-)
+CV_ANALYSIS_CONTEXT_WITH_JD = "Nhiệm vụ: Phân tích CV ứng viên dựa trên Mô tả Công việc (JD) được cung cấp và trả về kết quả phân tích."
 
 CV_ANALYSIS_CONTEXT_WITHOUT_JD = (
     "Nhiệm vụ: Người dùng không cung cấp JD. Thực hiện Đánh giá CV chung (General CV ATS Audit). "
@@ -102,7 +102,7 @@ PERSONA_INSTRUCTIONS: dict[str, str] = {
         "Act as an HR Recruiter in the Vietnamese market. Focus strictly on behavioral questions, culture fit, soft skills, "
         "communication style, candidate's background, and teamwork. You want to understand who the candidate is, their work ethic, "
         "and what their actual responsibilities were in their previous projects. You may test their high-level domain understanding "
-        "(\"know their stuff\") slightly, but DO NOT ask deep technical coding, framework, or implementation questions."
+        '("know their stuff") slightly, but DO NOT ask deep technical coding, framework, or implementation questions.'
     ),
     "technical": "Act as a Senior Technical Interviewer. Focus strictly on the hard skills, frameworks, and tools mentioned in the JD and CV. Ask scenario-based technical questions and evaluate their problem-solving logic.",
     "manager": "Act as a Line Manager / Head of Department. Focus on project ownership, how they handle pressure/conflicts, business impact, and their long-term career vision.",
@@ -119,7 +119,7 @@ def build_interview_chat_prompt(
     total_questions: int,
     question_strategy: str,
 ) -> str:
-    return f"""You are Bé Đậu, a friendly but rigorous Senior Tech Recruiter in Vietnam. 
+    return f"""You are Bé Đậu, a friendly but rigorous Senior Tech Recruiter in Vietnam.
         You are conducting a professional 1-on-1 mock interview with a candidate.
 
         [INTERVIEWER PERSONA — FOLLOW STRICTLY]
@@ -158,7 +158,7 @@ def build_interview_chat_prompt(
 INTERVIEW_FIRST_TURN_ADDENDUM = (
     "\n\nThis is the very first message of the interview. "
     "Introduce yourself formally as Bé Đậu, briefly summarize the JD, and ask the first introductory question. "
-    'Leave \'ai_feedback\' empty (""), and initialize scores at 100. '
+    "Leave 'ai_feedback' empty (\"\"), and initialize scores at 100. "
     "Provide a 'hint_for_user' on how to answer the first question."
 )
 
@@ -243,15 +243,19 @@ def build_writer_prompt(
     type_desc = WRITER_TYPE_LABELS.get(writing_type, writing_type)
 
     jd_instruction = (
-        "và JD bên dưới.\n\n"
-        "QUY TẮC QUAN TRỌNG:\n"
-        "- KHÔNG bịa đặt kinh nghiệm hoặc kỹ năng mà CV không có.\n"
-        "- Nội dung phải BÁM SÁT các yêu cầu trong JD.\n"
-    ) if jd_text and jd_text.strip() else (
-        "bên dưới (Người dùng không cung cấp JD).\n\n"
-        "QUY TẮC QUAN TRỌNG:\n"
-        "- KHÔNG bịa đặt kinh nghiệm hoặc kỹ năng mà CV không có.\n"
-        "- Tập trung làm nổi bật điểm mạnh và kinh nghiệm đáng chú ý nhất của ứng viên.\n"
+        (
+            "và JD bên dưới.\n\n"
+            "QUY TẮC QUAN TRỌNG:\n"
+            "- KHÔNG bịa đặt kinh nghiệm hoặc kỹ năng mà CV không có.\n"
+            "- Nội dung phải BÁM SÁT các yêu cầu trong JD.\n"
+        )
+        if jd_text and jd_text.strip()
+        else (
+            "bên dưới (Người dùng không cung cấp JD).\n\n"
+            "QUY TẮC QUAN TRỌNG:\n"
+            "- KHÔNG bịa đặt kinh nghiệm hoặc kỹ năng mà CV không có.\n"
+            "- Tập trung làm nổi bật điểm mạnh và kinh nghiệm đáng chú ý nhất của ứng viên.\n"
+        )
     )
 
     prompt = (

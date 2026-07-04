@@ -2,23 +2,24 @@
 Pydantic response models — outbound payloads returned to API clients.
 """
 
+from typing import Annotated, Any, Literal
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from app.models.domain import (
-    LiveMetrics,
-    TurnAnalysis,
-    SubScore,
     AIFeedbackSummary,
-    SuggestedEdit,
-    PrioritizedKeyword,
     EvidenceAnalysis,
+    LiveMetrics,
+    PrioritizedKeyword,
+    SubScore,
+    SuggestedEdit,
+    TurnAnalysis,
 )
-
 
 # ---------------------------------------------------------------------------
 # Interview responses
 # ---------------------------------------------------------------------------
+
 
 class InterviewTurnResponse(BaseModel):
     ai_feedback: str
@@ -28,18 +29,18 @@ class InterviewTurnResponse(BaseModel):
 
 
 class FinalInterviewReport(BaseModel):
-    overall_score: int              # 0-100
-    overall_feedback: str           # 2-3 sentences summarizing performance
-    sub_scores: List[SubScore]      # Exactly 5 items matching the categories above
-    key_strengths: List[str]        # 2-3 bullet points
-    areas_for_improvement: List[str] # 2-3 bullet points
-    top_topics_covered: List[str]   # e.g., ["React", "State Management", "Behavioral"]
+    overall_score: int  # 0-100
+    overall_feedback: str  # 2-3 sentences summarizing performance
+    sub_scores: list[SubScore]  # Exactly 5 items matching the categories above
+    key_strengths: list[str]  # 2-3 bullet points
+    areas_for_improvement: list[str]  # 2-3 bullet points
+    top_topics_covered: list[str]  # e.g., ["React", "State Management", "Behavioral"]
     ai_feedback_summary: AIFeedbackSummary
-    turn_by_turn_analysis: List[TurnAnalysis]
+    turn_by_turn_analysis: list[TurnAnalysis]
 
 
 class ScoreBreakdown(BaseModel):
-    weights: Dict[str, float]
+    weights: dict[str, float]
     raw_score: int = Field(ge=0, le=100)
     critical_missing_count: int = Field(ge=0)
     high_missing_count: int = Field(ge=0)
@@ -57,6 +58,7 @@ class ScoreBreakdown(BaseModel):
 # CV Analysis response
 # ---------------------------------------------------------------------------
 
+
 class CVAnalysisLLMResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -71,13 +73,15 @@ class CVAnalysisLLMResponse(BaseModel):
     tone_quality: int = Field(ge=0, le=100)
     ats_readiness: int = Field(ge=0, le=100)
 
-    missing_keywords: Annotated[List[str], Field(max_length=6)]
-    suggested_edits: Annotated[List[SuggestedEdit], Field(min_length=2, max_length=5)]
+    missing_keywords: Annotated[list[str], Field(max_length=6)]
+    suggested_edits: Annotated[list[SuggestedEdit], Field(min_length=2, max_length=5)]
 
     # Widgets data
-    cv_strengths: Annotated[List[str], Field(min_length=2, max_length=5)]
-    prioritized_keywords: Annotated[List[PrioritizedKeyword], Field(max_length=6)]
-    evidence_analysis: Annotated[List[EvidenceAnalysis], Field(min_length=1, max_length=6)]
+    cv_strengths: Annotated[list[str], Field(min_length=2, max_length=5)]
+    prioritized_keywords: Annotated[list[PrioritizedKeyword], Field(max_length=6)]
+    evidence_analysis: Annotated[
+        list[EvidenceAnalysis], Field(min_length=1, max_length=6)
+    ]
 
     @model_validator(mode="before")
     @classmethod
@@ -105,7 +109,9 @@ class CVAnalysisLLMResponse(BaseModel):
                     "original_text": "",
                     "improved_safe": "Clarify this section with role-relevant, truthful details from your experience.",
                     "improved_with_placeholders": "Clarify this section with [specific responsibility], [tool], and [measurable outcome if true].",
-                    "metric_questions": ["What measurable result can you truthfully add?"],
+                    "metric_questions": [
+                        "What measurable result can you truthfully add?"
+                    ],
                     "unsupported_assumptions": [],
                     "rewrite_risk": "needs_user_input",
                     "reason": "The model did not return enough rewrite suggestions, so this fallback asks for user-confirmed details.",
@@ -115,20 +121,27 @@ class CVAnalysisLLMResponse(BaseModel):
                     "original_text": "",
                     "improved_safe": "Use stronger action verbs while keeping every claim grounded in the original CV.",
                     "improved_with_placeholders": "Used [action verb] to deliver [scope] for [team/user/workflow], improving [metric if true].",
-                    "metric_questions": ["Which scope, audience, or metric can you confirm?"],
+                    "metric_questions": [
+                        "Which scope, audience, or metric can you confirm?"
+                    ],
                     "unsupported_assumptions": [],
                     "rewrite_risk": "needs_user_input",
                     "reason": "The fallback preserves safety by using placeholders instead of invented facts.",
                 },
             ]
-        elif isinstance(normalized["suggested_edits"], list) and len(normalized["suggested_edits"]) == 1:
+        elif (
+            isinstance(normalized["suggested_edits"], list)
+            and len(normalized["suggested_edits"]) == 1
+        ):
             normalized["suggested_edits"].append(
                 {
                     "section": "General",
                     "original_text": "",
                     "improved_safe": "Add one more concise, JD-relevant bullet using only confirmed experience.",
                     "improved_with_placeholders": "Added [JD-relevant skill] in [project/context], achieving [outcome if true].",
-                    "metric_questions": ["What confirmed outcome can support this bullet?"],
+                    "metric_questions": [
+                        "What confirmed outcome can support this bullet?"
+                    ],
                     "unsupported_assumptions": [],
                     "rewrite_risk": "needs_user_input",
                     "reason": "The model returned only one edit, so this fallback keeps the response usable.",
@@ -140,8 +153,13 @@ class CVAnalysisLLMResponse(BaseModel):
                 "Readable baseline CV content.",
                 "Contains experience that can be refined for the target role.",
             ]
-        elif isinstance(normalized["cv_strengths"], list) and len(normalized["cv_strengths"]) == 1:
-            normalized["cv_strengths"].append("Additional strengths require recruiter review.")
+        elif (
+            isinstance(normalized["cv_strengths"], list)
+            and len(normalized["cv_strengths"]) == 1
+        ):
+            normalized["cv_strengths"].append(
+                "Additional strengths require recruiter review."
+            )
 
         if not normalized.get("evidence_analysis"):
             normalized["evidence_analysis"] = [
@@ -156,8 +174,12 @@ class CVAnalysisLLMResponse(BaseModel):
 
 
 class CVAnalysisResponse(CVAnalysisLLMResponse):
-    role_fit_score: int = Field(ge=0, le=100)           # Raw LLM assessment — what a human would score
-    match_score: int = Field(ge=0, le=100)              # "CV Match" — penalized by missing JD keywords
+    role_fit_score: int = Field(
+        ge=0, le=100
+    )  # Raw LLM assessment — what a human would score
+    match_score: int = Field(
+        ge=0, le=100
+    )  # "CV Match" — penalized by missing JD keywords
     score_breakdown: ScoreBreakdown
 
 
@@ -165,53 +187,66 @@ class CVAnalysisResponse(CVAnalysisLLMResponse):
 # Writer response
 # ---------------------------------------------------------------------------
 
+
 class WriterResponse(BaseModel):
-    subject_line: str       # Catchy subject line (empty if not applicable)
-    content: str            # Main generated letter/message
-    tips: List[str]         # 1-2 quick actionable tips
+    subject_line: str  # Catchy subject line (empty if not applicable)
+    content: str  # Main generated letter/message
+    tips: list[str]  # 1-2 quick actionable tips
 
 
 # ---------------------------------------------------------------------------
 # Job Finder response
 # ---------------------------------------------------------------------------
 
+
 class CandidateProfileResponse(BaseModel):
-    target_roles: List[str]
-    skills: List[str]
+    target_roles: list[str]
+    skills: list[str]
     seniority: Literal["intern", "fresher", "junior", "middle", "senior", "unknown"]
     location: str
     years_of_experience: float
-    queries: List[str]
+    queries: list[str]
 
 
 # ---------------------------------------------------------------------------
 # Job search response models
 # ---------------------------------------------------------------------------
 
+
 class JobSourceStatus(BaseModel):
     source: str
     status: Literal["success", "failed", "timeout"]
     count: int
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class JobResult(BaseModel):
     id: str
-    source: Literal["itviec", "topcv", "vietnamworks", "glints", "ybox", "jobsgo", "careerviet", "vieclam24h"]
+    source: Literal[
+        "itviec",
+        "topcv",
+        "vietnamworks",
+        "glints",
+        "ybox",
+        "jobsgo",
+        "careerviet",
+        "vieclam24h",
+    ]
     title: str
-    company: Optional[str] = None
-    location: Optional[str] = None
-    salary: Optional[str] = None
-    level: Optional[Literal["intern", "fresher", "junior", "middle", "senior", "unknown"]] = None
-    skills: List[str] = Field(default_factory=list)
-    posted_text: Optional[str] = None
+    company: str | None = None
+    location: str | None = None
+    salary: str | None = None
+    level: (
+        Literal["intern", "fresher", "junior", "middle", "senior", "unknown"] | None
+    ) = None
+    skills: list[str] = Field(default_factory=list)
+    posted_text: str | None = None
     url: str
-    description_snippet: Optional[str] = None
+    description_snippet: str | None = None
 
 
 class RankedJobResult(JobResult):
     match_score: int = Field(ge=0, le=100)
     match_label: Literal["good_match", "stretch"]
-    match_reasons: List[str] = Field(default_factory=list)
-    missing_skills: List[str] = Field(default_factory=list)
-
+    match_reasons: list[str] = Field(default_factory=list)
+    missing_skills: list[str] = Field(default_factory=list)

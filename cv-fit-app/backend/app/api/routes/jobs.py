@@ -7,16 +7,14 @@ POST /api/jobs/search
     ranks, and returns matching jobs with match scores.
 """
 
-import uuid
-
 from fastapi import APIRouter, BackgroundTasks
 
+from app.models.domain import Message
 from app.models.requests import JobSearchRequest
-from app.models.responses import CandidateProfileResponse, JobSourceStatus, JobResult, RankedJobResult
+from app.models.responses import CandidateProfileResponse
 from app.prompts.system_prompts import build_job_parser_prompt
 from app.services.ai_service import call_llm_with_fallback
-from app.services.job_crawler import search_jobs, generate_search_queries
-from app.models.domain import Message
+from app.services.job_crawler import generate_search_queries, search_jobs
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -31,26 +29,135 @@ def _rule_based_parse(cv_text: str) -> CandidateProfileResponse:
 
     # Skills dictionary
     SKILLS = [
-        "javascript", "typescript", "html", "css", "sass", "less", "tailwind", "bootstrap",
-        "react", "reactjs", "react native", "vue", "vuejs", "angular", "next.js", "nextjs",
-        "nodejs", "express", "expressjs", "nestjs", "fastapi", "django", "flask", "laravel",
-        "spring boot", "spring", "asp.net", ".net core", "c#", "java", "python", "golang", "go",
-        "php", "ruby", "rails", "swift", "kotlin", "flutter", "dart", "rust", "c++", "c",
-        "sql", "mysql", "postgresql", "postgres", "mongodb", "nosql", "redis", "firebase",
-        "docker", "kubernetes", "k8s", "aws", "gcp", "azure", "jenkins", "git", "github", "gitlab",
-        "ci/cd", "figma", "ui/ux", "scrum", "agile", "testing", "qa", "qc", "jest", "cypress",
-        "selenium", "machine learning", "deep learning", "ai", "nlp", "data analysis"
+        "javascript",
+        "typescript",
+        "html",
+        "css",
+        "sass",
+        "less",
+        "tailwind",
+        "bootstrap",
+        "react",
+        "reactjs",
+        "react native",
+        "vue",
+        "vuejs",
+        "angular",
+        "next.js",
+        "nextjs",
+        "nodejs",
+        "express",
+        "expressjs",
+        "nestjs",
+        "fastapi",
+        "django",
+        "flask",
+        "laravel",
+        "spring boot",
+        "spring",
+        "asp.net",
+        ".net core",
+        "c#",
+        "java",
+        "python",
+        "golang",
+        "go",
+        "php",
+        "ruby",
+        "rails",
+        "swift",
+        "kotlin",
+        "flutter",
+        "dart",
+        "rust",
+        "c++",
+        "c",
+        "sql",
+        "mysql",
+        "postgresql",
+        "postgres",
+        "mongodb",
+        "nosql",
+        "redis",
+        "firebase",
+        "docker",
+        "kubernetes",
+        "k8s",
+        "aws",
+        "gcp",
+        "azure",
+        "jenkins",
+        "git",
+        "github",
+        "gitlab",
+        "ci/cd",
+        "figma",
+        "ui/ux",
+        "scrum",
+        "agile",
+        "testing",
+        "qa",
+        "qc",
+        "jest",
+        "cypress",
+        "selenium",
+        "machine learning",
+        "deep learning",
+        "ai",
+        "nlp",
+        "data analysis",
     ]
 
     ROLES = {
-        "Frontend Developer": ["frontend", "front-end", "front end", "react developer", "web developer", "ui developer"],
-        "Backend Developer": ["backend", "back-end", "back end", "nodejs developer", "java developer", "python developer", "php developer"],
-        "Fullstack Developer": ["fullstack", "full-stack", "full stack", "fullstack developer"],
-        "Mobile Developer": ["mobile", "android", "ios", "react native", "flutter", "swift", "kotlin"],
+        "Frontend Developer": [
+            "frontend",
+            "front-end",
+            "front end",
+            "react developer",
+            "web developer",
+            "ui developer",
+        ],
+        "Backend Developer": [
+            "backend",
+            "back-end",
+            "back end",
+            "nodejs developer",
+            "java developer",
+            "python developer",
+            "php developer",
+        ],
+        "Fullstack Developer": [
+            "fullstack",
+            "full-stack",
+            "full stack",
+            "fullstack developer",
+        ],
+        "Mobile Developer": [
+            "mobile",
+            "android",
+            "ios",
+            "react native",
+            "flutter",
+            "swift",
+            "kotlin",
+        ],
         "DevOps Engineer": ["devops", "sre", "system admin", "cloud engineer"],
         "Data Engineer": ["data engineer", "data engineering", "etl", "big data"],
-        "AI Engineer": ["ai engineer", "ai developer", "ai research", "nlp", "ai/ml", "generative ai"],
-        "Machine Learning Engineer": ["ml engineer", "machine learning engineer", "deep learning engineer", "machine learning", "deep learning"],
+        "AI Engineer": [
+            "ai engineer",
+            "ai developer",
+            "ai research",
+            "nlp",
+            "ai/ml",
+            "generative ai",
+        ],
+        "Machine Learning Engineer": [
+            "ml engineer",
+            "machine learning engineer",
+            "deep learning engineer",
+            "machine learning",
+            "deep learning",
+        ],
         "Data Scientist": ["data scientist", "data science", "statistician"],
         "QA/QC Tester": ["tester", "qa", "qc", "quality assurance", "test engineer"],
         "Business Analyst": ["business analyst", "ba", "product owner"],
@@ -61,21 +168,42 @@ def _rule_based_parse(cv_text: str) -> CandidateProfileResponse:
         "intern": ["intern", "thực tập", "thực tập sinh", "internship"],
         "fresher": ["fresher", "mới tốt nghiệp", "entry level", "no experience"],
         "junior": ["junior", "dưới 2 năm", "1 năm kinh nghiệm", "1 year experience"],
-        "middle": ["middle", "mid-level", "2 năm kinh nghiệm", "3 năm kinh nghiệm", "2 years experience", "3 years experience"],
-        "senior": ["senior", "trưởng nhóm", "lead", "4 năm kinh nghiệm", "5 năm kinh nghiệm", "4 years experience", "5 years experience"],
+        "middle": [
+            "middle",
+            "mid-level",
+            "2 năm kinh nghiệm",
+            "3 năm kinh nghiệm",
+            "2 years experience",
+            "3 years experience",
+        ],
+        "senior": [
+            "senior",
+            "trưởng nhóm",
+            "lead",
+            "4 năm kinh nghiệm",
+            "5 năm kinh nghiệm",
+            "4 years experience",
+            "5 years experience",
+        ],
     }
 
     # Extract skills
     import re
+
     skills = []
     for skill in SKILLS:
-        escaped = skill.replace("-", r"\-").replace("+", r"\+").replace(".", r"\.").replace("*", r"\*")
+        escaped = (
+            skill.replace("-", r"\-")
+            .replace("+", r"\+")
+            .replace(".", r"\.")
+            .replace("*", r"\*")
+        )
         if skill in ("c", "go"):
-            pattern = r'\b' + escaped + r'\b'
+            pattern = r"\b" + escaped + r"\b"
         elif skill in ("c++", ".net core", "c#", "asp.net", "next.js"):
-            pattern = r'(?:\b|\s|^)' + escaped + r'(?:\b|\s|$|,)'
+            pattern = r"(?:\b|\s|^)" + escaped + r"(?:\b|\s|$|,)"
         else:
-            pattern = r'\b' + escaped + r'\b'
+            pattern = r"\b" + escaped + r"\b"
         if re.search(pattern, normalized, re.I):
             formatted = " ".join(w.capitalize() for w in skill.split(" "))
             skills.append(formatted)
@@ -86,13 +214,15 @@ def _rule_based_parse(cv_text: str) -> CandidateProfileResponse:
         score = 0
         for kw in keywords:
             escaped = kw.replace("-", r"\-")
-            pattern = r'\b' + escaped + r'\b'
+            pattern = r"\b" + escaped + r"\b"
             matches = re.findall(pattern, normalized, re.I)
             score += len(matches)
         if score > 0:
             role_scores[role] = score
 
-    target_roles = sorted(role_scores.keys(), key=lambda r: role_scores[r], reverse=True)
+    target_roles = sorted(
+        role_scores.keys(), key=lambda r: role_scores[r], reverse=True
+    )
     if not target_roles:
         target_roles = ["Software Engineer"]
 
@@ -101,8 +231,10 @@ def _rule_based_parse(cv_text: str) -> CandidateProfileResponse:
     years_of_experience = 0
 
     # Extract years of experience
-    eng_exp = re.search(r'(\d+)\s*(?:year|yr)s?\s*(?:of\s*)?experience', normalized, re.I)
-    vi_exp = re.search(r'(\d+)\s*năm\s*kinh\s*nghiệm', normalized, re.I)
+    eng_exp = re.search(
+        r"(\d+)\s*(?:year|yr)s?\s*(?:of\s*)?experience", normalized, re.I
+    )
+    vi_exp = re.search(r"(\d+)\s*năm\s*kinh\s*nghiệm", normalized, re.I)
     matched = eng_exp or vi_exp
     if matched:
         years_of_experience = int(matched.group(1))
@@ -121,7 +253,7 @@ def _rule_based_parse(cv_text: str) -> CandidateProfileResponse:
             score = 0
             for kw in keywords:
                 escaped = kw.replace("-", r"\-")
-                pattern = r'\b' + escaped + r'\b'
+                pattern = r"\b" + escaped + r"\b"
                 if re.findall(pattern, normalized, re.I):
                     score += 1
             if score > max_score and score > 0:
@@ -131,10 +263,16 @@ def _rule_based_parse(cv_text: str) -> CandidateProfileResponse:
     # Location
     location = None
     cities = {
-        "hồ chí minh": "Hồ Chí Minh", "ho chi minh": "Hồ Chí Minh",
-        "hcm": "Hồ Chí Minh", "sài gòn": "Hồ Chí Minh", "saigon": "Hồ Chí Minh",
-        "hà nội": "Hà Nội", "ha noi": "Hà Nội", "hn": "Hà Nội",
-        "đà nẵng": "Đà Nẵng", "da nang": "Đà Nẵng",
+        "hồ chí minh": "Hồ Chí Minh",
+        "ho chi minh": "Hồ Chí Minh",
+        "hcm": "Hồ Chí Minh",
+        "sài gòn": "Hồ Chí Minh",
+        "saigon": "Hồ Chí Minh",
+        "hà nội": "Hà Nội",
+        "ha noi": "Hà Nội",
+        "hn": "Hà Nội",
+        "đà nẵng": "Đà Nẵng",
+        "da nang": "Đà Nẵng",
     }
     for key, city in cities.items():
         if key in normalized:
@@ -167,13 +305,19 @@ async def search_jobs_endpoint(
     # Step 1: Parse profile
     try:
         prompt = build_job_parser_prompt(req.cv_text)
-        response_text = await call_llm_with_fallback([Message(role="user", content=prompt)])
+        response_text = await call_llm_with_fallback(
+            [Message(role="user", content=prompt)]
+        )
 
         # Parse JSON from LLM response
         import json
+
         # Try to extract JSON from the response
         import re as _re
-        json_match = _re.search(r'\{[^{}]*"target_roles"[^{}]*\}', response_text, re.DOTALL)
+
+        json_match = _re.search(
+            r'\{[^{}]*"target_roles"[^{}]*\}', response_text, _re.DOTALL
+        )
         if json_match:
             raw = json.loads(json_match.group(0))
         else:
@@ -187,7 +331,7 @@ async def search_jobs_endpoint(
             years_of_experience=raw.get("years_of_experience", 0),
             queries=raw.get("queries", []),
         )
-    except Exception as e:
+    except Exception:
         # Fall back to rule-based parsing
         profile = _rule_based_parse(req.cv_text)
 
@@ -211,8 +355,14 @@ async def search_jobs_endpoint(
 
     # Step 3: Crawl sources
     enabled_sources = req.sources or [
-        "itviec", "topcv", "vietnamworks", "ybox",
-        "glints", "jobsgo", "careerviet", "vieclam24h",
+        "itviec",
+        "topcv",
+        "vietnamworks",
+        "ybox",
+        "glints",
+        "jobsgo",
+        "careerviet",
+        "vieclam24h",
     ]
 
     result = await search_jobs(
