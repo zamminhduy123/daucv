@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for CV chuyen vien thu mua</title>
+  <desc id="desc">Branded DauCV cover with procurement documents, supplier cards, and ATS checklist accents.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ecfdf3"/>
+      <stop offset="0.48" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#dbeafe"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" x2="1">
+      <stop offset="0" stop-color="#16a34a"/>
+      <stop offset="1" stop-color="#0284c7"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0f172a" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <path d="M0 530 C180 488 310 620 486 566 C670 510 751 359 930 398 C1050 424 1118 504 1200 469 L1200 675 L0 675 Z" fill="#bbf7d0" opacity="0.55"/>
+  <circle cx="1042" cy="96" r="78" fill="#bfdbfe" opacity="0.7"/>
+  <circle cx="132" cy="566" r="62" fill="#86efac" opacity="0.45"/>
+  <rect x="78" y="78" width="1044" height="519" rx="36" fill="#ffffff" opacity="0.9" filter="url(#shadow)"/>
+  <rect x="78" y="78" width="1044" height="120" rx="36" fill="url(#panel)"/>
+  <rect x="78" y="160" width="1044" height="38" fill="#0284c7"/>
+  <text x="126" y="144" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" fill="#ffffff">DauCV</text>
+  <text x="995" y="143" text-anchor="end" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="700" fill="#dcfce7">Blog tuyển dụng Việt Nam</text>
+  <text x="126" y="274" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="900" fill="#0f172a">CV chuyên viên</text>
+  <text x="126" y="340" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="900" fill="#15803d">thu mua</text>
+  <text x="128" y="394" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" fill="#475569">Tối ưu thành tích đàm phán, nhà cung cấp và chi phí</text>
+  <rect x="126" y="438" width="272" height="48" rx="24" fill="#dcfce7"/>
+  <text x="162" y="470" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="800" fill="#166534">ATS-ready checklist</text>
+  <rect x="430" y="438" width="214" height="48" rx="24" fill="#dbeafe"/>
+  <text x="466" y="470" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="800" fill="#075985">Số liệu rõ ràng</text>
+  <g transform="translate(730 238)">
+    <rect x="0" y="38" width="276" height="220" rx="22" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+    <rect x="26" y="0" width="276" height="220" rx="22" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
+    <rect x="56" y="34" width="96" height="12" rx="6" fill="#16a34a"/>
+    <rect x="56" y="66" width="192" height="12" rx="6" fill="#cbd5e1"/>
+    <rect x="56" y="96" width="166" height="12" rx="6" fill="#cbd5e1"/>
+    <rect x="56" y="136" width="206" height="44" rx="12" fill="#ecfdf5"/>
+    <path d="M78 158 l16 16 l34 -42" fill="none" stroke="#15803d" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(-58 168)">
+      <rect width="164" height="78" rx="18" fill="#0f766e"/>
+      <text x="82" y="33" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#ffffff">Supplier</text>
+      <text x="82" y="58" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#bbf7d0">Scorecard</text>
+    </g>
+    <g transform="translate(172 176)">
+      <rect width="152" height="70" rx="18" fill="#0284c7"/>
+      <text x="76" y="43" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="900" fill="#ffffff">-12% cost</text>
+    </g>
+  </g>
+</svg>

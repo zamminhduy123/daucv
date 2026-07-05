@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">DauCV cover for CV ky su DevOps</title>
+  <desc id="desc">Branded DauCV cover with deployment pipeline, cloud blocks, and CV optimization cues for DevOps engineers.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ecfeff"/>
+      <stop offset="0.48" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#fef3c7"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" x2="1">
+      <stop offset="0" stop-color="#0891b2"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0f172a" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <path d="M0 548 C132 500 246 526 374 574 C548 640 670 508 812 458 C982 398 1066 474 1200 424 L1200 675 L0 675 Z" fill="#cffafe" opacity="0.63"/>
+  <path d="M1040 0 C1018 96 1106 146 1200 132 L1200 0 Z" fill="#fde68a" opacity="0.82"/>
+  <rect x="78" y="78" width="1044" height="519" rx="36" fill="#ffffff" opacity="0.92" filter="url(#shadow)"/>
+  <rect x="78" y="78" width="1044" height="120" rx="36" fill="url(#panel)"/>
+  <rect x="78" y="160" width="1044" height="38" fill="#f59e0b"/>
+  <text x="126" y="144" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" fill="#ffffff">DauCV</text>
+  <text x="995" y="143" text-anchor="end" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="700" fill="#ecfeff">CV kỹ thuật rõ bằng chứng</text>
+  <text x="126" y="278" font-family="Inter, Arial, sans-serif" font-size="60" font-weight="900" fill="#0f172a">CV kỹ sư</text>
+  <text x="126" y="346" font-family="Inter, Arial, sans-serif" font-size="60" font-weight="900" fill="#0e7490">DevOps</text>
+  <text x="128" y="402" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" fill="#475569">Làm nổi bật pipeline, cloud, uptime và tự động hóa triển khai</text>
+  <rect x="126" y="446" width="232" height="48" rx="24" fill="#cffafe"/>
+  <text x="162" y="478" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="800" fill="#155e75">CI/CD impact</text>
+  <rect x="388" y="446" width="228" height="48" rx="24" fill="#fef3c7"/>
+  <text x="424" y="478" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="800" fill="#92400e">Cloud metrics</text>
+  <g transform="translate(710 240)">
+    <rect x="0" y="54" width="350" height="184" rx="26" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+    <rect x="34" y="94" width="74" height="74" rx="18" fill="#0891b2"/>
+    <rect x="138" y="94" width="74" height="74" rx="18" fill="#14b8a6"/>
+    <rect x="242" y="94" width="74" height="74" rx="18" fill="#f59e0b"/>
+    <path d="M108 131 H138 M212 131 H242" stroke="#0f172a" stroke-width="8" stroke-linecap="round"/>
+    <path d="M126 131 l-13 -13 M126 131 l-13 13 M230 131 l-13 -13 M230 131 l-13 13" stroke="#0f172a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="71" y="137" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="23" font-weight="900" fill="#ffffff">Git</text>
+    <text x="175" y="137" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="23" font-weight="900" fill="#ffffff">Build</text>
+    <text x="279" y="137" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="23" font-weight="900" fill="#ffffff">Ship</text>
+    <rect x="56" y="198" width="238" height="16" rx="8" fill="#cbd5e1"/>
+    <rect x="56" y="198" width="176" height="16" rx="8" fill="#22c55e"/>
+    <g transform="translate(30 -8)">
+      <path d="M62 50 C72 22 112 18 128 44 C146 42 164 56 164 76 C164 98 146 110 124 110 H60 C34 110 18 96 18 76 C18 56 36 44 62 50 Z" fill="#e0f2fe" stroke="#0891b2" stroke-width="4"/>
+      <text x="92" y="82" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="900" fill="#0e7490">Cloud</text>
+    </g>
+  </g>
+</svg>
