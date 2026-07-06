@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   FileText, Mic, LayoutTemplate, Clock, QrCode, Coffee,
-  PenLine, PenTool, BookOpen, Briefcase, ChevronLeft, ChevronRight,
+  PenLine, PenTool, BookOpen, Briefcase, ChevronLeft, ChevronRight, MessageCircle,
 } from "lucide-react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { toast } from "sonner";
@@ -198,6 +198,33 @@ export default function AppSidebar() {
             </>
           )}
         </button>
+      </div>
+
+      {/* ── Feedback / Feature Request ───────────────────────────────────── */}
+      <div
+        className={`border-t border-gray-50 flex-shrink-0 transition-all duration-300 ${
+          isCollapsed ? "px-1.5" : "px-2.5 py-2"
+        }`}
+      >
+        <Link
+          href="https://www.facebook.com/minhduy.nguyen.1408/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex items-center gap-2 rounded-lg transition-colors duration-200
+            text-gray-400 hover:text-[#B22222] hover:bg-red-50/50 cursor-pointer no-underline
+            ${isCollapsed ? "justify-center px-0 py-3" : "px-3 py-2.5"}`}
+        >
+          <MessageCircle
+            size={isCollapsed ? 18 : 16}
+            className="flex-shrink-0 transition-colors duration-200"
+          />
+          <span
+            className={`whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out text-sm font-medium
+              ${isCollapsed ? "w-0 opacity-0 max-w-0" : "w-auto opacity-100 max-w-none"}`}
+          >
+            Góp ý
+          </span>
+        </Link>
       </div>
     </aside>
   );

@@ -138,7 +138,7 @@ function CircularScore({
       <div className="flex items-center gap-1.5">
         <Icon size={14} className={score >= 70 ? "text-green-600" : score >= 45 ? "text-yellow-600" : "text-red-600"} />
         <span className="text-xs font-semibold text-gray-500">
-          {label === "Role Fit" ? "Con đọc sẽ thấy…" : "Bị trừ điểm vì thiếu JD"}
+          {label === "Role Fit" ? "Đánh giá chung" : "Bị trừ điểm vì thiếu JD"}
         </span>
       </div>
     </div>

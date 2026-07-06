@@ -207,6 +207,75 @@ export default function InputSection({
       {/* ── 2-col card grid — stacks on mobile, side-by-side on larger screens ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 flex-none md:flex-1">
 
+                {/* RIGHT: CV */}
+        <TextCard
+          title={<>CV của bạn <span className="text-red-500 font-normal text-xs ml-1">(Yêu cầu)</span></>}
+          subtitle="Dán text hoặc upload PDF"
+          wordCountText={wordCount(inputs.cvText)}
+          headerRight={
+            <button
+              onClick={() => cvFileInputRef.current?.click()}
+              className="flex items-center gap-1.5 text-[#2F4F4F] font-semibold rounded-xl transition-colors"
+              style={{
+                padding: "0.35rem 0.75rem", fontSize: "0.78rem",
+                border: "1px solid rgba(152,193,142,0.5)",
+                backgroundColor: "rgba(152,193,142,0.08)",
+              }}
+              onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(152,193,142,0.18)"; }}
+              onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(152,193,142,0.08)"; }}
+            >
+              <Upload size={12} />
+              Tải PDF
+            </button>
+          }
+          topBadge={
+            inputs.cvFile ? (
+              <div
+                className="flex items-center justify-between px-3 py-2 rounded-xl"
+                style={{ backgroundColor: "rgba(152,193,142,0.1)", border: "1px solid rgba(152,193,142,0.3)" }}
+              >
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-[#2F4F4F] truncate">
+                  {isExtractingPDF.cv ? <Loader2 size={12} className="animate-spin" color="var(--primary)" /> : <CheckCircle size={12} color="var(--primary)" />}
+                  {isExtractingPDF.cv ? "Đang đọc PDF..." : inputs.cvFile.name}
+                </span>
+                <button onClick={() => clearFile("cv")} className="text-[#5A6D6D] hover:text-[#B22222] transition-colors p-0.5 shrink-0" disabled={isExtractingPDF.cv}>
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragging("cv"); }}
+                onDragLeave={() => setDragging(null)}
+                onDrop={(e) => handleDrop(e, "cv")}
+                onClick={() => cvFileInputRef.current?.click()}
+                className="text-center cursor-pointer rounded-xl py-2 transition-all text-[#5A6D6D] text-xs"
+                style={{
+                  border: `1.5px dashed ${dragging === "cv" ? "var(--primary)" : "rgba(47,79,79,0.12)"}`,
+                  backgroundColor: dragging === "cv" ? "rgba(152,193,142,0.06)" : "transparent",
+                }}
+              >
+                <Upload size={13} color="var(--primary)" className="mx-auto mb-0.5" />
+                Kéo thả PDF
+              </div>
+            )
+          }
+        >
+          <input
+            ref={cvFileInputRef}
+            type="file"
+            accept=".pdf"
+            className="hidden"
+            onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0], "cv")}
+          />
+          <textarea
+            value={inputs.cvText}
+            onChange={(e) => onChange({ cvText: e.target.value })}
+            placeholder={"// Dán nội dung CV của bạn vào đây...\n\nHọ tên: Nguyễn Văn A\nKinh nghiệm: 3 năm tại...\nKỹ năng: React, TypeScript..."}
+            className="flex-1 w-full min-h-[200px] resize-none outline-none bg-transparent text-[#2F4F4F] leading-relaxed text-sm"
+            style={{ padding: "0.75rem 1rem", fontFamily: "'Inter', 'Courier New', monospace" }}
+          />
+        </TextCard>
+
         {/* LEFT: JD */}
         <TextCard
           title={<>Job Description (JD) <span className="text-gray-400 font-normal text-xs ml-1">(Tùy chọn)</span></>}
@@ -281,75 +350,6 @@ export default function InputSection({
               const card = e.target.closest<HTMLDivElement>(".bg-white");
               if (card) card.style.boxShadow = "";
             }}
-          />
-        </TextCard>
-
-        {/* RIGHT: CV */}
-        <TextCard
-          title={<>CV của bạn <span className="text-red-500 font-normal text-xs ml-1">(Yêu cầu)</span></>}
-          subtitle="Dán text hoặc upload PDF"
-          wordCountText={wordCount(inputs.cvText)}
-          headerRight={
-            <button
-              onClick={() => cvFileInputRef.current?.click()}
-              className="flex items-center gap-1.5 text-[#2F4F4F] font-semibold rounded-xl transition-colors"
-              style={{
-                padding: "0.35rem 0.75rem", fontSize: "0.78rem",
-                border: "1px solid rgba(152,193,142,0.5)",
-                backgroundColor: "rgba(152,193,142,0.08)",
-              }}
-              onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(152,193,142,0.18)"; }}
-              onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(152,193,142,0.08)"; }}
-            >
-              <Upload size={12} />
-              Tải PDF
-            </button>
-          }
-          topBadge={
-            inputs.cvFile ? (
-              <div
-                className="flex items-center justify-between px-3 py-2 rounded-xl"
-                style={{ backgroundColor: "rgba(152,193,142,0.1)", border: "1px solid rgba(152,193,142,0.3)" }}
-              >
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-[#2F4F4F] truncate">
-                  {isExtractingPDF.cv ? <Loader2 size={12} className="animate-spin" color="var(--primary)" /> : <CheckCircle size={12} color="var(--primary)" />}
-                  {isExtractingPDF.cv ? "Đang đọc PDF..." : inputs.cvFile.name}
-                </span>
-                <button onClick={() => clearFile("cv")} className="text-[#5A6D6D] hover:text-[#B22222] transition-colors p-0.5 shrink-0" disabled={isExtractingPDF.cv}>
-                  <X size={12} />
-                </button>
-              </div>
-            ) : (
-              <div
-                onDragOver={(e) => { e.preventDefault(); setDragging("cv"); }}
-                onDragLeave={() => setDragging(null)}
-                onDrop={(e) => handleDrop(e, "cv")}
-                onClick={() => cvFileInputRef.current?.click()}
-                className="text-center cursor-pointer rounded-xl py-2 transition-all text-[#5A6D6D] text-xs"
-                style={{
-                  border: `1.5px dashed ${dragging === "cv" ? "var(--primary)" : "rgba(47,79,79,0.12)"}`,
-                  backgroundColor: dragging === "cv" ? "rgba(152,193,142,0.06)" : "transparent",
-                }}
-              >
-                <Upload size={13} color="var(--primary)" className="mx-auto mb-0.5" />
-                Kéo thả PDF
-              </div>
-            )
-          }
-        >
-          <input
-            ref={cvFileInputRef}
-            type="file"
-            accept=".pdf"
-            className="hidden"
-            onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0], "cv")}
-          />
-          <textarea
-            value={inputs.cvText}
-            onChange={(e) => onChange({ cvText: e.target.value })}
-            placeholder={"// Dán nội dung CV của bạn vào đây...\n\nHọ tên: Nguyễn Văn A\nKinh nghiệm: 3 năm tại...\nKỹ năng: React, TypeScript..."}
-            className="flex-1 w-full min-h-[200px] resize-none outline-none bg-transparent text-[#2F4F4F] leading-relaxed text-sm"
-            style={{ padding: "0.75rem 1rem", fontFamily: "'Inter', 'Courier New', monospace" }}
           />
         </TextCard>
       </div>
@@ -453,13 +453,13 @@ export default function InputSection({
                 <button
                   onClick={onSearchJobs}
                   disabled={isAnalyzing || isStartingInterview || isWriting}
-                  className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 p-3 md:p-4 rounded-2xl bg-white border-2 border-emerald-450/20 hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 p-3 md:p-4 rounded-2xl bg-white border-2 border-blue-400/20 hover:border-blue-500 hover:bg-blue-50 transition-all text-left group shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                  <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                     <Briefcase className="w-4 h-4 md:w-5 md:h-5" />
                   </div>
                   <div>
-                    <h3 className="font-heading font-bold text-[#2F4F4F] text-sm mb-0.5 group-hover:text-emerald-600 transition-colors">
+                    <h3 className="font-heading font-bold text-[#2F4F4F] text-sm mb-0.5 group-hover:text-blue-600 transition-colors">
                       Tìm việc làm
                     </h3>
                     <p className="text-[11px] text-[#5A6D6D] leading-tight">Tìm việc phù hợp CV.</p>
