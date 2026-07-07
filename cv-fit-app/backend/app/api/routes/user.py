@@ -11,6 +11,7 @@ import edge_tts
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
+from app.core.config import PDF_MAX_SIZE
 from app.models.domain import MatchResult
 from app.models.requests import (
     AnalyzeCVRequest,
@@ -68,6 +69,12 @@ async def upload_and_match(
     if cv_file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
 
+    if cv_file.size is not None and cv_file.size > PDF_MAX_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"PDF too large. Maximum size is {PDF_MAX_SIZE // (1024 * 1024)} MB.",
+        )
+
     file_bytes = await cv_file.read()
     try:
         cv_text = extract_text_from_pdf(file_bytes)
@@ -108,6 +115,11 @@ async def upload_and_match(
 async def extract_pdf(file: UploadFile = File(...)):
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+    if file.size is not None and file.size > PDF_MAX_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"PDF too large. Maximum size is {PDF_MAX_SIZE // (1024 * 1024)} MB.",
+        )
     try:
         file_bytes = await file.read()
         text = extract_text_from_pdf(file_bytes)

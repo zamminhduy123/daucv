@@ -113,6 +113,14 @@ export default function InputSection({
       setExtractError(target, `${label}: Vui lòng tải lên file PDF.`);
       return;
     }
+
+    // 10 MB limit (same as backend PDF_MAX_SIZE)
+    if (file.size > 10 * 1024 * 1024) {
+      updatePdfTarget(target, null, "");
+      clearPdfInputValue(target);
+      setExtractError(target, `${label}: File quá lớn. Giới hạn 10 MB.`);
+      return;
+    }
     
     updatePdfTarget(target, file);
     setExtractError(target, "");
