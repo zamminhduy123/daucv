@@ -16,10 +16,13 @@ def create_app() -> FastAPI:
 
     application = FastAPI(title="CVFit API", version="1.0.0")
 
-    # --- CORS (allow Next.js frontend — dev and prod) ----------------------
+    # --- CORS (explicit origin allowlist -- dev and prod) -------------------
+    # Never use allow_origins=["*"] with allow_credentials=True — violates CORS spec.
+    from app.core.config import CORS_ALLOWED_ORIGINS
+
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=CORS_ALLOWED_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
