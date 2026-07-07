@@ -1,0 +1,17 @@
+[lint]
+# Use tighter rules than the default "E/W" (pycodestyle)
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",   # line length — handled by ruff format
+    "B008",   # FastAPI File()/Form() in arg defaults — intentional
+    "B904",   # raise from err — not enforced in this codebase
+    "RUF001", # ambiguous dash characters — cosmetic
+    "RUF002", # ambiguous dash in docstrings — cosmetic
+    "SIM110", # style suggestion — keep readability
+    "F841",   # unused local variables — leave for later cleanup
+]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
