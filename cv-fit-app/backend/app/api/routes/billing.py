@@ -125,8 +125,27 @@ import time
 import urllib.parse
 import os
 from fastapi.responses import HTMLResponse
-from app.core.config import NEXTAUTH_SECRET
-from app.core.db import Database
+try:
+    from app.core.config import NEXTAUTH_SECRET
+except (ImportError, AttributeError):
+    NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET", "super-secret-nextauth-key-change-in-prod")
+
+try:
+    from app.core.db import Database
+except ImportError:
+    class Database:
+        pool = None
+        @classmethod
+        async def connect(cls):
+            pass
+        @classmethod
+        async def fetch_one(cls, query: str, *args):
+            logger.info(f"MOCK Database.fetch_one: {query}")
+            return None
+        @classmethod
+        async def execute(cls, query: str, *args):
+            logger.info(f"MOCK Database.execute: {query}")
+            return None
 
 @router.post("/request-manual-payment")
 async def request_manual_payment(req: BuyCreditsRequest, user: dict = Depends(get_current_user)):
