@@ -21,7 +21,11 @@ except ImportError:
             "credits": 10,
         }
 
-from app.core.config import ALLOW_MOCK_BILLING
+try:
+    from app.core.config import ALLOW_MOCK_BILLING
+except (ImportError, AttributeError):
+    import os
+    ALLOW_MOCK_BILLING = os.getenv("ALLOW_MOCK_BILLING", "true").lower() == "true"
 
 try:
     from app.schemas.billing import (
