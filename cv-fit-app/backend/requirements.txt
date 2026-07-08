@@ -46,3 +46,5 @@ playwright
 ruff==0.14.5
 httpx>=0.28
 pytest>=8.0
+pyjwt==2.8.0
+asyncpg

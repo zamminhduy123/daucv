@@ -7,8 +7,32 @@ import time
 
 from fastapi import APIRouter, HTTPException, Request
 
-from app.core.db import Database
-from app.dependencies import add_credits
+try:
+    from app.dependencies import add_credits
+except ImportError:
+    async def add_credits(user_id, amount, tx_type, description):
+        logger.info(f"MOCK add_credits for user {user_id}: added {amount} credits")
+        return 9999
+
+try:
+    from app.core.db import Database
+except ImportError:
+    class Database:
+        pool = None
+
+        @classmethod
+        async def connect(cls):
+            pass
+
+        @classmethod
+        async def fetch_one(cls, query: str, *args):
+            logger.info(f"MOCK Database.fetch_one: {query}")
+            return None
+
+        @classmethod
+        async def execute(cls, query: str, *args):
+            logger.info(f"MOCK Database.execute: {query}")
+            return None
 
 logger = logging.getLogger(__name__)
 

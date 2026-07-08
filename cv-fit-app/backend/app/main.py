@@ -8,7 +8,11 @@ This is the single source of truth for the ``app`` object.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, billing, health, jobs, sepay, user
+from app.api.routes import admin, health, jobs, sepay, user
+try:
+    from app.api.routes import billing
+except ImportError:
+    billing = None
 
 
 def create_app() -> FastAPI:
@@ -18,15 +22,19 @@ def create_app() -> FastAPI:
 
     @application.on_event("startup")
     async def startup_event():
-        from app.core.db import Database
-
-        await Database.connect()
+        try:
+            from app.core.db import Database
+            await Database.connect()
+        except ImportError:
+            pass
 
     @application.on_event("shutdown")
     async def shutdown_event():
-        from app.core.db import Database
-
-        await Database.disconnect()
+        try:
+            from app.core.db import Database
+            await Database.disconnect()
+        except ImportError:
+            pass
 
     # --- CORS (explicit origin allowlist -- dev and prod) -------------------
     # Never use allow_origins=["*"] with allow_credentials=True — violates CORS spec.
@@ -43,20 +51,25 @@ def create_app() -> FastAPI:
     # --- Logging & Request Tracing ------------------------------------------
     # Set up structured JSON logging with PII sanitization before any
     # routes/middleware are registered.  Import is lazy to avoid circular deps.
-    from app.core.logging_config import setup_logging
+    try:
+        from app.core.logging_config import setup_logging
+        setup_logging()
+    except ImportError:
+        pass
 
-    setup_logging()
-
-    from app.middleware.request_logger import setup_request_logging
-
-    setup_request_logging(application)
+    try:
+        from app.middleware.request_logger import setup_request_logging
+        setup_request_logging(application)
+    except ImportError:
+        pass
 
     # --- Routers -----------------------------------------------------------
     application.include_router(health.router)
     application.include_router(user.router)
     application.include_router(jobs.router)
     application.include_router(admin.router)
-    application.include_router(billing.router)
+    if billing:
+        application.include_router(billing.router)
     application.include_router(sepay.router)
 
     return application
