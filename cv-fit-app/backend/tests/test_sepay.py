@@ -6,8 +6,10 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
+import os
+
 # The default fallback key used in sepay.py for testing
-TEST_SECRET_KEY = "sandbox-secret-key-change-in-prod"
+TEST_SECRET_KEY = os.getenv("SEPAY_SECRET_KEY", "sandbox-secret-key-change-in-prod")
 
 
 def calculate_sig(timestamp: str, body_str: str) -> str:
