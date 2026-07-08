@@ -8,7 +8,7 @@ This is the single source of truth for the ``app`` object.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, health, jobs, sepay, user
+from app.api.routes import admin, health, jobs, user
 try:
     from app.api.routes import billing
 except ImportError:
@@ -70,7 +70,6 @@ def create_app() -> FastAPI:
     application.include_router(admin.router)
     if billing:
         application.include_router(billing.router)
-    application.include_router(sepay.router)
 
     return application
 
