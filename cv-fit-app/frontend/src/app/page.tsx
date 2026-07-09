@@ -8,6 +8,7 @@ import Footer from "@/components/landing/Footer";
 import { FAQSection } from "@/components/landing/FAQSection";
 import TrustSection from "@/components/landing/TrustSection";
 import PricingSection from "@/components/landing/PricingSection";
+import TestimonialsSection from "@/components/landing/TestimonialsSection";
 
 /**
  * Landing page — Server Component.
@@ -27,6 +28,7 @@ export default function LandingPage() {
       </div>
       <PricingSection />
       <FAQSection />
+      <TestimonialsSection />
       <CallToAction />  
       <Footer />
     </main>

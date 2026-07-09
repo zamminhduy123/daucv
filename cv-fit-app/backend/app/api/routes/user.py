@@ -7,17 +7,22 @@ Route handlers are kept thin: validate input → build prompt → call service �
 import json
 import tempfile
 from contextlib import suppress
+from uuid import UUID
 
 import edge_tts
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
 from fastapi.responses import FileResponse
 
-from app.dependencies import get_current_user, refund_credits, reserve_credits
-from uuid import UUID
-from app.schemas.user import UserProfileResponse, CVResponse, CVListResponse, UpdateCVRequest
-from app.services import user_cv_service
-
 from app.core.config import PDF_MAX_SIZE
+from app.dependencies import get_current_user, refund_credits, reserve_credits
 from app.models.domain import MatchResult
 from app.models.requests import (
     AnalyzeCVRequest,
@@ -48,6 +53,14 @@ from app.prompts.system_prompts import (
     build_upload_and_match_prompt,
     build_writer_prompt,
 )
+from app.schemas.feedback import FeedbackResponse, FeedbackSubmit
+from app.schemas.user import (
+    CVListResponse,
+    CVResponse,
+    UpdateCVRequest,
+    UserProfileResponse,
+)
+from app.services import user_cv_service
 from app.services.ai_service import call_llm_with_fallback
 from app.services.cv_quality_checks import build_scored_analysis
 from app.utils.helpers import extract_text_from_pdf
@@ -57,7 +70,9 @@ router = APIRouter(prefix="/api", tags=["user"])
 
 async def _refund_reserved_credit(user_id: str, tx_type: str, description: str) -> None:
     with suppress(Exception):
-        await refund_credits(user_id=user_id, amount=1, tx_type=tx_type, description=description)
+        await refund_credits(
+            user_id=user_id, amount=1, tx_type=tx_type, description=description
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -522,7 +537,9 @@ async def get_user_credits(user: dict = Depends(get_current_user)) -> dict:
 
 
 @router.get("/user/profile", response_model=UserProfileResponse)
-async def get_user_profile(user: dict = Depends(get_current_user)) -> UserProfileResponse:
+async def get_user_profile(
+    user: dict = Depends(get_current_user),
+) -> UserProfileResponse:
     return await user_cv_service.get_profile_with_stats(user)
 
 
@@ -539,17 +556,27 @@ async def list_user_cvs(user: dict = Depends(get_current_user)) -> CVListRespons
 
 
 @router.post("/user/cv", response_model=CVResponse)
-async def upload_user_cv(req: UpdateCVRequest, user: dict = Depends(get_current_user)) -> CVResponse:
-    return await user_cv_service.create_cv(to_uuid(user["id"]), req.cv_text, req.cv_filename)
+async def upload_user_cv(
+    req: UpdateCVRequest, user: dict = Depends(get_current_user)
+) -> CVResponse:
+    return await user_cv_service.create_cv(
+        to_uuid(user["id"]), req.cv_text, req.cv_filename
+    )
 
 
 @router.put("/user/cv/active", response_model=CVResponse)
-async def update_active_cv(req: UpdateCVRequest, user: dict = Depends(get_current_user)) -> CVResponse:
-    return await user_cv_service.update_active_cv_text(to_uuid(user["id"]), req.cv_text, req.cv_filename)
+async def update_active_cv(
+    req: UpdateCVRequest, user: dict = Depends(get_current_user)
+) -> CVResponse:
+    return await user_cv_service.update_active_cv_text(
+        to_uuid(user["id"]), req.cv_text, req.cv_filename
+    )
 
 
 @router.delete("/user/cv/{cv_id}")
-async def deactivate_user_cv(cv_id: str, user: dict = Depends(get_current_user)) -> dict:
+async def deactivate_user_cv(
+    cv_id: str, user: dict = Depends(get_current_user)
+) -> dict:
     try:
         cv_uuid = UUID(cv_id)
     except ValueError:
@@ -557,3 +584,36 @@ async def deactivate_user_cv(cv_id: str, user: dict = Depends(get_current_user))
 
     await user_cv_service.deactivate_cv(cv_uuid, to_uuid(user["id"]))
     return {"success": True}
+
+
+@router.post("/user/feedback", response_model=FeedbackResponse)
+async def submit_feedback(
+    req: FeedbackSubmit, user: dict = Depends(get_current_user)
+) -> FeedbackResponse:
+    credits_rewarded, new_credits = await user_cv_service.submit_user_feedback(
+        user_id=to_uuid(user["id"]),
+        name=user.get("name"),
+        avatar=user.get("image"),
+        rating=req.rating,
+        content=req.content,
+    )
+    msg = "Cảm ơn bạn đã gửi ý kiến phản hồi!"
+    if credits_rewarded > 0:
+        msg = f"Đóng góp thành công! Bạn nhận được +{credits_rewarded} credits cho lượt gửi đầu tiên."
+
+    return FeedbackResponse(
+        success=True,
+        message=msg,
+        credits_rewarded=credits_rewarded,
+        new_credits=new_credits,
+    )
+
+
+@router.get("/feedbacks")
+async def list_feedbacks() -> list:
+    from app.core.db import Database
+
+    rows = await Database.fetch_all(
+        "SELECT id, name, avatar, rating, content, created_at FROM public.feedbacks WHERE is_public = TRUE ORDER BY created_at DESC"
+    )
+    return [dict(r) for r in rows]

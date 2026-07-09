@@ -257,6 +257,18 @@ export async function searchJobsAPI(payload: JobSearchRequest) {
   return res.json();
 }
 
+export async function submitFeedbackAPI(rating: number, content: string) {
+  const res = await fetchWithAuth(`${API_URL}/api/user/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rating, content }),
+  });
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
+}
+
 // ── Error classification ─────────────────────────────────────────────────────
 
 /**

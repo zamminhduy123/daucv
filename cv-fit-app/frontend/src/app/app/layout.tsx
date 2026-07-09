@@ -2,6 +2,7 @@
 
 import AppSidebar from "@/components/shared/AppSidebar";
 import MobileTopNav from "@/components/shared/MobileTopNav";
+import FeedbackModal from "@/components/shared/FeedbackModal";
 import { WorkspaceProvider, useWorkspace } from "@/context/WorkspaceContext";
 import { FileText, Briefcase, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -96,6 +97,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      <FeedbackModal />
     </WorkspaceProvider>
   );
 }

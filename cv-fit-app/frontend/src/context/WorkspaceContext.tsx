@@ -43,6 +43,10 @@ interface WorkspaceContextType extends WorkspaceState {
   deleteActiveCV: () => Promise<void>;
   hasData: boolean;
 
+  // Feedback modal triggers
+  isFeedbackOpen: boolean;
+  setFeedbackOpen: (open: boolean) => void;
+
   // Cache accessors
   cache: WorkspaceCache;
   setCachedAnalysis: (result: CVAnalysisResponse) => void;
@@ -61,6 +65,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { activeCV, refreshProfile, status, userId } = useAuth();
   const [state, setState] = useState<WorkspaceState>({ cvText: "", cvFileName: DEFAULT_CV_FILENAME, jdText: "" });
   const [cache, setCache] = useState<WorkspaceCache>({ ...EMPTY_CACHE });
+  const [isFeedbackOpen, setFeedbackOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadedStorageKey, setLoadedStorageKey] = useState<string | null>(null);
   const scopedStorageSuffix = userId || "anonymous";
@@ -112,6 +117,20 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     if (!isLoaded || loadedStorageKey !== stateStorageKey) return;
     sessionStorage.setItem(cacheStorageKey, JSON.stringify(cache));
   }, [cache, isLoaded, loadedStorageKey, stateStorageKey, cacheStorageKey]);
+
+  // Trigger feedback modal if redirect query parameter is present in URL
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("feedback") === "true") {
+        queueMicrotask(() => {
+          setFeedbackOpen(true);
+        });
+        // Clean URL search parameters
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
+  }, []);
 
   // Auto-load CV from database on authentication load if local workspace is empty
   useEffect(() => {
@@ -244,6 +263,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         uploadFileCV,
         deleteActiveCV,
         hasData,
+        isFeedbackOpen,
+        setFeedbackOpen,
         cache,
         setCachedAnalysis,
         setCachedInterview,

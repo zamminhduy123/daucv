@@ -32,7 +32,7 @@ export default function AppSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const pathname = usePathname();
-  const { cvText, isLoaded } = useWorkspace();
+  const { cvText, isLoaded, setFeedbackOpen } = useWorkspace();
   const hasCV = !!cvText?.trim();
   const { user, credits } = useAuth();
 
@@ -180,16 +180,14 @@ export default function AppSidebar() {
         <>
           {/* Top: Feedback and Collapse row */}
           <div className="flex items-center justify-between gap-1 px-3 py-1.5 shrink-0 border-t border-gray-100">
-            <Link
-              href="https://www.facebook.com/minhduy.nguyen.1408/"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => setFeedbackOpen(true)}
               title="Góp ý & Báo lỗi"
-              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent flex gap-1"
+              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent flex gap-1 bg-transparent"
             >
               <MessageSquare size={16} />
               <span className="text-xs">Góp ý</span>
-            </Link>
+            </button>
             <button
               onClick={() => {
                 setIsCollapsed(true);
@@ -285,15 +283,13 @@ export default function AppSidebar() {
             >
               <ChevronRight size={16} />
             </button>
-            <Link
-              href="https://www.facebook.com/minhduy.nguyen.1408/"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => setFeedbackOpen(true)}
               title="Góp ý & Báo lỗi"
-              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent"
+              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent bg-transparent"
             >
               <MessageSquare size={16} />
-            </Link>
+            </button>
           </div>
 
           {/* Collapsed Middle: Credits Badge */}

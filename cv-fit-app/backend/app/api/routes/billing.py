@@ -1,5 +1,12 @@
+import hashlib
+import hmac
 import logging
+import os
+import time
+import urllib.parse
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import HTMLResponse
 
 logger = logging.getLogger(__name__)
 
@@ -8,6 +15,7 @@ router = APIRouter(prefix="/api/billing", tags=["billing"])
 try:
     from app.dependencies import add_credits, get_current_user
 except ImportError:
+
     async def add_credits(user_id, amount, tx_type, description):
         logger.info(f"MOCK add_credits for user {user_id}: added {amount} credits")
         return 9999
@@ -21,11 +29,14 @@ except ImportError:
             "credits": 10,
         }
 
+
 try:
-    from app.core.config import ALLOW_MOCK_BILLING
+    from app.core.config import ALLOW_MOCK_BILLING, NEXTAUTH_SECRET
 except (ImportError, AttributeError):
-    import os
     ALLOW_MOCK_BILLING = os.getenv("ALLOW_MOCK_BILLING", "true").lower() == "true"
+    NEXTAUTH_SECRET = os.getenv(
+        "NEXTAUTH_SECRET", "super-secret-nextauth-key-change-in-prod"
+    )
 
 try:
     from app.schemas.billing import (
@@ -52,6 +63,7 @@ except ImportError:
         success: bool
         new_credits: int
 
+
 PACKAGES = {
     "starter": {"credits": 10, "price": 15000, "name": "Starter Pack"},
     "mid": {"credits": 20, "price": 24000, "name": "Mid Pack"},
@@ -64,7 +76,7 @@ async def buy_credits(req: BuyCreditsRequest, user: dict = Depends(get_current_u
     if not ALLOW_MOCK_BILLING:
         raise HTTPException(
             status_code=403,
-            detail="Cổng thanh toán thử nghiệm không được bật ở môi trường này."
+            detail="Cổng thanh toán thử nghiệm không được bật ở môi trường này.",
         )
 
     package_id = req.package_id
@@ -89,7 +101,7 @@ async def mock_confirm(
     if not ALLOW_MOCK_BILLING:
         raise HTTPException(
             status_code=403,
-            detail="Cổng thanh toán thử nghiệm không được bật ở môi trường này."
+            detail="Cổng thanh toán thử nghiệm không được bật ở môi trường này.",
         )
 
     package_id = req.package_id
@@ -123,41 +135,41 @@ async def mock_confirm(
 
 
 # --- Manual Billing (VietQR & Telegram one-click approval) ------------------
-import hmac
-import hashlib
-import time
-import urllib.parse
-import os
-from fastapi.responses import HTMLResponse
-try:
-    from app.core.config import NEXTAUTH_SECRET
-except (ImportError, AttributeError):
-    NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET", "super-secret-nextauth-key-change-in-prod")
 
 try:
     from app.core.db import Database
 except ImportError:
+
     class Database:
         pool = None
+
         @classmethod
         async def connect(cls):
             pass
+
         @classmethod
         async def fetch_one(cls, query: str, *args):
             logger.info(f"MOCK Database.fetch_one: {query}")
             return None
+
         @classmethod
         async def execute(cls, query: str, *args):
             logger.info(f"MOCK Database.execute: {query}")
             return None
+
 
 @router.post("/test-request")
 async def test_request(
     req: BuyCreditsRequest,
     user_id: str = "ad0b8d18-7803-415d-8d0e-c41934b334bb",
     email: str = "ntminhduy123@gmail.com",
-    name: str = "Duy Nguyen (D)"
+    name: str = "Duy Nguyen (D)",
 ):
+    if not ALLOW_MOCK_BILLING:
+        raise HTTPException(
+            status_code=403,
+            detail="Cổng thanh toán thử nghiệm không được bật ở môi trường này.",
+        )
     mock_user = {
         "id": user_id,
         "email": email,
@@ -169,7 +181,9 @@ async def test_request(
 
 
 @router.post("/request-manual-payment")
-async def request_manual_payment(req: BuyCreditsRequest, user: dict = Depends(get_current_user)):
+async def request_manual_payment(
+    req: BuyCreditsRequest, user: dict = Depends(get_current_user)
+):
     package_id = req.package_id
     if package_id not in PACKAGES:
         raise HTTPException(status_code=400, detail="Gói credit không hợp lệ.")
@@ -180,9 +194,7 @@ async def request_manual_payment(req: BuyCreditsRequest, user: dict = Depends(ge
     # Generate a secure HMAC signature for the approval link using the shared secret
     message = f"{user['id']}:{package_id}:{timestamp}"
     sig = hmac.new(
-        NEXTAUTH_SECRET.encode("utf-8"),
-        message.encode("utf-8"),
-        hashlib.sha256
+        NEXTAUTH_SECRET.encode("utf-8"), message.encode("utf-8"), hashlib.sha256
     ).hexdigest()
 
     # Construct approval URL
@@ -210,6 +222,7 @@ async def request_manual_payment(req: BuyCreditsRequest, user: dict = Depends(ge
     if telegram_token and chat_id:
         try:
             import httpx
+
             # Async client or standard post with short timeout to prevent blocking
             with httpx.Client() as client:
                 response = client.post(
@@ -279,9 +292,7 @@ async def approve_manual_payment(
     # Verify signature
     message = f"{user_id}:{package_id}:{timestamp}"
     expected_sig = hmac.new(
-        NEXTAUTH_SECRET.encode("utf-8"),
-        message.encode("utf-8"),
-        hashlib.sha256
+        NEXTAUTH_SECRET.encode("utf-8"), message.encode("utf-8"), hashlib.sha256
     ).hexdigest()
 
     if not hmac.compare_digest(expected_sig, sig):
@@ -320,7 +331,7 @@ async def approve_manual_payment(
                 <head><title>Duyệt thành công</title></head>
                 <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
                     <h1 style="color: #10B981;">Duyệt nạp tiền thành công!</h1>
-                    <p>Tài khoản <b>{user_id}</b> đã được cộng <b>{package['credits']} credits</b>.</p>
+                    <p>Tài khoản <b>{user_id}</b> đã được cộng <b>{package["credits"]} credits</b>.</p>
                     <p>Số dư hiện tại: <b>{new_balance} credits</b>.</p>
                 </body>
             </html>
@@ -337,37 +348,41 @@ async def approve_manual_payment(
 @router.get("/debug-imports")
 async def debug_imports():
     try:
-        import app.dependencies
         import inspect
+
+        import app.dependencies
+
         return {
             "status": "ok",
             "message": "Import app.dependencies succeeded!",
             "file_path": inspect.getfile(app.dependencies),
-            "has_add_credits": hasattr(app.dependencies, "add_credits")
+            "has_add_credits": hasattr(app.dependencies, "add_credits"),
         }
     except Exception as e:
         import traceback
+
         return {
             "status": "error",
             "error_type": type(e).__name__,
             "message": str(e),
-            "traceback": traceback.format_exc()
+            "traceback": traceback.format_exc(),
         }
 
 
 @router.get("/debug-db")
 async def debug_db():
     try:
-        from app.core.db import Database
-        from app.core.config import DATABASE_URL
         from urllib.parse import urlparse
-        
+
+        from app.core.config import DATABASE_URL
+        from app.core.db import Database
+
         parsed = urlparse(DATABASE_URL)
         db_info = {
             "host": parsed.hostname,
             "port": parsed.port,
         }
-        
+
         if not Database.pool:
             await Database.connect()
         # Test query
@@ -376,12 +391,14 @@ async def debug_db():
             "status": "ok",
             "message": "Database connection succeeded!",
             "db_info": db_info,
-            "result": dict(res) if res else None
+            "result": dict(res) if res else None,
         }
     except Exception as e:
         import traceback
-        from app.core.config import DATABASE_URL
         from urllib.parse import urlparse
+
+        from app.core.config import DATABASE_URL
+
         parsed = urlparse(DATABASE_URL)
         return {
             "status": "error",
@@ -391,5 +408,5 @@ async def debug_db():
                 "host": parsed.hostname,
                 "port": parsed.port,
             },
-            "traceback": traceback.format_exc()
+            "traceback": traceback.format_exc(),
         }

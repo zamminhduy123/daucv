@@ -6,10 +6,10 @@ import jwt from "jsonwebtoken";
 import { query } from "@/lib/db";
 
 const nextauthSecret = process.env.NEXTAUTH_SECRET;
-if (!nextauthSecret && process.env.NODE_ENV === "production") {
-  throw new Error("CRITICAL: NEXTAUTH_SECRET is required in production environment.");
+if (!nextauthSecret) {
+  throw new Error("CRITICAL: NEXTAUTH_SECRET is required.");
 }
-const fallbackSecret = nextauthSecret || "super-secret-nextauth-key-change-in-prod";
+const fallbackSecret = nextauthSecret;
 const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 type SessionWithAccessToken = Session & {

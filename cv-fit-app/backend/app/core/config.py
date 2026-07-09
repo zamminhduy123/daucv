@@ -46,14 +46,10 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/postgres"
 )
 
-# Enforce NEXTAUTH_SECRET in production
+# Enforce NEXTAUTH_SECRET
 NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET")
 if not NEXTAUTH_SECRET:
-    if ENV == "production":
-        raise ValueError(
-            "CRITICAL: NEXTAUTH_SECRET is required in production environment."
-        )
-    NEXTAUTH_SECRET = "super-secret-nextauth-key-change-in-prod"
+    raise ValueError("CRITICAL: NEXTAUTH_SECRET is required in all environments.")
 
 # Gate mock billing route in production
 ALLOW_MOCK_BILLING = os.getenv("ALLOW_MOCK_BILLING", "true").lower() == "true"

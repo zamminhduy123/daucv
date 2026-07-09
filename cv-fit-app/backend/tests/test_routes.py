@@ -4,6 +4,8 @@ No LLM calls — these only test that routes exist, accept valid input,
 and reject invalid input with 422 (Pydantic validation errors).
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -19,6 +21,7 @@ POST_ROUTES = [
     "/api/interview/tts",
     "/api/jobs/parse-profile",
     "/api/jobs/search",
+    "/api/user/feedback",
 ]
 
 
@@ -153,3 +156,24 @@ def test_deactivate_user_cv(client: TestClient) -> None:
     assert resp.json() == {"success": True}
 
 
+@patch(
+    "app.api.routes.user.user_cv_service.submit_user_feedback", new_callable=AsyncMock
+)
+def test_submit_feedback_route(mock_submit: AsyncMock, client: TestClient) -> None:
+    mock_submit.return_value = (5, 15)  # 5 credits rewarded, new balance 15
+    resp = client.post(
+        "/api/user/feedback",
+        json={"rating": 5, "content": "This application is amazing!"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["credits_rewarded"] == 5
+    assert data["new_credits"] == 15
+    assert "Đóng góp thành công" in data["message"]
+
+
+def test_list_feedbacks_route(client: TestClient) -> None:
+    resp = client.get("/api/feedbacks")
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
