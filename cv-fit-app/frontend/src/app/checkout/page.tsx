@@ -124,7 +124,7 @@ function CheckoutContent() {
           </p>
 
           {/* QR Code Container */}
-          <div className="relative w-64 h-64 border-2 border-dashed border-[#2F4F4F]/10 rounded-2xl p-4 mb-5 flex items-center justify-center bg-[#FAFBF9]">
+          <div className="relative w-80 h-80 border-2 border-dashed border-[#2F4F4F]/10 rounded-2xl p-4 mb-5 flex items-center justify-center bg-[#FAFBF9]">
             {/* Corner Scanner lines */}
             <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-[var(--primary)] rounded-tl-lg"></div>
             <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-[var(--primary)] rounded-tr-lg"></div>
