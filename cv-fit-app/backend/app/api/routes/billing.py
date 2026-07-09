@@ -348,3 +348,26 @@ async def debug_imports():
             "message": str(e),
             "traceback": traceback.format_exc()
         }
+
+
+@router.get("/debug-db")
+async def debug_db():
+    try:
+        from app.core.db import Database
+        if not Database.pool:
+            await Database.connect()
+        # Test query
+        res = await Database.fetch_one("SELECT 1")
+        return {
+            "status": "ok",
+            "message": "Database connection succeeded!",
+            "result": dict(res) if res else None
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error",
+            "error_type": type(e).__name__,
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        }
