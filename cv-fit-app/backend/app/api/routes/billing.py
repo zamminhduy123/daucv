@@ -315,3 +315,24 @@ async def approve_manual_payment(
             content=f"<h2>Lỗi hệ thống khi cập nhật số dư: {e}</h2>",
             status_code=500,
         )
+
+
+@router.get("/debug-imports")
+async def debug_imports():
+    try:
+        import app.dependencies
+        import inspect
+        return {
+            "status": "ok",
+            "message": "Import app.dependencies succeeded!",
+            "file_path": inspect.getfile(app.dependencies),
+            "has_add_credits": hasattr(app.dependencies, "add_credits")
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error",
+            "error_type": type(e).__name__,
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        }
