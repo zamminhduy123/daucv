@@ -354,6 +354,15 @@ async def debug_imports():
 async def debug_db():
     try:
         from app.core.db import Database
+        from app.core.config import DATABASE_URL
+        from urllib.parse import urlparse
+        
+        parsed = urlparse(DATABASE_URL)
+        db_info = {
+            "host": parsed.hostname,
+            "port": parsed.port,
+        }
+        
         if not Database.pool:
             await Database.connect()
         # Test query
@@ -361,13 +370,21 @@ async def debug_db():
         return {
             "status": "ok",
             "message": "Database connection succeeded!",
+            "db_info": db_info,
             "result": dict(res) if res else None
         }
     except Exception as e:
         import traceback
+        from app.core.config import DATABASE_URL
+        from urllib.parse import urlparse
+        parsed = urlparse(DATABASE_URL)
         return {
             "status": "error",
             "error_type": type(e).__name__,
             "message": str(e),
+            "db_info": {
+                "host": parsed.hostname,
+                "port": parsed.port,
+            },
             "traceback": traceback.format_exc()
         }
