@@ -37,7 +37,7 @@ export default function PricingSection() {
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
           <h2 className="text-3xl md:text-[2.6rem] font-heading font-black text-[#1A2D2D] mb-4 tracking-tight leading-tight">
-            Có quá nhiều JD khác nhau? Mua thêm credits để tiếp tục tối ưu hồ sơ nào.
+            Có quá nhiều JD khác nhau?<br/>Mua thêm credits để tiếp tục tối ưu hồ sơ nào.
           </h2>
           <p className="text-sm md:text-base text-[#5A6D6D] mx-auto leading-relaxed">
             Đầu tư cho sự nghiệp của bạn với các gói tín dụng linh hoạt. Tín dụng được cộng ngay lập tức vào ví của bạn.
