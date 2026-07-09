@@ -25,7 +25,7 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 # Comma-separated origins, e.g.
 #   "http://127.0.0.1:3000,https://cvfit.com"
 # Default covers local development only.
-_RAW_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://127.0.0.1:3000")
+_RAW_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
 CORS_ALLOWED_ORIGINS: list[str] = [
     o.strip() for o in _RAW_ORIGINS.split(",") if o.strip()
 ]
@@ -35,6 +35,34 @@ CORS_ALLOWED_ORIGINS: list[str] = [
 # ---------------------------------------------------------------------------
 
 PDF_MAX_SIZE = int(os.getenv("PDF_MAX_SIZE", str(10 * 1024 * 1024)))  # 10 MB default
+
+# ---------------------------------------------------------------------------
+# Database & Authentication
+# ---------------------------------------------------------------------------
+
+ENV = os.getenv("ENV", "development").lower()
+
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/postgres")
+
+# Enforce NEXTAUTH_SECRET in production
+NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET")
+if not NEXTAUTH_SECRET:
+    if ENV == "production":
+        raise ValueError("CRITICAL: NEXTAUTH_SECRET is required in production environment.")
+    NEXTAUTH_SECRET = "super-secret-nextauth-key-change-in-prod"
+
+# Gate mock billing route in production
+ALLOW_MOCK_BILLING = os.getenv("ALLOW_MOCK_BILLING", "true").lower() == "true"
+if ENV == "production":
+    ALLOW_MOCK_BILLING = os.getenv("ALLOW_MOCK_BILLING", "false").lower() == "true"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+# INFO in production (suppresses DEBUG noise).
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # ---------------------------------------------------------------------------
 # LLM Waterfall Provider Configuration
