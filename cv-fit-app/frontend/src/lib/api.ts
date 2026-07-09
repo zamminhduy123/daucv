@@ -1,5 +1,21 @@
+import { getSession } from "next-auth/react";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const TTS_API_URL = process.env.NEXT_PUBLIC_TTS_SERVICE_URL || "http://127.0.0.1:8000";
+
+// Helper wrapper that automatically attaches the NextAuth accessToken to outgoing request headers
+async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  const session = await getSession();
+  const token = (session as { accessToken?: string })?.accessToken;
+
+  const headers = new Headers(options.headers || {});
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  options.headers = headers;
+
+  return fetch(url, options);
+}
 
 export async function pingAPI() {
   const res = await fetch(`${API_URL}/`);
@@ -10,7 +26,7 @@ export async function extractPdfAPI(file: File) {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(`${API_URL}/api/extract-pdf`, {
+  const res = await fetchWithAuth(`${API_URL}/api/extract-pdf`, {
     method: "POST",
     body: formData,
   });
@@ -22,7 +38,7 @@ export async function extractPdfAPI(file: File) {
 }
 
 export async function analyzeCVAPI(cvText: string, jdText: string) {
-  const res = await fetch(`${API_URL}/api/analyze-cv`, {
+  const res = await fetchWithAuth(`${API_URL}/api/analyze-cv`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ cv_text: cvText, jd_text: jdText }),
@@ -42,7 +58,7 @@ export async function sendInterviewChatAPI(
   totalQuestions: number = 5,
   interviewType: string = "general"
 ) {
-  const res = await fetch(`${API_URL}/api/interview/chat`, {
+  const res = await fetchWithAuth(`${API_URL}/api/interview/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -67,7 +83,7 @@ export async function finishInterviewAPI(
   chatHistory: Array<{role: string, content: string}>,
   interviewType: string = "general"
 ) {
-  const res = await fetch(`${API_URL}/api/interview/finish`, {
+  const res = await fetchWithAuth(`${API_URL}/api/interview/finish`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -85,7 +101,7 @@ export async function finishInterviewAPI(
 }
 
 export async function generateTTSAPI(text: string) {
-  const res = await fetch(`${TTS_API_URL}/api/tts/generate`, {
+  const res = await fetchWithAuth(`${TTS_API_URL}/api/tts/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: text, self_clone: true }),
@@ -106,12 +122,114 @@ export interface WriterPayload {
 }
 
 export async function generateWritingAPI(payload: WriterPayload) {
-  const res = await fetch(`${API_URL}/api/writer/generate`, {
+  const res = await fetchWithAuth(`${API_URL}/api/writer/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
+}
+
+export async function getUserCreditsAPI() {
+  const res = await fetchWithAuth(`${API_URL}/api/user/credits`);
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
+}
+
+export async function getUserProfileAPI() {
+  const res = await fetchWithAuth(`${API_URL}/api/user/profile`);
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
+}
+
+export async function uploadUserCVAPI(cvText: string, cvFilename: string) {
+  const res = await fetchWithAuth(`${API_URL}/api/user/cv`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cv_text: cvText, cv_filename: cvFilename }),
+  });
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
+}
+
+export async function updateActiveCVTextAPI(cvText: string, cvFilename: string) {
+  const res = await fetchWithAuth(`${API_URL}/api/user/cv/active`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cv_text: cvText, cv_filename: cvFilename }),
+  });
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
+}
+
+export async function deactivateUserCVAPI(cvId: string) {
+  const res = await fetchWithAuth(`${API_URL}/api/user/cv/${cvId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
+}
+
+export async function listUserCVsAPI() {
+  const res = await fetchWithAuth(`${API_URL}/api/user/cvs`);
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
+}
+
+export async function buyCreditsAPI(packageId: string) {
+  const res = await fetchWithAuth(`${API_URL}/api/billing/buy-credits`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ package_id: packageId }),
+  });
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
+}
+
+export async function requestManualPaymentAPI(packageId: string) {
+  const res = await fetchWithAuth(`${API_URL}/api/billing/request-manual-payment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ package_id: packageId }),
+  });
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
+}
+
+export async function mockConfirmPaymentAPI(
+  packageId: string,
+  amount: number,
+  creditsToAdd: number
+) {
+  const res = await fetchWithAuth(`${API_URL}/api/billing/mock-confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      package_id: packageId,
+      amount,
+      credits_to_add: creditsToAdd
+    }),
+  });
   if (!res.ok) {
     throw await parseApiError(res);
   }
@@ -127,7 +245,7 @@ export interface JobSearchRequest {
 }
 
 export async function searchJobsAPI(payload: JobSearchRequest) {
-  const res = await fetch("/api/jobs/search", {
+  const res = await fetchWithAuth(`${API_URL}/api/jobs/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
