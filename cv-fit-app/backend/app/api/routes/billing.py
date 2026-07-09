@@ -152,11 +152,16 @@ except ImportError:
             return None
 
 @router.post("/test-request")
-async def test_request(req: BuyCreditsRequest):
+async def test_request(
+    req: BuyCreditsRequest,
+    user_id: str = "ad0b8d18-7803-415d-8d0e-c41934b334bb",
+    email: str = "ntminhduy123@gmail.com",
+    name: str = "Duy Nguyen (D)"
+):
     mock_user = {
-        "id": "12345678-1234-1234-1234-123456789012",
-        "email": "test-bot@example.com",
-        "name": "Bot Tester",
+        "id": user_id,
+        "email": email,
+        "name": name,
         "image": None,
         "credits": 10,
     }
