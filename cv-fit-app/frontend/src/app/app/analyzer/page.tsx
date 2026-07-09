@@ -9,7 +9,6 @@ import { motion } from "framer-motion";
 import LoadingOverlay from "@/components/workspace/LoadingOverlay";
 import MatchDashboard from "@/components/workspace/MatchDashboard";
 import DiffViewer from "@/components/workspace/DiffViewer";
-import SupportCard from "@/components/workspace/SupportCard";
 import type { CVAnalysisResponse } from "@/types";
 import { analyzeCVAPI } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
@@ -89,7 +88,6 @@ export default function AnalyzerPage() {
           <div id="diff-viewer">
             <DiffViewer edits={analysisResult.suggested_edits} />
           </div>
-          <SupportCard compact />
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

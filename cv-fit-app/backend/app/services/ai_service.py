@@ -17,6 +17,9 @@ from pydantic import ValidationError
 
 from app.core import config
 from app.utils.llm_logger import LLMLogRecord, log_llm_request
+from app.utils.pii_sanitizer import sanitize
+
+_logger = logging.getLogger("app.ai_service")
 
 
 async def call_llm_with_fallback(
@@ -126,8 +129,11 @@ async def call_llm_with_fallback(
                 else:
                     log_llm_request(record)
 
-                logging.warning(
-                    f"Provider {provider.name} attempt {attempt + 1} failed: {last_error}. Switching to next..."
+                _logger.warning(
+                    "Provider %s attempt %d failed: %s. Switching to next...",
+                    provider.name,
+                    attempt + 1,
+                    sanitize(last_error),
                 )
                 await asyncio.sleep(1)  # wait before retry
 

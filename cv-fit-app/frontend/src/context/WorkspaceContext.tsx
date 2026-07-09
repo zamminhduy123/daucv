@@ -1,7 +1,9 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { CVAnalysisResponse } from "@/types";
+import { useAuth } from "./AuthContext";
+import { uploadUserCVAPI, updateActiveCVTextAPI, deactivateUserCVAPI } from "@/lib/api";
 
 // ── Cache types ──────────────────────────────────────────────────────────────
 
@@ -13,8 +15,8 @@ interface WriterResult {
 
 interface WorkspaceCache {
   analyzerResult: CVAnalysisResponse | null;
-  interviewState: any;
-  writerResults: Record<string, WriterResult>; // keyed by "type:tone" for multi-variant caching
+  interviewState: unknown;
+  writerResults: Record<string, WriterResult>;
 }
 
 const EMPTY_CACHE: WorkspaceCache = {
@@ -37,12 +39,14 @@ interface WorkspaceContextType extends WorkspaceState {
   setCvFileName: (name: string) => void;
   setJdText: (text: string) => void;
   updateWorkspace: (data: Partial<WorkspaceState>) => void;
+  uploadFileCV: (text: string, filename: string) => Promise<void>;
+  deleteActiveCV: () => Promise<void>;
   hasData: boolean;
 
   // Cache accessors
   cache: WorkspaceCache;
   setCachedAnalysis: (result: CVAnalysisResponse) => void;
-  setCachedInterview: (state: any) => void;
+  setCachedInterview: (state: unknown) => void;
   setCachedWriter: (key: string, result: WriterResult) => void;
   clearCache: () => void;
 }
@@ -51,45 +55,126 @@ const WorkspaceContext = createContext<WorkspaceContextType | null>(null);
 
 const STORAGE_KEY = "dau_workspace";
 const CACHE_KEY = "dau_workspace_cache";
+const DEFAULT_CV_FILENAME = "CV của tôi";
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<WorkspaceState>({ cvText: "", cvFileName: "CV của tôi", jdText: "" });
+  const { activeCV, refreshProfile, status, userId } = useAuth();
+  const [state, setState] = useState<WorkspaceState>({ cvText: "", cvFileName: DEFAULT_CV_FILENAME, jdText: "" });
   const [cache, setCache] = useState<WorkspaceCache>({ ...EMPTY_CACHE });
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loadedStorageKey, setLoadedStorageKey] = useState<string | null>(null);
+  const scopedStorageSuffix = userId || "anonymous";
+  const stateStorageKey = `${STORAGE_KEY}:${scopedStorageSuffix}`;
+  const cacheStorageKey = `${CACHE_KEY}:${scopedStorageSuffix}`;
 
-  // Sync state from sessionStorage on mount
+  // Sync state from user-scoped sessionStorage when auth identity is known.
   useEffect(() => {
-    const rawState = sessionStorage.getItem(STORAGE_KEY);
+    if (status === "loading") {
+      queueMicrotask(() => {
+        setIsLoaded(false);
+        setLoadedStorageKey(null);
+      });
+      return;
+    }
+
+    const rawState = sessionStorage.getItem(stateStorageKey);
+    let nextState: WorkspaceState = { cvText: "", cvFileName: DEFAULT_CV_FILENAME, jdText: "" };
     if (rawState) {
       try {
-        setState(JSON.parse(rawState));
+        nextState = JSON.parse(rawState);
       } catch {}
     }
 
-    const rawCache = sessionStorage.getItem(CACHE_KEY);
+    const rawCache = sessionStorage.getItem(cacheStorageKey);
+    let nextCache: WorkspaceCache = { ...EMPTY_CACHE };
     if (rawCache) {
       try {
-        setCache(JSON.parse(rawCache));
+        nextCache = JSON.parse(rawCache);
       } catch {}
     }
 
-    setIsLoaded(true);
-  }, []);
+    queueMicrotask(() => {
+      setState(nextState);
+      setCache(nextCache);
+      setIsLoaded(true);
+      setLoadedStorageKey(stateStorageKey);
+    });
+  }, [cacheStorageKey, stateStorageKey, status]);
 
   // Sync workspace to sessionStorage
   useEffect(() => {
-    if (!isLoaded) return;
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state, isLoaded]);
+    if (!isLoaded || loadedStorageKey !== stateStorageKey) return;
+    sessionStorage.setItem(stateStorageKey, JSON.stringify(state));
+  }, [state, isLoaded, loadedStorageKey, stateStorageKey]);
 
   // Sync cache to sessionStorage
   useEffect(() => {
-    if (!isLoaded) return;
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  }, [cache, isLoaded]);
+    if (!isLoaded || loadedStorageKey !== stateStorageKey) return;
+    sessionStorage.setItem(cacheStorageKey, JSON.stringify(cache));
+  }, [cache, isLoaded, loadedStorageKey, stateStorageKey, cacheStorageKey]);
 
-  const setCvText = useCallback((cvText: string) => setState((s) => ({ ...s, cvText })), []);
-  const setCvFileName = useCallback((cvFileName: string) => setState((s) => ({ ...s, cvFileName })), []);
+  // Auto-load CV from database on authentication load if local workspace is empty
+  useEffect(() => {
+    if (isLoaded && loadedStorageKey === stateStorageKey && status === "authenticated" && activeCV) {
+      if (!state.cvText.trim()) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setState((s) => ({
+          ...s,
+          cvText: activeCV.cv_text,
+          cvFileName: activeCV.cv_filename,
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCV, isLoaded, loadedStorageKey, stateStorageKey, status]);
+
+  // Debounced auto-save for text modifications (updates active CV in place)
+  useEffect(() => {
+    if (
+      status !== "authenticated" ||
+      !userId ||
+      !isLoaded ||
+      loadedStorageKey !== stateStorageKey ||
+      !state.cvText.trim()
+    ) {
+      return;
+    }
+
+    // Prevent double-saving if local state matches the DB active CV
+    if (
+      activeCV &&
+      state.cvText === activeCV.cv_text &&
+      state.cvFileName === activeCV.cv_filename
+    ) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (activeCV) {
+        // Update active CV in place
+        updateActiveCVTextAPI(state.cvText, state.cvFileName)
+          .then(() => refreshProfile())
+          .catch((err) => console.error("Failed to auto-save active CV draft:", err));
+      } else {
+        // Create new active CV
+        uploadUserCVAPI(state.cvText, state.cvFileName)
+          .then(() => refreshProfile())
+          .catch((err) => console.error("Failed to auto-save new CV:", err));
+      }
+    }, 1000); // 1-second debounce
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.cvText, state.cvFileName, activeCV, status, isLoaded, userId, loadedStorageKey, stateStorageKey]);
+
+  const setCvText = useCallback((cvText: string) => {
+    setState((s) => ({ ...s, cvText }));
+  }, []);
+
+  const setCvFileName = useCallback((cvFileName: string) => {
+    setState((s) => ({ ...s, cvFileName }));
+  }, []);
+
   const setJdText = useCallback((jdText: string) => setState((s) => ({ ...s, jdText })), []);
 
   const clearCache = useCallback(() => setCache({ ...EMPTY_CACHE }), []);
@@ -97,7 +182,6 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const updateWorkspace = useCallback((data: Partial<WorkspaceState>) => {
     setState((s) => {
       const next = { ...s, ...data };
-      // If CV or JD content changed, invalidate all cached results
       if (next.cvText !== s.cvText || next.jdText !== s.jdText) {
         setCache({ ...EMPTY_CACHE });
       }
@@ -105,12 +189,39 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Explicit new file upload save (creates a new historical row)
+  const uploadFileCV = useCallback(async (text: string, filename: string) => {
+    setState((s) => ({ ...s, cvText: text, cvFileName: filename }));
+    if (status === "authenticated" && text.trim()) {
+      try {
+        await uploadUserCVAPI(text, filename);
+        await refreshProfile();
+      } catch (err) {
+        console.error("Failed to save uploaded CV file:", err);
+      }
+    }
+  }, [status, refreshProfile]);
+
+  const deleteActiveCV = useCallback(async () => {
+    if (status === "authenticated" && activeCV) {
+      try {
+        await deactivateUserCVAPI(activeCV.id);
+        await refreshProfile();
+      } catch (err) {
+        console.error("Failed to delete active CV:", err);
+      }
+    }
+
+    setState((s) => ({ ...s, cvText: "", cvFileName: DEFAULT_CV_FILENAME }));
+    setCache({ ...EMPTY_CACHE });
+  }, [status, activeCV, refreshProfile]);
+
   const setCachedAnalysis = useCallback(
     (result: CVAnalysisResponse) => setCache((c) => ({ ...c, analyzerResult: result })),
     []
   );
   const setCachedInterview = useCallback(
-    (interviewState: any) => setCache((c) => ({ ...c, interviewState })),
+    (interviewState: unknown) => setCache((c) => ({ ...c, interviewState })),
     []
   );
   const setCachedWriter = useCallback(
@@ -130,6 +241,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         setCvFileName,
         setJdText,
         updateWorkspace,
+        uploadFileCV,
+        deleteActiveCV,
         hasData,
         cache,
         setCachedAnalysis,

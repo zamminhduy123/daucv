@@ -4,14 +4,21 @@ LLMOps Observability Logger
 Thread-safe utility to log LLM request metrics into daily JSONL files.
 Each line in the file is a self-contained JSON object for easy ingestion
 by analytics pipelines or the admin metrics endpoint.
+
+Error messages are sanitized through the PII sanitizer before being written
+to prevent accidental leakage of identifiable data.
 """
 
+import logging
 import threading
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
 from app.core.config import LOGS_DIR
+from app.utils.pii_sanitizer import sanitize
+
+_logger = logging.getLogger("app.llm_logger")
 
 # A single lock shared by all threads writing to JSONL files.
 _write_lock = threading.Lock()
@@ -79,11 +86,42 @@ def log_llm_request(record: LLMLogRecord) -> None:
     """
     Append a single ``LLMLogRecord`` as a JSON line to the daily log file.
 
-    This function is **thread-safe** — it acquires a module-level lock before
-    writing so concurrent FastAPI background tasks never interleave lines.
+    Error messages are sanitized to mask PII.  This function is
+    **thread-safe** — it acquires a module-level lock before writing so
+    concurrent FastAPI background tasks never interleave lines.
+
+    A structured log line is also emitted via the application logger so that
+    the request is captured in the main ``app.jsonl`` log (with request_id
+    context if available).
     """
+    # Sanitize error message before writing to JSONL (PII safety)
+    sanitized_error = sanitize(record.error_message) if record.error_message else ""
+    if sanitized_error != record.error_message:
+        record = record.model_copy(update={"error_message": sanitized_error})
+
     line = record.model_dump_json() + "\n"
     path = _get_daily_log_path()
 
     with _write_lock, open(path, "a", encoding="utf-8") as fh:
         fh.write(line)
+
+    # Emit to application logger (structured JSON with PII sanitization)
+    if record.success:
+        _logger.info(
+            "LLM request completed",
+            extra={
+                "feature": record.feature,
+                "provider": record.provider,
+                "status_code": 200 if record.success else 500,
+            },
+        )
+    else:
+        _logger.warning(
+            "LLM request failed: %s",
+            sanitized_error[:200],  # truncate to avoid huge log lines
+            extra={
+                "feature": record.feature,
+                "provider": record.provider,
+                "status_code": 500,
+            },
+        )

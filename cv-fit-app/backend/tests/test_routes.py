@@ -102,3 +102,54 @@ def test_jobs_search_accepts_minimal_body(client: TestClient) -> None:
     resp = client.post("/api/jobs/search", json={"cv_text": "Test CV"})
     # Could be 422, 500, or 502 — but NOT 404/405
     assert resp.status_code not in (404, 405)
+
+
+def test_get_user_profile(client: TestClient) -> None:
+    resp = client.get("/api/user/profile")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["email"] == "test@example.com"
+    assert data["credits"] == 10
+    assert data["active_cv"]["cv_filename"] == "test.pdf"
+    assert "total_cvs" in data
+    assert "active_cv_age_days" in data
+
+
+def test_list_user_cvs(client: TestClient) -> None:
+    resp = client.get("/api/user/cvs")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data["cvs"], list)
+    assert len(data["cvs"]) == 1
+    assert data["cvs"][0]["cv_filename"] == "test.pdf"
+
+
+def test_upload_user_cv(client: TestClient) -> None:
+    resp = client.post(
+        "/api/user/cv",
+        json={"cv_text": "Updated CV Text", "cv_filename": "updated_resume.pdf"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["cv_filename"] == "test.pdf"  # Returned by mock fetchrow
+    assert data["cv_text"] == "Sample CV Text"
+
+
+def test_update_active_cv(client: TestClient) -> None:
+    resp = client.put(
+        "/api/user/cv/active",
+        json={"cv_text": "Draft CV Text", "cv_filename": "draft_resume.pdf"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["cv_filename"] == "test.pdf"  # Returned by mock fetchrow
+    assert data["cv_text"] == "Sample CV Text"
+
+
+def test_deactivate_user_cv(client: TestClient) -> None:
+    cv_id = "12345678-1234-1234-1234-123456789012"
+    resp = client.delete(f"/api/user/cv/{cv_id}")
+    assert resp.status_code == 200
+    assert resp.json() == {"success": True}
+
+

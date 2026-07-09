@@ -7,7 +7,7 @@ POST /api/jobs/search
     ranks, and returns matching jobs with match scores.
 """
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.models.domain import Message
 from app.models.requests import JobSearchRequest
@@ -15,6 +15,7 @@ from app.models.responses import CandidateProfileResponse
 from app.prompts.system_prompts import build_job_parser_prompt
 from app.services.ai_service import call_llm_with_fallback
 from app.services.job_crawler import generate_search_queries, search_jobs
+from app.dependencies import get_current_user, refund_credits, reserve_credits
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -293,6 +294,7 @@ def _rule_based_parse(cv_text: str) -> CandidateProfileResponse:
 async def search_jobs_endpoint(
     req: JobSearchRequest,
     background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
 ):
     """Search Vietnamese job boards for positions matching the candidate's CV.
 
@@ -302,6 +304,13 @@ async def search_jobs_endpoint(
     3. Crawl configured job boards concurrently with Playwright
     4. Deduplicate, rank, and return results
     """
+    await reserve_credits(
+        user_id=user["id"],
+        amount=1,
+        tx_type="job_search",
+        description="Quét tìm việc làm phù hợp",
+    )
+
     # Step 1: Parse profile
     try:
         prompt = build_job_parser_prompt(req.cv_text)
@@ -365,19 +374,31 @@ async def search_jobs_endpoint(
         "vieclam24h",
     ]
 
-    result = await search_jobs(
-        cv_text=req.cv_text,
-        target_roles=profile.target_roles,
-        skills=profile.skills,
-        seniority=profile.seniority,
-        location=profile.location,
-        years_of_experience=profile.years_of_experience,
-        queries=queries,
-        enabled_sources=enabled_sources,
-        limit_per_source=8,
-        show_stretch=True,
-        target_role_override=req.target_role,
-    )
+    try:
+        result = await search_jobs(
+            cv_text=req.cv_text,
+            target_roles=profile.target_roles,
+            skills=profile.skills,
+            seniority=profile.seniority,
+            location=profile.location,
+            years_of_experience=profile.years_of_experience,
+            queries=queries,
+            enabled_sources=enabled_sources,
+            limit_per_source=8,
+            show_stretch=True,
+            target_role_override=req.target_role,
+        )
+    except Exception:
+        try:
+            await refund_credits(
+                user_id=user["id"],
+                amount=1,
+                tx_type="job_search",
+                description="Hoàn credit do lỗi khi quét tìm việc làm phù hợp",
+            )
+        except Exception:
+            pass
+        raise
 
     # Step 4: Format response
     return {

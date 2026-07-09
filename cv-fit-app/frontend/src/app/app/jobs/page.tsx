@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 import { useWorkspace } from "@/context/WorkspaceContext";
+import { useAuth } from "@/context/AuthContext";
 import { searchJobsAPI, generateWritingAPI } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
 import { RankedJobResult, JobSourceStatus, CandidateProfile } from "@/lib/jobs/types";
@@ -20,6 +21,7 @@ type DateRangeFilter = "1d" | "3d" | "7d" | "14d" | "30d";
 export default function JobsPage() {
   const router = useRouter();
   const { cvText, hasData, isLoaded, updateWorkspace } = useWorkspace();
+  const { refreshCredits } = useAuth();
 
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState("");
@@ -98,6 +100,12 @@ export default function JobsPage() {
       const response = await searchJobsAPI(payload);
       
       clearInterval(interval);
+      
+      try {
+        refreshCredits();
+      } catch (err) {
+        console.error("Failed to refresh credits:", err);
+      }
 
       console.log("Bước 3: Nhận phản hồi thành công từ API. Hồ sơ ứng viên trích xuất:", {
         targetRoles: response.profile.targetRoles,
@@ -148,7 +156,7 @@ export default function JobsPage() {
       setIsLoading(false);
       setLoadingStep("");
     }
-  }, [cvText, dateRange, location, selectedSources, targetRole]);
+  }, [cvText, dateRange, location, selectedSources, targetRole, refreshCredits]);
 
   // Initial load
   const isFirstLoad = useRef(true);

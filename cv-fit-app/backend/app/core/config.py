@@ -70,35 +70,48 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 from app.services.llm_provider import OpenAIProvider, QwenCustomProvider  # noqa: E402
 
-PROVIDERS = [
-    # 1. Primary: Qwen llama-server
-    QwenCustomProvider(
-        name="Local-Qwen",
-        model=os.getenv("QWEN_MODEL", "qwen2.5-7b-instruct"),
-        api_key=os.getenv("QWEN_API_KEY", "not-needed"),
-        endpoint=os.getenv(
-            "QWEN_ENDPOINT", "http://localhost:8000/v1/chat/completions"
-        ),
-    ),
-    # 2. Primary Fallback: Gemini (via OpenAI shim)
+PROVIDERS = []
+
+qwen_endpoint = os.getenv("QWEN_ENDPOINT")
+is_render = os.getenv("RENDER") == "true"
+
+# Only attempt Local-Qwen if we are NOT in production (Render), OR if a custom remote endpoint has been provided
+if qwen_endpoint or not is_render:
+    PROVIDERS.append(
+        QwenCustomProvider(
+            name="Local-Qwen",
+            model=os.getenv("QWEN_MODEL", "qwen2.5-7b-instruct"),
+            api_key=os.getenv("QWEN_API_KEY", "not-needed"),
+            endpoint=qwen_endpoint or "http://localhost:8000/v1/chat/completions",
+        )
+    )
+
+# 2. Primary Fallback: Gemini (via OpenAI shim)
+PROVIDERS.append(
     OpenAIProvider(
         name="Gemini",
         model="gemini-2.5-flash",
         api_key=os.getenv("GEMINI_API_KEY", ""),
         base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-    ),
-    # 3. Secondary Fallback: Groq
+    )
+)
+
+# 3. Secondary Fallback: Groq
+PROVIDERS.append(
     OpenAIProvider(
         name="Groq",
         model="llama-3.3-70b-versatile",
         api_key=os.getenv("GROQ_API_KEY", ""),
         base_url="https://api.groq.com/openai/v1",
-    ),
-    # 4. Final Fallback: OpenRouter
+    )
+)
+
+# 4. Final Fallback: OpenRouter
+PROVIDERS.append(
     OpenAIProvider(
         name="OpenRouter",
         model="google/gemini-2.5-flash",
         api_key=os.getenv("OPENROUTER_API_KEY", ""),
         base_url="https://openrouter.ai/api/v1",
-    ),
-]
+    )
+)

@@ -101,7 +101,7 @@ export default function WriterPage() {
       <motion.div
         initial={{ opacity: 0, x: -16 }}
         animate={{ opacity: 1, x: 0 }}
-        className="lg:col-span-4 sticky top-0 h-fit"
+        className="lg:col-span-4 lg:sticky top-0 h-fit"
       >
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
           {/* Header */}

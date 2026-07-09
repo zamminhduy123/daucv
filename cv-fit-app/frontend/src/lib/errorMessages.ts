@@ -8,6 +8,12 @@ export function apiErrorMessage(err: unknown): string {
       case "ai_overloaded":
         return "AI đang quá tải. Vui lòng thử lại sau 1–2 phút nhé!";
       case "auth_error":
+        if (
+          e.message?.toLowerCase().includes("credit") ||
+          e.message?.toLowerCase().includes("lượt")
+        ) {
+          return e.message;
+        }
         return "Phiên làm việc hết hạn. Vui lòng đăng nhập lại.";
       case "timeout":
         return "Yêu cầu hết thời gian chờ. Vui lòng thử lại!";

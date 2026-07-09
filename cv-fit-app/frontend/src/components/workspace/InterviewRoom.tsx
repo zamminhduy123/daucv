@@ -15,10 +15,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { PhoneOff, Target, Sparkles, BrainCircuit, Activity, Zap, Lightbulb, AudioLines, Send, X, Volume2, VolumeX } from "lucide-react";
+import { PhoneOff, Target, Sparkles, BrainCircuit, Activity, Zap, Lightbulb, AudioLines, Send, Volume2, VolumeX } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useInterviewApi, Message } from "@/hooks/useInterviewApi";
-import SupportCard from "@/components/workspace/SupportCard";
 import { useTTS } from "@/hooks/useTTS";
 import { finishInterviewAPI } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
@@ -40,7 +39,6 @@ interface InterviewRoomProps {
 export default function InterviewRoom({ cvText, jdText, initialState, totalQuestions, interviewType, onBack }: InterviewRoomProps) {
   const { setCachedInterview } = useWorkspace();
   const bottomRef = useRef<HTMLDivElement>(null);
-  const [isSupportPopupDismissed, setIsSupportPopupDismissed] = useState(false);
   
   const isResuming = !!initialState?.messages;
 
@@ -103,10 +101,6 @@ export default function InterviewRoom({ cvText, jdText, initialState, totalQuest
   }, [messages, speak]);
 
   // Clean up on unmount handled by hook
-
-  const userMessagesCount = messages.filter((msg) => msg.role === "user").length;
-  const assistantMessagesCount = messages.filter((msg) => msg.role === "assistant").length;
-  const shouldShowSupportPopup = userMessagesCount >= 1 && assistantMessagesCount >= 2 && !loading && !isSupportPopupDismissed;
 
   // Handle actual API Call
   const handleSendMessage = async () => {
@@ -182,22 +176,6 @@ export default function InterviewRoom({ cvText, jdText, initialState, totalQuest
   return (
     <div className="max-h-[calc(100vh-88px)] py-1 md:py-2 px-1 w-full bg-[#F9F9F2] text-[#2F4F4F] font-sans overflow-hidden flex flex-col gap-3">
       {isGeneratingReport && <LoadingOverlay messages={["Đang tổng hợp kết quả...", "Phân tích điểm mạnh, điểm yếu...", "Đánh giá mức độ phù hợp JD...", "Sắp xong rồi! 🚀"]} />}
-
-      {shouldShowSupportPopup && (
-        <div className="shrink-0 w-full px-1">
-          <div className="relative mx-auto">
-            <button
-              type="button"
-              onClick={() => setIsSupportPopupDismissed(true)}
-              className="absolute right-2 top-2 z-10 h-6 w-6 rounded-full bg-white/90 text-[#5A6D6D] shadow-sm hover:bg-white transition-colors flex items-center justify-center"
-              title="Đóng"
-            >
-              <X size={14} />
-            </button>
-            <SupportCard compact />
-          </div>
-        </div>
-      )}
 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3">
       {/* 1. MAIN CENTER AREA: Conversation (75%) */}

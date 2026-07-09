@@ -44,11 +44,37 @@ function TopBar() {
   );
 }
 
+import { useAuth } from "@/context/AuthContext";
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const { status } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/login");
+    }
+  }, [status, router]);
+
   useEffect(() => {
     // Ping backend to wake up Render instance
-    pingAPI().catch(() => {}); 
+    pingAPI().catch(() => {});
   }, []);
+
+  if (status === "loading") {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-[#F9F9F2]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm font-medium text-gray-500 font-sans">Đang tải...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return null; // Will redirect in useEffect
+  }
 
   return (
     <WorkspaceProvider>

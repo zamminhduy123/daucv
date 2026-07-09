@@ -123,6 +123,25 @@ async def deduct_credits(
             return new_credits
 
 
+async def reserve_credits(
+    user_id, amount: int, tx_type: str, description: str
+) -> int:
+    """
+    Reserve credits before expensive work starts.
+
+    The reservation is a normal negative ledger entry so concurrent requests
+    cannot all pass the same stale balance check.
+    """
+    if amount <= 0:
+        raise ValueError("Reservation amount must be positive.")
+    return await deduct_credits(
+        user_id=user_id,
+        amount=-amount,
+        tx_type=tx_type,
+        description=description,
+    )
+
+
 async def add_credits(user_id, amount: int, tx_type: str, description: str) -> int:
     """
     Transactionally adds credits to a user profile and logs a transaction ledger record.
@@ -161,3 +180,19 @@ async def add_credits(user_id, amount: int, tx_type: str, description: str) -> i
             )
 
             return new_credits
+
+
+async def refund_credits(
+    user_id, amount: int, tx_type: str, description: str
+) -> int:
+    """
+    Return a previously reserved credit after an operation fails.
+    """
+    if amount <= 0:
+        raise ValueError("Refund amount must be positive.")
+    return await add_credits(
+        user_id=user_id,
+        amount=amount,
+        tx_type=tx_type,
+        description=description,
+    )

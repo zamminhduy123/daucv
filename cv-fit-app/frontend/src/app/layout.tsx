@@ -31,6 +31,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { Providers } from "@/context/Providers";
+
 export default function RootLayout({
   children,
 }: {
@@ -73,9 +75,11 @@ export default function RootLayout({
         />
       </head>
       <body>
-        {children}
-        <Toaster />
-        <SpeedInsights />
+        <Providers>
+          {children}
+          <Toaster />
+          <SpeedInsights />
+        </Providers>
       </body>
     </html>
   );

@@ -6,10 +6,16 @@ Route handlers are kept thin: validate input → build prompt → call service �
 
 import json
 import tempfile
+from contextlib import suppress
 
 import edge_tts
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+
+from app.dependencies import get_current_user, refund_credits, reserve_credits
+from uuid import UUID
+from app.schemas.user import UserProfileResponse, CVResponse, CVListResponse, UpdateCVRequest
+from app.services import user_cv_service
 
 from app.core.config import PDF_MAX_SIZE
 from app.models.domain import MatchResult
@@ -49,6 +55,11 @@ from app.utils.helpers import extract_text_from_pdf
 router = APIRouter(prefix="/api", tags=["user"])
 
 
+async def _refund_reserved_credit(user_id: str, tx_type: str, description: str) -> None:
+    with suppress(Exception):
+        await refund_credits(user_id=user_id, amount=1, tx_type=tx_type, description=description)
+
+
 # ---------------------------------------------------------------------------
 # POST /api/upload-and-match
 # ---------------------------------------------------------------------------
@@ -59,6 +70,7 @@ async def upload_and_match(
     background_tasks: BackgroundTasks,
     cv_file: UploadFile = File(...),
     jd_text: str = Form(""),
+    user: dict = Depends(get_current_user),
 ):
     """
     Parse the uploaded CV PDF, compare with the JD, and return:
@@ -87,6 +99,16 @@ async def upload_and_match(
         )
 
     system_prompt = build_upload_and_match_prompt()
+    tx_type = "cv_analysis"
+    reserve_description = f"Khớp và viết lại CV: {cv_file.filename}"
+    refund_description = f"Hoàn credit do lỗi khi khớp CV: {cv_file.filename}"
+
+    await reserve_credits(
+        user_id=user["id"],
+        amount=1,
+        tx_type=tx_type,
+        description=reserve_description,
+    )
 
     try:
         data = await call_llm_with_fallback(
@@ -99,10 +121,13 @@ async def upload_and_match(
         )
         return data
     except json.JSONDecodeError as e:
+        await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
     except HTTPException:
+        await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise
     except Exception as e:
+        await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")
 
 
@@ -134,7 +159,11 @@ async def extract_pdf(file: UploadFile = File(...)):
 
 
 @router.post("/analyze-cv", response_model=CVAnalysisResponse)
-async def analyze_cv(req: AnalyzeCVRequest, background_tasks: BackgroundTasks):
+async def analyze_cv(
+    req: AnalyzeCVRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
+):
     """
     Accept raw CV text and a Job Description.
     Return a structured analysis.
@@ -158,6 +187,15 @@ async def analyze_cv(req: AnalyzeCVRequest, background_tasks: BackgroundTasks):
         user_content = f"CV của ứng viên:\n{extracted_text}"
 
     system_prompt = build_cv_analysis_prompt(context_instruction)
+    tx_type = "cv_analysis"
+    refund_description = "Hoàn credit do lỗi khi phân tích CV"
+
+    await reserve_credits(
+        user_id=user["id"],
+        amount=1,
+        tx_type=tx_type,
+        description="Phân tích CV chi tiết",
+    )
 
     try:
         parsed = await call_llm_with_fallback(
@@ -170,8 +208,10 @@ async def analyze_cv(req: AnalyzeCVRequest, background_tasks: BackgroundTasks):
         )
         return build_scored_analysis(parsed)
     except HTTPException:
+        await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise
     except Exception as e:
+        await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise HTTPException(
             status_code=500,
             detail=f"Analysis failed: {e}",
@@ -184,7 +224,11 @@ async def analyze_cv(req: AnalyzeCVRequest, background_tasks: BackgroundTasks):
 
 
 @router.post("/jobs/parse-profile", response_model=CandidateProfileResponse)
-async def parse_profile(req: ParseProfileRequest, background_tasks: BackgroundTasks):
+async def parse_profile(
+    req: ParseProfileRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
+):
     """
     Parse candidate CV to get structured profile + search queries using LLM.
     """
@@ -197,6 +241,15 @@ async def parse_profile(req: ParseProfileRequest, background_tasks: BackgroundTa
 
     system_prompt = build_job_parser_prompt()
     user_content = f"Nội dung CV:\n{cv_text}"
+    tx_type = "job_search"
+    refund_description = "Hoàn credit do lỗi khi trích xuất hồ sơ tìm việc"
+
+    await reserve_credits(
+        user_id=user["id"],
+        amount=1,
+        tx_type=tx_type,
+        description="Trích xuất hồ sơ ứng viên tìm việc",
+    )
 
     try:
         parsed = await call_llm_with_fallback(
@@ -209,8 +262,10 @@ async def parse_profile(req: ParseProfileRequest, background_tasks: BackgroundTa
         )
         return parsed
     except HTTPException:
+        await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise
     except Exception as e:
+        await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise HTTPException(
             status_code=500,
             detail=f"Profile parsing failed: {e}",
@@ -223,7 +278,11 @@ async def parse_profile(req: ParseProfileRequest, background_tasks: BackgroundTa
 
 
 @router.post("/interview/chat", response_model=InterviewTurnResponse)
-async def interview_chat(req: InterviewChatRequest, background_tasks: BackgroundTasks):
+async def interview_chat(
+    req: InterviewChatRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
+):
     """
     Stateless mock interview turn processor mapping an InterviewChatRequest to an InterviewTurnResponse.
     Supports bounded interviews with question progress tracking.
@@ -297,6 +356,14 @@ async def interview_chat(req: InterviewChatRequest, background_tasks: Background
             }
         ]
 
+    if req.current_question == 1:
+        await reserve_credits(
+            user_id=user["id"],
+            amount=1,
+            tx_type="mock_interview",
+            description="Bắt đầu buổi phỏng vấn giả định",
+        )
+
     try:
         parsed = await call_llm_with_fallback(
             system_prompt,
@@ -308,8 +375,20 @@ async def interview_chat(req: InterviewChatRequest, background_tasks: Background
         )
         return parsed
     except HTTPException:
+        if req.current_question == 1:
+            await _refund_reserved_credit(
+                user["id"],
+                "mock_interview",
+                "Hoàn credit do lỗi khi bắt đầu phỏng vấn giả định",
+            )
         raise
     except Exception as e:
+        if req.current_question == 1:
+            await _refund_reserved_credit(
+                user["id"],
+                "mock_interview",
+                "Hoàn credit do lỗi khi bắt đầu phỏng vấn giả định",
+            )
         raise HTTPException(status_code=502, detail=f"AI Provider error: {e}")
 
 
@@ -435,3 +514,46 @@ async def writer_generate(req: WriterRequest, background_tasks: BackgroundTasks)
         raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Writer generation failed: {e}")
+
+
+@router.get("/user/credits")
+async def get_user_credits(user: dict = Depends(get_current_user)) -> dict:
+    return {"credits": user["credits"]}
+
+
+@router.get("/user/profile", response_model=UserProfileResponse)
+async def get_user_profile(user: dict = Depends(get_current_user)) -> UserProfileResponse:
+    return await user_cv_service.get_profile_with_stats(user)
+
+
+def to_uuid(val) -> UUID:
+    if isinstance(val, UUID):
+        return val
+    return UUID(str(val))
+
+
+@router.get("/user/cvs", response_model=CVListResponse)
+async def list_user_cvs(user: dict = Depends(get_current_user)) -> CVListResponse:
+    cvs = await user_cv_service.list_cvs(to_uuid(user["id"]))
+    return CVListResponse(cvs=cvs)
+
+
+@router.post("/user/cv", response_model=CVResponse)
+async def upload_user_cv(req: UpdateCVRequest, user: dict = Depends(get_current_user)) -> CVResponse:
+    return await user_cv_service.create_cv(to_uuid(user["id"]), req.cv_text, req.cv_filename)
+
+
+@router.put("/user/cv/active", response_model=CVResponse)
+async def update_active_cv(req: UpdateCVRequest, user: dict = Depends(get_current_user)) -> CVResponse:
+    return await user_cv_service.update_active_cv_text(to_uuid(user["id"]), req.cv_text, req.cv_filename)
+
+
+@router.delete("/user/cv/{cv_id}")
+async def deactivate_user_cv(cv_id: str, user: dict = Depends(get_current_user)) -> dict:
+    try:
+        cv_uuid = UUID(cv_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID CV không hợp lệ.")
+
+    await user_cv_service.deactivate_cv(cv_uuid, to_uuid(user["id"]))
+    return {"success": True}

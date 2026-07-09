@@ -1,5 +1,7 @@
 import logging
+
 import asyncpg
+
 from app.core.config import DATABASE_URL
 
 logger = logging.getLogger(__name__)
