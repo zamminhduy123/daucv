@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { FileCheck, Target, Wand2, MessageSquare } from 'lucide-react';
+import { FileCheck, Target, Wand2, MessageSquare, Search, Globe, Brain, LineChart, GraduationCap } from 'lucide-react';
 import Image from 'next/image';
 
 /* ------------------------------------------------------------------ */
@@ -45,22 +45,6 @@ function FeatureCard({ icon, title, description, visual, bg }: FeatureCardProps)
 /* ------------------------------------------------------------------ */
 
 function Card1Visual() {
-  return (
-    <div className="relative w-full rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-white">
-      <div className="relative w-full" style={{ paddingTop: '50%' }}>
-        <Image
-          src="/main.webp"
-          alt="CV Helper AI product preview — tối ưu CV"
-          fill
-          className="object-contain"
-          priority
-        />
-      </div>
-    </div>
-  );
-}
-
-function Card2Visual() {
   const scores = [
     { label: 'CV Match', value: 81, color: 'bg-[#5B9144]' },
     { label: 'ATS Score', value: 88, color: 'bg-[#5B9144]' },
@@ -106,6 +90,80 @@ function Card2Visual() {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function Card2Visual() {
+  const jobs = [
+    {
+      icon: <Brain size={16} className="text-emerald-600 animate-pulse" />,
+      iconBg: 'bg-emerald-50 border border-emerald-100',
+      title: 'AI/ML Engineer',
+      details: 'TP.HCM  •  Full-time',
+      match: '92%',
+    },
+    {
+      icon: <LineChart size={16} className="text-indigo-600" />,
+      iconBg: 'bg-indigo-50 border border-indigo-100',
+      title: 'Data Scientist',
+      details: 'Remote  •  Hybrid',
+      match: '88%',
+    },
+    {
+      icon: <GraduationCap size={16} className="text-amber-600" />,
+      iconBg: 'bg-amber-50 border border-amber-100',
+      title: 'Machine Learning Intern',
+      details: 'Hà Nội  •  Internship',
+      match: '84%',
+    },
+  ];
+
+  return (
+    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100">
+      {/* Visual Header */}
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+          KẾT QUẢ JOB SCAN
+        </p>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-100 bg-gray-50/50 text-[10px] text-gray-500 font-semibold">
+          <Globe size={11} className="text-gray-400" />
+          <span>Đang quét tin tuyển dụng...</span>
+          {/* Animated pulsing bars */}
+          <div className="flex items-end gap-0.5 ml-1 h-3 pb-0.5">
+            <span className="w-[1.5px] bg-emerald-500 rounded-full animate-bounce h-1.5" style={{ animationDuration: '1s', animationDelay: '0ms' }} />
+            <span className="w-[1.5px] bg-emerald-500 rounded-full animate-bounce h-2.5" style={{ animationDuration: '1s', animationDelay: '150ms' }} />
+            <span className="w-[1.5px] bg-emerald-500 rounded-full animate-bounce h-2" style={{ animationDuration: '1s', animationDelay: '300ms' }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Job list */}
+      <div className="space-y-2.5">
+        {jobs.map((job, idx) => (
+          <div
+            key={idx}
+            className="flex items-center justify-between border border-gray-50 rounded-xl p-2.5 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.01)] hover:border-gray-100 transition-colors duration-200"
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${job.iconBg}`}>
+                {job.icon}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-[#2F4F4F] leading-tight">
+                  {job.title}
+                </span>
+                <span className="text-[10px] text-gray-400 font-medium mt-0.5">
+                  {job.details}
+                </span>
+              </div>
+            </div>
+            <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100/50">
+              {job.match}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -204,26 +262,26 @@ const FEATURES = [
     bg: 'bg-green-50/50',
   },
     {
+    icon: <MessageSquare className="text-blue-500" size={20} />,
+    title: 'Luyện phỏng vấn 1-1',
+    description: 'Thực hành phỏng vấn cùng AI, nhận câu hỏi sát JD và phản hồi để cải thiện câu trả lời.',
+    visual: <Card4Visual />,
+    bg: 'bg-blue-50/50',
+  },
+    {
     icon: <Wand2 className="text-purple-500" size={20} />,
     title: 'Gợi ý chỉnh sửa CV',
     description: 'Nhận đề xuất viết lại bullet point, bổ sung từ khóa và làm rõ tác động công việc.',
     visual: <Card3Visual />,
     bg: 'bg-purple-50/50',
   },
-  {
-    icon: <Target className="text-orange-500" size={20} />,
-    title: 'Chấm điểm độ phù hợp',
-    description: 'So sánh kỹ năng, kinh nghiệm và từ khóa trong CV với mô tả công việc.',
-    visual: <Card2Visual />,
-    bg: 'bg-orange-50/50',
-  },
 
   {
-    icon: <MessageSquare className="text-blue-500" size={20} />,
-    title: 'Luyện phỏng vấn 1-1',
-    description: 'Thực hành phỏng vấn cùng AI, nhận câu hỏi sát JD và phản hồi để cải thiện câu trả lời.',
-    visual: <Card4Visual />,
-    bg: 'bg-blue-50/50',
+    icon: <Search className="text-orange-500" size={20} />,
+    title: 'JOB SCAN',
+    description: 'Quét tin tuyển dụng trên Internet để tìm các vị trí phù hợp nhất với CV của bạn.',
+    visual: <Card2Visual />,
+    bg: 'bg-orange-50/50',
   },
 ];
 
@@ -253,6 +311,14 @@ export default function FeaturesSection() {
         >
           Từ chỉnh sửa CV đến khi bạn nhận được offer!
         </motion.p>
+         <motion.div
+          className="mx-auto mt-4 h-1.5 w-32 rounded-full bg-(--primary)/70"
+          initial={{ scaleX: 0 }}
+          whileInView={{ scaleX: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          style={{ transformOrigin: 'left' }}
+        />
       </div>
 
       <motion.div

@@ -7,7 +7,7 @@ import { ChevronRight } from "lucide-react";
 export default function CallToAction() {
   return (
     <motion.section
-      className="max-w-7xl mx-auto text-center px-4 sm:px-6 lg:px-12 py-20 lg:py-32 bg-white"
+      className="mx-auto text-center px-4 sm:px-6 lg:px-12 py-20 lg:py-32 bg-white"
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}
       viewport={{ once: true }}

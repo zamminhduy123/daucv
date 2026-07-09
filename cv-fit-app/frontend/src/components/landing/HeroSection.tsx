@@ -70,7 +70,7 @@ export default function HeroSection() {
             transition={{ duration: 0.5, delay: 0.7 }}
           >
             <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
-              <Link href="/app" className="group px-6 py-4 lg:px-8 bg-(--primary) text-white rounded-xl font-bold hover:opacity-90 transition-all shadow-md flex justify-center items-center gap-2 text-base lg:text-lg">
+              <Link href="/app/setup" className="group px-6 py-4 lg:px-8 bg-(--primary) text-white rounded-xl font-bold hover:opacity-90 transition-all shadow-md flex justify-center items-center gap-2 text-base lg:text-lg">
                 Phân tích CV/JD <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
               </Link>
             </motion.div>
