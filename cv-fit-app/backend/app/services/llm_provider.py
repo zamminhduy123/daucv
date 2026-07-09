@@ -27,9 +27,10 @@ class ProviderResult(BaseModel):
 
 
 class BaseAIProvider(ABC):
-    def __init__(self, name: str, model: str):
+    def __init__(self, name: str, model: str, timeout: float | None = None):
         self.name = name
         self.model = model
+        self.timeout = timeout
 
     @abstractmethod
     async def generate_structured(
@@ -47,8 +48,15 @@ class OpenAIProvider(BaseAIProvider):
     Standard provider for any OpenAI-compatible API (Gemini-OpenAI, Groq, OpenRouter, vLLM).
     """
 
-    def __init__(self, name: str, model: str, api_key: str, base_url: str):
-        super().__init__(name, model)
+    def __init__(
+        self,
+        name: str,
+        model: str,
+        api_key: str,
+        base_url: str,
+        timeout: float | None = None,
+    ):
+        super().__init__(name, model, timeout)
         self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
     async def generate_structured(
@@ -69,6 +77,7 @@ class OpenAIProvider(BaseAIProvider):
             messages=messages,
             response_format={"type": "json_object"},
             temperature=temperature,
+            timeout=self.timeout,
         )
 
         content = response.choices[0].message.content or "{}"
@@ -93,8 +102,10 @@ class GeminiNativeProvider(BaseAIProvider):
     Uses Google's native Generative AI SDK (google-genai).
     """
 
-    def __init__(self, name: str, model: str, api_key: str):
-        super().__init__(name, model)
+    def __init__(
+        self, name: str, model: str, api_key: str, timeout: float | None = None
+    ):
+        super().__init__(name, model, timeout)
         self.client = genai.Client(api_key=api_key)
 
     async def generate_structured(
@@ -135,8 +146,10 @@ class OllamaProvider(BaseAIProvider):
     Direct HTTP implementation for Ollama local servers.
     """
 
-    def __init__(self, name: str, model: str, endpoint: str):
-        super().__init__(name, model)
+    def __init__(
+        self, name: str, model: str, endpoint: str, timeout: float | None = None
+    ):
+        super().__init__(name, model, timeout)
         self.endpoint = endpoint
 
     async def generate_structured(
@@ -156,6 +169,7 @@ class OllamaProvider(BaseAIProvider):
 
             prompt = f"{system_prompt}\n\nInput:\n{content_str}"
 
+            timeout_val = self.timeout if self.timeout is not None else 300.0
             res = await http_client.post(
                 self.endpoint,
                 json={
@@ -165,7 +179,7 @@ class OllamaProvider(BaseAIProvider):
                     "stream": False,
                     "options": {"temperature": temperature},
                 },
-                timeout=300.0,
+                timeout=timeout_val,
             )
             res.raise_for_status()
             data = res.json()
@@ -185,8 +199,15 @@ class QwenCustomProvider(BaseAIProvider):
     Custom provider for Qwen or local endpoints with specific JSON extraction needs.
     """
 
-    def __init__(self, name: str, model: str, api_key: str, endpoint: str):
-        super().__init__(name, model)
+    def __init__(
+        self,
+        name: str,
+        model: str,
+        api_key: str,
+        endpoint: str,
+        timeout: float | None = None,
+    ):
+        super().__init__(name, model, timeout)
         self.api_key = api_key
         self.endpoint = endpoint
 
@@ -204,6 +225,7 @@ class QwenCustomProvider(BaseAIProvider):
             else:
                 messages.append({"role": "user", "content": user_content})
 
+            timeout_val = self.timeout if self.timeout is not None else 300.0
             res = await http_client.post(
                 self.endpoint,
                 headers={"Authorization": f"Bearer {self.api_key}"},
@@ -213,7 +235,7 @@ class QwenCustomProvider(BaseAIProvider):
                     "temperature": temperature,
                     "response_format": {"type": "json_object"},
                 },
-                timeout=300.0,
+                timeout=timeout_val,
             )
             res.raise_for_status()
             data = res.json()
