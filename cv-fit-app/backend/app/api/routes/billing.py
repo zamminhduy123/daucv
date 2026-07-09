@@ -53,9 +53,9 @@ except ImportError:
         new_credits: int
 
 PACKAGES = {
-    "starter": {"credits": 10, "price": 20000, "name": "Starter Pack"},
-    "pro": {"credits": 50, "price": 50000, "name": "Pro Pack"},
-    "premium": {"credits": 120, "price": 100000, "name": "Premium Pack"},
+    "starter": {"credits": 10, "price": 15000, "name": "Starter Pack"},
+    "mid": {"credits": 20, "price": 24000, "name": "Mid Pack"},
+    "pro": {"credits": 50, "price": 35000, "name": "Pro Pack"},
 }
 
 
@@ -150,6 +150,18 @@ except ImportError:
         async def execute(cls, query: str, *args):
             logger.info(f"MOCK Database.execute: {query}")
             return None
+
+@router.post("/test-request")
+async def test_request(req: BuyCreditsRequest):
+    mock_user = {
+        "id": "12345678-1234-1234-1234-123456789012",
+        "email": "test-bot@example.com",
+        "name": "Bot Tester",
+        "image": None,
+        "credits": 10,
+    }
+    return await request_manual_payment(req, user=mock_user)
+
 
 @router.post("/request-manual-payment")
 async def request_manual_payment(req: BuyCreditsRequest, user: dict = Depends(get_current_user)):

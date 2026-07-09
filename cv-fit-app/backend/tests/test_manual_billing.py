@@ -29,13 +29,13 @@ def test_request_manual_payment_success(client: TestClient) -> None:
         return original_post(self, url, *args, **kwargs)
 
     with patch("httpx.Client.post", autospec=True, side_effect=mock_post_side_effect):
-        # Request pro pack (50,000 VND)
+        # Request pro pack (35,000 VND)
         resp = client.post("/api/billing/request-manual-payment", json={"package_id": "pro"})
     
     assert resp.status_code == 200
     data = resp.json()
     assert data["success"] is True
-    assert data["amount"] == 50000
+    assert data["amount"] == 35000
     assert "qr_url" in data
     assert "bank_account" in data
     assert "TCB" in data["qr_url"] # Default bank is Techcombank (TCB)
