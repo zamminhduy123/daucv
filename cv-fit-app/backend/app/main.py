@@ -25,16 +25,20 @@ def create_app() -> FastAPI:
         try:
             from app.core.db import Database
             await Database.connect()
-        except ImportError:
-            pass
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("app.main")
+            logger.error(f"Database connection failed at startup: {e}")
 
     @application.on_event("shutdown")
     async def shutdown_event():
         try:
             from app.core.db import Database
             await Database.disconnect()
-        except ImportError:
-            pass
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("app.main")
+            logger.error(f"Database disconnect failed: {e}")
 
     # --- CORS (explicit origin allowlist -- dev and prod) -------------------
     # Never use allow_origins=["*"] with allow_credentials=True — violates CORS spec.
