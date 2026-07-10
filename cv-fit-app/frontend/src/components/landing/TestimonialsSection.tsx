@@ -25,8 +25,7 @@ export default function TestimonialsSection() {
     : "/login?callbackUrl=/app/setup?feedback=true";
 
   useEffect(() => {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-    fetch(`${API_URL}/api/feedbacks`)
+    fetch("/api/feedbacks")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch testimonials");
         return res.json();
