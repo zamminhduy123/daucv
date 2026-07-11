@@ -22,7 +22,7 @@ const NAV_ITEMS = [
   { label: "Trợ lý Viết", icon: PenTool, href: "/app/writer", requiresCV: true },
   // { label: "Thư viện Mẫu CV", icon: LayoutTemplate, href: "/app/templates", requiresCV: false },
   { label: "Blog & Cẩm nang", icon: BookOpen, href: "/blog", requiresCV: false },
-  // { label: "Lịch sử", icon: Clock, href: "/app/history", requiresCV: false },
+  { label: "CV đã tối ưu", icon: Clock, href: "/app/history", requiresCV: false },
 ];
 
 // ── Collapsible Sidebar ─────────────────────────────────────────────────────
@@ -151,17 +151,6 @@ export default function AppSidebar() {
               >
                 {label}
               </span>
-
-              {/* "Soon" badge — always visible */}
-              {href === "/app/history" && !disabled && (
-                <span
-                  className={`shrink-0 text-[9px] font-bold bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full transition-all duration-300 ${
-                    isCollapsed ? "hidden" : ""
-                  }`}
-                >
-                  Soon
-                </span>
-              )}
 
               {/* Tooltip — shown only when collapsed and hovered */}
               {isCollapsed && (

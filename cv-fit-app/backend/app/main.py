@@ -8,7 +8,8 @@ This is the single source of truth for the ``app`` object.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, health, jobs, user
+from app.api.routes import admin, health, jobs, tailored_cv, user
+
 try:
     from app.api.routes import billing
 except ImportError:
@@ -24,9 +25,11 @@ def create_app() -> FastAPI:
     async def startup_event():
         try:
             from app.core.db import Database
+
             await Database.connect()
         except Exception as e:
             import logging
+
             logger = logging.getLogger("app.main")
             logger.error(f"Database connection failed at startup: {e}")
 
@@ -34,9 +37,11 @@ def create_app() -> FastAPI:
     async def shutdown_event():
         try:
             from app.core.db import Database
+
             await Database.disconnect()
         except Exception as e:
             import logging
+
             logger = logging.getLogger("app.main")
             logger.error(f"Database disconnect failed: {e}")
 
@@ -57,12 +62,14 @@ def create_app() -> FastAPI:
     # routes/middleware are registered.  Import is lazy to avoid circular deps.
     try:
         from app.core.logging_config import setup_logging
+
         setup_logging()
     except ImportError:
         pass
 
     try:
         from app.middleware.request_logger import setup_request_logging
+
         setup_request_logging(application)
     except ImportError:
         pass
@@ -70,6 +77,7 @@ def create_app() -> FastAPI:
     # --- Routers -----------------------------------------------------------
     application.include_router(health.router)
     application.include_router(user.router)
+    application.include_router(tailored_cv.router)
     application.include_router(jobs.router)
     application.include_router(admin.router)
     if billing:

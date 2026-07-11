@@ -1,4 +1,5 @@
 import { getSession } from "next-auth/react";
+import type { CVDesign, SuggestedEdit, TailoredCV, TailoredCVVersion } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const TTS_API_URL = process.env.NEXT_PUBLIC_TTS_SERVICE_URL || "http://127.0.0.1:8000";
@@ -192,6 +193,36 @@ export async function listUserCVsAPI() {
   return res.json();
 }
 
+export async function createTailoredCVVersionAPI(payload: { tailored_cv: TailoredCV; source_cv_text: string; suggested_edits: SuggestedEdit[]; jd_text: string; target_role?: string; company_name?: string; selected_design: CVDesign }) {
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<TailoredCVVersion>;
+}
+
+export async function listTailoredCVVersionsAPI() {
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs`);
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<{ versions: TailoredCVVersion[] }>;
+}
+
+export async function updateTailoredCVDesignAPI(id: string, selected_design: CVDesign) {
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ selected_design }) });
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<TailoredCVVersion>;
+}
+
+export async function deleteTailoredCVVersionAPI(id: string) {
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs/${id}`, { method: "DELETE" });
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<{ success: boolean }>;
+}
+
+export async function downloadTailoredCVPDFAPI(id: string) {
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs/${id}/pdf`);
+  if (!res.ok) throw await parseApiError(res);
+  return res.blob();
+}
+
 export async function buyCreditsAPI(packageId: string) {
   const res = await fetchWithAuth(`${API_URL}/api/billing/buy-credits`, {
     method: "POST",
@@ -329,5 +360,3 @@ export interface ApiError {
   message: string;
   status: number;
 }
-
-

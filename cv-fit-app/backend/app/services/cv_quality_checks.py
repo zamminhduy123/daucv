@@ -7,9 +7,11 @@ and fabricated impact metrics before the response reaches the frontend.
 """
 
 import re
+import unicodedata
 
 from pydantic import BaseModel, Field
 
+from app.models.domain import SuggestedEdit, TailoredCV, TailoredCVSection
 from app.models.responses import (
     CVAnalysisLLMResponse,
     CVAnalysisResponse,
@@ -96,6 +98,223 @@ def _tokens(text: str) -> set[str]:
         for token in re.findall(r"[a-zA-Z][a-zA-Z0-9+#.-]*", text.lower())
         if len(token) > 2 and token not in _STOPWORDS
     }
+
+
+_SECTION_HEADINGS = {
+    "professional summary",
+    "summary",
+    "technical skills",
+    "skills",
+    "work experience",
+    "experience",
+    "projects",
+    "publications",
+    "education",
+    "education & certifications",
+    "certifications",
+    "languages",
+    "awards",
+    "volunteering",
+    "activities",
+    "tom tat",
+    "gioi thieu",
+    "muc tieu nghe nghiep",
+    "kinh nghiem",
+    "kinh nghiem lam viec",
+    "ky nang",
+    "hoc van",
+    "du an",
+    "chung chi",
+    "ngon ngu",
+    "giai thuong",
+    "hoat dong",
+}
+
+
+def _normalize_heading(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value.rstrip(":").strip().lower())
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
+def _is_section_heading(value: str) -> bool:
+    normalized = _normalize_heading(value)
+    words = normalized.split()
+    return normalized in _SECTION_HEADINGS or (
+        value.rstrip(":").isupper() and 1 <= len(words) <= 6
+    )
+
+
+def _is_contact_line(value: str) -> bool:
+    lowered = value.lower()
+    return (
+        "@" in value
+        or any(token in lowered for token in ("linkedin", "github", "http", "www."))
+        or any(
+            token in lowered
+            for token in (
+                "city",
+                "vietnam",
+                "việt nam",
+                "hồ chí minh",
+                "ha noi",
+                "hà nội",
+            )
+        )
+        or bool(re.search(r"(?:\+?\d[\d\s().-]{7,}\d)", value))
+    )
+
+
+def build_source_preserving_tailored_cv(
+    response: CVAnalysisLLMResponse, cv_text: str
+) -> TailoredCV:
+    """Build a Tailored CV without allowing the LLM to drop source content.
+
+    Safe rewrites are applied only when their quoted source text is present. Every
+    other line remains in a recognized source section, which makes the document
+    application-ready even when the model returns a shortened summary.
+    """
+    return build_source_preserving_tailored_cv_from_parts(
+        cv_text=cv_text,
+        headline=response.tailored_cv.headline,
+        suggested_edits=response.suggested_edits,
+        candidate_cv=response.tailored_cv,
+    )
+
+
+def build_source_preserving_tailored_cv_from_parts(
+    *,
+    cv_text: str,
+    headline: str,
+    suggested_edits: list[SuggestedEdit],
+    candidate_cv: TailoredCV | None = None,
+) -> TailoredCV:
+    """Rebuild a complete Tailored CV at the persistence seam as a final guard."""
+    rewritten = cv_text
+    for edit in suggested_edits:
+        original = edit.original_text.strip()
+        if edit.rewrite_risk == "safe" and original and edit.improved_safe.strip():
+            whitespace_tolerant = r"\s+".join(
+                re.escape(token) for token in original.split()
+            )
+            replacement = edit.improved_safe.strip()
+            rewritten = re.sub(
+                whitespace_tolerant,
+                lambda _, value=replacement: value,
+                rewritten,
+                count=1,
+            )
+
+    lines = [re.sub(r"\s+", " ", line).strip() for line in rewritten.splitlines()]
+    lines = [line for line in lines if line]
+    name = lines[0] if lines else ""
+    first_heading = next(
+        (
+            index
+            for index, line in enumerate(lines[1:], start=1)
+            if _is_section_heading(line)
+        ),
+        len(lines),
+    )
+    contact_lines = [
+        part
+        for line in lines[1:first_heading]
+        if _is_contact_line(line)
+        for part in (part.strip() for part in re.split(r"\s*[|·]\s*", line))
+        if part
+    ]
+    cursor = first_heading
+
+    sections: list[TailoredCVSection] = []
+    title = "Nội dung CV" if re.search(r"[ăâđêôơưĂÂĐÊÔƠƯ]", cv_text) else "CV Details"
+    items: list[str] = []
+    for line in lines[cursor:]:
+        if _is_section_heading(line):
+            if items:
+                sections.append(TailoredCVSection(title=title, items=items))
+            title, items = line.rstrip(":"), []
+        else:
+            is_bullet = bool(re.match(r"^[•●▪◦]\s*", line))
+            cleaned = re.sub(r"^[•●▪◦]\s*", "", line)
+            if is_bullet:
+                items.append(f"• {cleaned}")
+            elif (
+                items
+                and items[-1].startswith("• ")
+                and not re.search(r"[.!?;:]$", items[-1])
+            ):
+                # PDF text extraction wraps long bullets onto physical lines.
+                items[-1] = f"{items[-1]} {cleaned}"
+            else:
+                items.append(cleaned)
+    if items:
+        sections.append(TailoredCVSection(title=title, items=items))
+
+    summary = ""
+    remaining: list[TailoredCVSection] = []
+    for section in sections:
+        if (
+            _normalize_heading(section.title)
+            in {
+                "professional summary",
+                "summary",
+                "tom tat",
+                "gioi thieu",
+                "muc tieu nghe nghiep",
+            }
+            and not summary
+        ):
+            summary = " ".join(section.items)
+        else:
+            remaining.append(section)
+
+    source_cv = TailoredCV(
+        name=name,
+        headline=headline,
+        contact_lines=contact_lines,
+        summary=summary,
+        sections=remaining,
+    )
+    if candidate_cv is None:
+        return source_cv
+
+    source_numbers = set(re.findall(r"\d+(?:[.,]\d+)?%?", cv_text))
+
+    def is_grounded(text: str) -> bool:
+        return set(re.findall(r"\d+(?:[.,]\d+)?%?", text)).issubset(source_numbers)
+
+    candidate_by_title = {
+        _normalize_heading(section.title): section for section in candidate_cv.sections
+    }
+    merged_sections: list[TailoredCVSection] = []
+    for source_section in source_cv.sections:
+        candidate_section = candidate_by_title.get(
+            _normalize_heading(source_section.title)
+        )
+        if (
+            candidate_section
+            and len(candidate_section.items) >= len(source_section.items)
+            and all(is_grounded(item) for item in candidate_section.items)
+        ):
+            merged_sections.append(
+                TailoredCVSection(
+                    title=source_section.title,
+                    items=candidate_section.items,
+                )
+            )
+        else:
+            merged_sections.append(source_section)
+
+    candidate_summary = candidate_cv.summary.strip()
+    return source_cv.model_copy(
+        update={
+            "summary": (
+                candidate_summary
+                if candidate_summary and is_grounded(candidate_summary)
+                else source_cv.summary
+            ),
+            "sections": merged_sections,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------

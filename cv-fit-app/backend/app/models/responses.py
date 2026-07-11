@@ -13,6 +13,7 @@ from app.models.domain import (
     PrioritizedKeyword,
     SubScore,
     SuggestedEdit,
+    TailoredCV,
     TurnAnalysis,
 )
 
@@ -82,6 +83,7 @@ class CVAnalysisLLMResponse(BaseModel):
     evidence_analysis: Annotated[
         list[EvidenceAnalysis], Field(min_length=1, max_length=6)
     ]
+    tailored_cv: TailoredCV
 
     @model_validator(mode="before")
     @classmethod
@@ -169,6 +171,9 @@ class CVAnalysisLLMResponse(BaseModel):
                     "comment": "The model did not return detailed evidence analysis; review the CV manually.",
                 }
             ]
+
+        if not normalized.get("tailored_cv"):
+            normalized["tailored_cv"] = {"name": "", "sections": []}
 
         return normalized
 

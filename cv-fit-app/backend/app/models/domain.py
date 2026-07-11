@@ -4,7 +4,7 @@ Shared / domain-level Pydantic models used across multiple features.
 
 from typing import Literal
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, Field, computed_field
 
 # ---------------------------------------------------------------------------
 # CV / Match models
@@ -17,12 +17,20 @@ class ExperienceItem(BaseModel):
     bullet_points: list[str]
 
 
+class TailoredCVSection(BaseModel):
+    title: str
+    items: list[str]
+
+
 class TailoredCV(BaseModel):
-    name: str
-    summary: str
-    experience: list[ExperienceItem]
-    education: str
-    skills: list[str]
+    name: str = ""
+    headline: str = ""
+    contact_lines: list[str] = Field(default_factory=list)
+    summary: str = ""
+    sections: list[TailoredCVSection] = Field(default_factory=list)
+    experience: list[ExperienceItem] = Field(default_factory=list)
+    education: str = ""
+    skills: list[str] = Field(default_factory=list)
 
 
 class MatchResult(BaseModel):

@@ -20,6 +20,7 @@ from app.models.domain import (
     SubScore,
     SuggestedEdit,
     TailoredCV,
+    TailoredCVSection,
     TurnAnalysis,
 )
 from app.models.requests import (
@@ -43,6 +44,12 @@ from app.models.responses import (
     ScoreBreakdown,
     WriterResponse,
 )
+from app.schemas.tailored_cv import (
+    TailoredCVVersionCreate,
+    TailoredCVVersionListResponse,
+    TailoredCVVersionResponse,
+    TailoredCVVersionUpdate,
+)
 
 # All Pydantic models that form the API contract.
 # If a new model is added and not listed here, the test suite fails loud.
@@ -58,6 +65,7 @@ ALL_MODELS: list[type[BaseModel]] = [
     EvidenceAnalysis,
     ExperienceItem,
     TailoredCV,
+    TailoredCVSection,
     # Request models
     AnalyzeCVRequest,
     InterviewChatRequest,
@@ -77,6 +85,10 @@ ALL_MODELS: list[type[BaseModel]] = [
     JobSourceStatus,
     JobResult,
     RankedJobResult,
+    TailoredCVVersionCreate,
+    TailoredCVVersionUpdate,
+    TailoredCVVersionResponse,
+    TailoredCVVersionListResponse,
 ]
 
 
@@ -145,6 +157,32 @@ def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
             "education": "CS Degree",
             "skills": ["Python", "FastAPI"],
         }
+
+    if model is TailoredCVSection:
+        return {"title": "Projects", "items": ["Built an API."]}
+
+    if model is TailoredCVVersionCreate:
+        return {
+            "tailored_cv": minimal_data(TailoredCV),
+            "source_cv_text": "Duy\nduy@example.com\nExperience\nBuilt APIs.",
+            "selected_design": "classic_ats",
+        }
+
+    if model is TailoredCVVersionUpdate:
+        return {"selected_design": "modern_professional"}
+
+    if model is TailoredCVVersionResponse:
+        return {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "jd_text": "Backend Engineer",
+            "tailored_cv": minimal_data(TailoredCV),
+            "selected_design": "classic_ats",
+            "created_at": "2026-07-11T00:00:00Z",
+            "updated_at": "2026-07-11T00:00:00Z",
+        }
+
+    if model is TailoredCVVersionListResponse:
+        return {"versions": [minimal_data(TailoredCVVersionResponse)]}
 
     if model is InterviewTurnResponse:
         return {
@@ -225,6 +263,13 @@ def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
                     "comment": "No metrics.",
                 }
             ],
+            "tailored_cv": {
+                "name": "Duy",
+                "headline": "Backend Developer",
+                "contact_lines": ["duy@example.com"],
+                "summary": "Backend developer.",
+                "sections": [{"title": "Experience", "items": ["Built APIs."]}],
+            },
         }
 
     if model is CVAnalysisResponse:
@@ -380,6 +425,7 @@ def test_all_models_are_listed() -> None:
         "EvidenceAnalysis",
         "ExperienceItem",
         "TailoredCV",
+        "TailoredCVSection",
         "AnalyzeCVRequest",
         "InterviewChatRequest",
         "InterviewFinishRequest",
@@ -397,5 +443,9 @@ def test_all_models_are_listed() -> None:
         "JobSourceStatus",
         "JobResult",
         "RankedJobResult",
+        "TailoredCVVersionCreate",
+        "TailoredCVVersionUpdate",
+        "TailoredCVVersionResponse",
+        "TailoredCVVersionListResponse",
     }
     assert names == expected, f"Missing: {expected - names}. Extra: {names - expected}"

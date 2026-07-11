@@ -11,11 +11,14 @@ from app.models.responses import CVAnalysisLLMResponse, CVAnalysisResponse
 from app.services.cv_quality_checks import (
     EvalResult,
     build_scored_analysis,
+    build_source_preserving_tailored_cv,
     classify_keyword_grounding,
     classify_rewrite_grounding,
     detect_unsupported_metrics,
     run_deterministic_eval,
 )
+from app.services.tailored_cv_metadata import extract_target_metadata
+from app.services.tailored_cv_pdf import render_tailored_cv_html
 
 
 def _analysis_response(**overrides):
@@ -108,6 +111,218 @@ def test_build_scored_analysis_uses_weighted_subscores_and_penalties():
     assert response.match_score == 62
     assert response.score_breakdown.final_score == 62
     assert response.match_headline == "Có tiềm năng, nhưng CV cần tối ưu thêm theo JD."
+
+
+def test_source_preserving_tailored_cv_keeps_all_recognized_sections_and_bullets():
+    source = """Nguyen Thanh Minh Duy
+duy@example.com | LinkedIn
+Professional Summary
+Builds production ML systems.
+Technical Skills
+• PyTorch
+• FastAPI
+Work Experience
+Zalo — Software Engineer
+• Shipped features
+• Reduced latency by 30%
+Projects
+Be Dau
+• Built career platform
+Publications
+• Research paper
+Education & Certifications
+MSc Computer Science"""
+    cv = build_source_preserving_tailored_cv(_analysis_response(), source)
+    rendered = " ".join(item for section in cv.sections for item in section.items)
+    assert cv.name == "Nguyen Thanh Minh Duy"
+    assert cv.contact_lines == ["duy@example.com", "LinkedIn"]
+    assert "Builds production ML systems." in cv.summary
+    assert "Reduced latency by 30%" in rendered
+    assert "Built career platform" in rendered
+    assert "Research paper" in rendered
+    assert "MSc Computer Science" in rendered
+
+
+def test_source_preserving_tailored_cv_joins_pdf_wrapped_bullet_lines():
+    source = """Duy
+duy@example.com
+Work Experience
+Company A
+Engineer Jan 2024 - Present
+• Built an ML platform for production users
+across multiple regions.
+• Reduced processing latency by 30%
+while maintaining reliability."""
+    cv = build_source_preserving_tailored_cv(_analysis_response(), source)
+    items = cv.sections[0].items
+    assert items == [
+        "Company A",
+        "Engineer Jan 2024 - Present",
+        "• Built an ML platform for production users across multiple regions.",
+        "• Reduced processing latency by 30% while maintaining reliability.",
+    ]
+
+
+def test_source_preserving_tailored_cv_keeps_next_job_separate_from_previous_bullet():
+    source = """Duy
+duy@example.com
+Work Experience
+Company A
+Engineer Jan 2024 - Present
+• Built a production ML platform.
+Company B
+Software Engineer May 2022 - Dec 2023
+• Shipped customer-facing features."""
+
+    cv = build_source_preserving_tailored_cv(_analysis_response(), source)
+
+    assert cv.sections[0].items == [
+        "Company A",
+        "Engineer Jan 2024 - Present",
+        "• Built a production ML platform.",
+        "Company B",
+        "Software Engineer May 2022 - Dec 2023",
+        "• Shipped customer-facing features.",
+    ]
+
+
+def test_source_preserving_tailored_cv_keeps_multiline_identity_and_vietnamese_sections():
+    source = """Nguyễn Thanh Minh Duy
+Machine Learning Engineer
+duy@example.com
++84 901 234 567
+linkedin.com/in/duy
+TÓM TẮT
+Xây dựng hệ thống machine learning thực tế.
+KINH NGHIỆM LÀM VIỆC
+Zalo
+Kỹ sư phần mềm
+• Phát triển tính năng cho người dùng.
+KỸ NĂNG
+Python, PyTorch, FastAPI"""
+
+    cv = build_source_preserving_tailored_cv(_analysis_response(), source)
+
+    assert cv.name == "Nguyễn Thanh Minh Duy"
+    assert cv.contact_lines == [
+        "duy@example.com",
+        "+84 901 234 567",
+        "linkedin.com/in/duy",
+    ]
+    assert cv.summary == "Xây dựng hệ thống machine learning thực tế."
+    assert [section.title for section in cv.sections] == [
+        "KINH NGHIỆM LÀM VIỆC",
+        "KỸ NĂNG",
+    ]
+
+
+def test_source_preserving_tailored_cv_uses_complete_llm_rewrite_without_replacing_identity():
+    source = """Duy Nguyen
+duy@example.com
+Summary
+Backend engineer building APIs.
+Experience
+Acme — Engineer
+• Worked on backend services.
+Skills
+Python, APIs, databases."""
+    response = _analysis_response(
+        tailored_cv={
+            "name": "Wrong Generated Name",
+            "headline": "Backend Engineer",
+            "contact_lines": ["wrong@example.com"],
+            "summary": "Backend engineer focused on reliable API platforms.",
+            "sections": [
+                {
+                    "title": "Experience",
+                    "items": [
+                        "Acme — Engineer",
+                        "• Built and maintained reliable backend services.",
+                    ],
+                },
+                {
+                    "title": "Skills",
+                    "items": ["Python, API development, database-backed services."],
+                },
+            ],
+        }
+    )
+
+    cv = build_source_preserving_tailored_cv(response, source)
+
+    assert cv.name == "Duy Nguyen"
+    assert cv.contact_lines == ["duy@example.com"]
+    assert cv.summary == "Backend engineer focused on reliable API platforms."
+    assert (
+        cv.sections[0].items[1] == "• Built and maintained reliable backend services."
+    )
+    assert cv.sections[1].items == [
+        "Python, API development, database-backed services."
+    ]
+
+
+def test_source_preserving_tailored_cv_applies_safe_edit_across_pdf_line_wraps():
+    source = """Duy
+duy@example.com
+Experience
+• Built backend services for customer-facing
+workflows and internal operations."""
+    safe_edit = SuggestedEdit(
+        section="Experience",
+        original_text="Built backend services for customer-facing workflows and internal operations.",
+        improved_safe="Built reliable backend services for customer-facing workflows and internal operations.",
+        improved_with_placeholders="",
+        metric_questions=[],
+        unsupported_assumptions=[],
+        rewrite_risk="safe",
+        reason="Clarifies reliability without adding a new claim.",
+    )
+    response = _analysis_response(suggested_edits=[safe_edit, safe_edit])
+
+    cv = build_source_preserving_tailored_cv(response, source)
+
+    assert cv.sections[0].items == [
+        "• Built reliable backend services for customer-facing workflows and internal operations."
+    ]
+
+
+def test_tailored_cv_metadata_uses_explicit_role_and_company_labels():
+    role, company = extract_target_metadata(
+        """Vị trí: Machine Learning Engineer
+Công ty: Acme AI
+Mô tả công việc:
+Xây dựng hệ thống ML."""
+    )
+
+    assert role == "Machine Learning Engineer"
+    assert company == "Acme AI"
+
+
+@pytest.mark.parametrize(
+    "design",
+    ["classic_ats", "modern_professional", "compact_one_page"],
+)
+def test_pdf_html_contains_complete_escaped_cv_for_every_design(design):
+    cv = type(_analysis_response().tailored_cv).model_validate(
+        {
+            "name": "Duy <Nguyen>",
+            "headline": "Engineer",
+            "contact_lines": ["duy@example.com"],
+            "summary": "Backend engineer.",
+            "sections": [
+                {"title": "Experience", "items": ["• Built APIs & services."]},
+                {"title": "Skills", "items": ["Python"]},
+            ],
+        }
+    )
+
+    html = render_tailored_cv_html(cv, design)
+
+    assert f'class="{design}"' in html
+    assert "Duy &lt;Nguyen&gt;" in html
+    assert "Built APIs &amp; services." in html
+    assert "Experience" in html
+    assert "Skills" in html
 
 
 def test_llm_schema_does_not_include_or_accept_match_score():

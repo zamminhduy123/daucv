@@ -62,7 +62,10 @@ from app.schemas.user import (
 )
 from app.services import user_cv_service
 from app.services.ai_service import call_llm_with_fallback
-from app.services.cv_quality_checks import build_scored_analysis
+from app.services.cv_quality_checks import (
+    build_scored_analysis,
+    build_source_preserving_tailored_cv,
+)
 from app.utils.helpers import extract_text_from_pdf
 
 router = APIRouter(prefix="/api", tags=["user"])
@@ -221,6 +224,7 @@ async def analyze_cv(
             prompt_version="1.0.0",
             background_tasks=background_tasks,
         )
+        parsed.tailored_cv = build_source_preserving_tailored_cv(parsed, extracted_text)
         return build_scored_analysis(parsed)
     except HTTPException:
         await _refund_reserved_credit(user["id"], tx_type, refund_description)

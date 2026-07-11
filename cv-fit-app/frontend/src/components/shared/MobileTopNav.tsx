@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { label: "Trợ lý Viết", icon: PenTool, href: "/app/writer", requiresCV: true },
   { label: "Thư viện Mẫu CV", icon: LayoutTemplate, href: "/app/templates", requiresCV: false },
   { label: "Blog & Cẩm nang", icon: BookOpen, href: "/blog", requiresCV: false },
-  { label: "Lịch sử", icon: Clock, href: "/app/history", requiresCV: false },
+  { label: "CV đã tối ưu", icon: Clock, href: "/app/history", requiresCV: false },
 ];
 
 
@@ -109,13 +109,6 @@ export default function MobileTopNav() {
                   >
                     <Icon size={18} className={isDisabled ? "text-gray-300" : isActive ? "text-[var(--primary)]" : "text-gray-400"} />
                     {label}
-                    
-                    {/* Coming soon badge for history/templates */}
-                    {(href === "/app/history") && !isDisabled && (
-                      <span className="ml-auto text-[9px] font-bold bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">
-                        Soon
-                      </span>
-                    )}
                   </Link>
                 );
               })}

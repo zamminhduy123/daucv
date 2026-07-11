@@ -19,10 +19,31 @@ export interface CVExperience {
 
 export interface TailoredCV {
   name: string;
+  headline?: string;
+  contact_lines?: string[];
   summary: string;
+  sections?: TailoredCVSection[];
   experience: CVExperience[];
   skills: string[];
   education: string;
+}
+
+export interface TailoredCVSection {
+  title: string;
+  items: string[];
+}
+
+export type CVDesign = "classic_ats" | "modern_professional" | "compact_one_page";
+
+export interface TailoredCVVersion {
+  id: string;
+  target_role?: string | null;
+  company_name?: string | null;
+  jd_text: string;
+  tailored_cv: TailoredCV;
+  selected_design: CVDesign;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface MatchResult {
@@ -80,6 +101,7 @@ export interface CVAnalysisResponse {
   cv_strengths: string[];
   prioritized_keywords: PrioritizedKeyword[];
   evidence_analysis: EvidenceAnalysis[];
+  tailored_cv: TailoredCV;
 }
 
 export interface PrioritizedKeyword {

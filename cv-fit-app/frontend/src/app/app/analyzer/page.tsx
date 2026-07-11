@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Briefcase } from "lucide-react";
+import { Sparkles, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -10,7 +10,7 @@ import LoadingOverlay from "@/components/workspace/LoadingOverlay";
 import MatchDashboard from "@/components/workspace/MatchDashboard";
 import DiffViewer from "@/components/workspace/DiffViewer";
 import type { CVAnalysisResponse } from "@/types";
-import { analyzeCVAPI } from "@/lib/api";
+import { analyzeCVAPI, createTailoredCVVersionAPI } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
 import { useWorkspace } from "@/context/WorkspaceContext";
 
@@ -23,6 +23,7 @@ export default function AnalyzerPage() {
     cache.analyzerResult // Initialize from cache
   );
   const [error, setError] = useState("");
+  const [isSavingTailoredCV, setIsSavingTailoredCV] = useState(false);
   const hasTriggered = useRef(false);
 
   // Route guard: redirect if no data
@@ -55,7 +56,18 @@ export default function AnalyzerPage() {
     runAnalysis();
   }, [hasData, cvText, jdText, analysisResult, setCachedAnalysis]);
 
-  const handleExportPDF = () => window.print();
+  const handleCreateTailoredCV = async () => {
+    if (!analysisResult?.tailored_cv) return;
+    setIsSavingTailoredCV(true);
+    try {
+      const version = await createTailoredCVVersionAPI({ tailored_cv: analysisResult.tailored_cv, source_cv_text: cvText, suggested_edits: analysisResult.suggested_edits, jd_text: jdText, selected_design: "classic_ats" });
+      router.push(`/app/history?preview=${version.id}`);
+    } catch (err) {
+      toast.error(apiErrorMessage(err));
+    } finally {
+      setIsSavingTailoredCV(false);
+    }
+  };
   const handleReanalyze = () => {
     toast.info("Đang phân tích lại CV...");
     hasTriggered.current = false;
@@ -102,11 +114,12 @@ export default function AnalyzerPage() {
               Tìm việc phù hợp
             </button>
             <button
-              onClick={handleExportPDF}
+              onClick={handleCreateTailoredCV}
+              disabled={isSavingTailoredCV}
               className="px-8 py-4 bg-[var(--primary)] text-white rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
             >
-              <Download className="w-5 h-5" />
-              Lưu PDF
+              <Sparkles className="w-5 h-5" />
+              {isSavingTailoredCV ? "Đang tạo CV..." : "Tạo CV đã tối ưu"}
             </button>
             <button
               onClick={() => router.push("/app/setup")}

@@ -13,6 +13,7 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt
+RUN playwright install --with-deps chromium
 
 COPY . .
 RUN mkdir -p logs
