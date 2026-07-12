@@ -1,4 +1,25 @@
+// ─── Re-export CVDocumentV2 types ────────────────────────────────────────────
+import type { CVDocumentV2 as _CVDocumentV2 } from "./cv-document-v2";
+
+export type {
+  CVSectionType,
+  CVBlockType,
+  CVBlock,
+  CVEntryBlock,
+  CVBulletBlock,
+  CVParagraphBlock,
+  CVSkillGroupBlock,
+  CVPublicationBlock,
+  CVEducationBlock,
+  CVUnknownBlock,
+  CVSection,
+  CVIdentity,
+  CVDocumentV2,
+} from "./cv-document-v2";
+
 // ─── Workspace flow ───────────────────────────────────────────────────────────
+// Types in this file are exported at module load time, so re-exported types
+// from "./cv-document-v2" are available for use in interfaces below.
 
 export type WorkspaceStep = 1 | 2;
 
@@ -41,7 +62,15 @@ export interface TailoredCVVersion {
   company_name?: string | null;
   jd_text: string;
   tailored_cv: TailoredCV;
+  // V2 typed document (nullable for legacy records)
+  document_v2?: _CVDocumentV2 | null;
   selected_design: CVDesign;
+  // Schema versioning metadata
+  document_schema_version?: number;
+  reconstruction_version?: number;
+  source_hash?: string | null;
+  jd_hash?: string | null;
+  reconstruction_warnings?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -102,6 +131,10 @@ export interface CVAnalysisResponse {
   prioritized_keywords: PrioritizedKeyword[];
   evidence_analysis: EvidenceAnalysis[];
   tailored_cv: TailoredCV;
+  document_v2?: _CVDocumentV2 | null;
+  target_role?: string | null;
+  company_name?: string | null;
+  tailoring_entitlement: string;
 }
 
 export interface PrioritizedKeyword {

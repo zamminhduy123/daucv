@@ -6,6 +6,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.models.cv_document_v2 import CVDocumentV2
 from app.models.domain import (
     AIFeedbackSummary,
     EvidenceAnalysis,
@@ -84,6 +85,10 @@ class CVAnalysisLLMResponse(BaseModel):
         list[EvidenceAnalysis], Field(min_length=1, max_length=6)
     ]
     tailored_cv: TailoredCV
+    # V2 typed document (nullable — backfilled by the pipeline, not the LLM)
+    document_v2: CVDocumentV2 | None = None
+    target_role: str | None = None
+    company_name: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -179,6 +184,7 @@ class CVAnalysisLLMResponse(BaseModel):
 
 
 class CVAnalysisResponse(CVAnalysisLLMResponse):
+    tailoring_entitlement: str = ""
     role_fit_score: int = Field(
         ge=0, le=100
     )  # Raw LLM assessment — what a human would score

@@ -10,6 +10,18 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
+from app.models.cv_document_v2 import (
+    CVBulletBlock,
+    CVDocumentV2,
+    CVEducationBlock,
+    CVEntryBlock,
+    CVIdentity,
+    CVParagraphBlock,
+    CVPublicationBlock,
+    CVSection,
+    CVSkillGroupBlock,
+    CVUnknownBlock,
+)
 from app.models.domain import (
     AIFeedbackSummary,
     EvidenceAnalysis,
@@ -89,6 +101,17 @@ ALL_MODELS: list[type[BaseModel]] = [
     TailoredCVVersionUpdate,
     TailoredCVVersionResponse,
     TailoredCVVersionListResponse,
+    # V2 models
+    CVDocumentV2,
+    CVSection,
+    CVIdentity,
+    CVEntryBlock,
+    CVBulletBlock,
+    CVParagraphBlock,
+    CVSkillGroupBlock,
+    CVPublicationBlock,
+    CVEducationBlock,
+    CVUnknownBlock,
 ]
 
 
@@ -166,6 +189,7 @@ def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
             "tailored_cv": minimal_data(TailoredCV),
             "source_cv_text": "Duy\nduy@example.com\nExperience\nBuilt APIs.",
             "selected_design": "classic_ats",
+            "tailoring_entitlement": f"{'a' * 64}.{'b' * 64}",
         }
 
     if model is TailoredCVVersionUpdate:
@@ -361,6 +385,84 @@ def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
     if model is JobSearchRequest:
         return {"cv_text": "Test CV"}
 
+    if model is CVDocumentV2:
+        return {
+            "schema_version": 2,
+            "identity": {"name": "Duy"},
+            "summary": {
+                "type": "paragraph",
+                "block_id": "pb-1",
+                "text": "Summary text",
+            },
+            "sections": [],
+        }
+
+    if model is CVSection:
+        return {
+            "id": "sec-1",
+            "type": "experience",
+            "title": "Experience",
+            "blocks": [],
+        }
+
+    if model is CVIdentity:
+        return {
+            "name": "Duy",
+            "headline": "Backend Engineer",
+            "contact_lines": ["duy@example.com"],
+        }
+
+    if model is CVEntryBlock:
+        return {
+            "type": "entry",
+            "block_id": "eb-1",
+            "title": "Title",
+            "bullets": ["Bullet 1"],
+        }
+
+    if model is CVBulletBlock:
+        return {
+            "type": "bullet",
+            "block_id": "bb-1",
+            "text": "Bullet text",
+        }
+
+    if model is CVParagraphBlock:
+        return {
+            "type": "paragraph",
+            "block_id": "pb-1",
+            "text": "Paragraph text",
+        }
+
+    if model is CVSkillGroupBlock:
+        return {
+            "type": "skill_group",
+            "block_id": "sg-1",
+            "skills": ["Python"],
+        }
+
+    if model is CVPublicationBlock:
+        return {
+            "type": "publication",
+            "block_id": "pub-1",
+            "title": "Title",
+        }
+
+    if model is CVEducationBlock:
+        return {
+            "type": "education",
+            "block_id": "ed-1",
+            "details": ["Detail 1"],
+        }
+
+    if model is CVUnknownBlock:
+        return {
+            "type": "unknown",
+            "block_id": "unk-1",
+            "lines": ["Line 1"],
+            "confidence": 0.5,
+        }
+
     raise ValueError(f"No minimal data fixture for {model.__name__}")
 
 
@@ -447,5 +549,15 @@ def test_all_models_are_listed() -> None:
         "TailoredCVVersionUpdate",
         "TailoredCVVersionResponse",
         "TailoredCVVersionListResponse",
+        "CVDocumentV2",
+        "CVSection",
+        "CVIdentity",
+        "CVEntryBlock",
+        "CVBulletBlock",
+        "CVParagraphBlock",
+        "CVSkillGroupBlock",
+        "CVPublicationBlock",
+        "CVEducationBlock",
+        "CVUnknownBlock",
     }
     assert names == expected, f"Missing: {expected - names}. Extra: {names - expected}"

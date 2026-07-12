@@ -10,12 +10,23 @@ from app.schemas.tailored_cv import (
 from app.services.cv_quality_checks import (
     build_source_preserving_tailored_cv_from_parts,
 )
-from app.services.tailored_cv_metadata import extract_target_metadata
+from app.services.tailored_cv_metadata import (
+    extract_target_metadata,
+    verify_tailoring_entitlement,
+)
 
-VERSION_COLUMNS = "id, source_cv_id, target_role, company_name, jd_text, tailored_cv, selected_design, created_at, updated_at"
+VERSION_COLUMNS = "id, source_cv_id, target_role, company_name, jd_text, tailored_cv, document_v2, selected_design, document_schema_version, reconstruction_version, source_hash, jd_hash, reconstruction_warnings, created_at, updated_at"
 
 
 class TailoredCVNotFoundError(Exception):
+    pass
+
+
+class TailoredCVEntitlementError(Exception):
+    pass
+
+
+class TailoredCVEntitlementUsedError(Exception):
     pass
 
 
@@ -23,15 +34,28 @@ def _tailored_version(row: dict) -> TailoredCVVersionResponse:
     data = dict(row)
     if isinstance(data.get("tailored_cv"), str):
         data["tailored_cv"] = json.loads(data["tailored_cv"])
+    if isinstance(data.get("document_v2"), str):
+        data["document_v2"] = json.loads(data["document_v2"])
     return TailoredCVVersionResponse.model_validate(data)
 
 
 async def create_version(
     user_id: UUID, request: TailoredCVVersionCreate
 ) -> TailoredCVVersionResponse:
+    try:
+        analysis_key = verify_tailoring_entitlement(
+            request.tailoring_entitlement,
+            user_id,
+            request.source_cv_text,
+            request.jd_text,
+        )
+    except ValueError as exc:
+        raise TailoredCVEntitlementError from exc
+
     source = await Database.fetch_one(
-        "SELECT id FROM public.user_cvs WHERE user_id = $1 AND is_active = TRUE LIMIT 1",
+        "SELECT id FROM public.user_cvs WHERE user_id = $1 AND cv_text = $2 ORDER BY is_active DESC, created_at DESC LIMIT 1",
         user_id,
+        request.source_cv_text,
     )
     inferred_role, inferred_company = extract_target_metadata(request.jd_text)
     complete_cv = build_source_preserving_tailored_cv_from_parts(
@@ -40,18 +64,58 @@ async def create_version(
         suggested_edits=request.suggested_edits,
         candidate_cv=request.tailored_cv,
     )
-    row = await Database.fetch_one(
-        """INSERT INTO public.tailored_cv_versions (user_id, source_cv_id, target_role, company_name, jd_text, tailored_cv, selected_design)
-           VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
-           RETURNING {VERSION_COLUMNS}""",
-        user_id,
-        source["id"] if source else None,
-        request.target_role or inferred_role,
-        request.company_name or inferred_company,
-        request.jd_text,
-        json.dumps(complete_cv.model_dump()),
-        request.selected_design,
+
+    import hashlib
+
+    source_hash = (
+        hashlib.sha256(request.source_cv_text.encode("utf-8")).hexdigest()
+        if request.source_cv_text
+        else None
     )
+    jd_hash = (
+        hashlib.sha256(request.jd_text.encode("utf-8")).hexdigest()
+        if request.jd_text
+        else None
+    )
+
+    document_v2_json = None
+    schema_version = 1
+    reconstruction_version = 1
+    reconstruction_warnings = []
+
+    if request.document_v2 is not None:
+        document_v2_json = json.dumps(request.document_v2.model_dump())
+        schema_version = 2
+
+    try:
+        row = await Database.fetch_one(
+            f"""INSERT INTO public.tailored_cv_versions (
+                   user_id, source_cv_id, target_role, company_name, jd_text,
+                   tailored_cv, selected_design, analysis_key,
+                   document_v2, document_schema_version, reconstruction_version,
+                   source_hash, jd_hash, reconstruction_warnings
+               )
+               VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9::jsonb, $10, $11, $12, $13, $14)
+               RETURNING {VERSION_COLUMNS}""",
+            user_id,
+            source["id"] if source else None,
+            request.target_role or inferred_role,
+            request.company_name or inferred_company,
+            request.jd_text,
+            json.dumps(complete_cv.model_dump()),
+            request.selected_design,
+            analysis_key,
+            document_v2_json,
+            schema_version,
+            reconstruction_version,
+            source_hash,
+            jd_hash,
+            reconstruction_warnings,
+        )
+    except Exception as exc:
+        if getattr(exc, "sqlstate", None) == "23505":
+            raise TailoredCVEntitlementUsedError from exc
+        raise
     return _tailored_version(row)
 
 
@@ -78,7 +142,7 @@ async def update_design(
     version_id: UUID, user_id: UUID, selected_design: CVDesign
 ) -> TailoredCVVersionResponse:
     row = await Database.fetch_one(
-        """UPDATE public.tailored_cv_versions SET selected_design = $1, updated_at = now()
+        f"""UPDATE public.tailored_cv_versions SET selected_design = $1, updated_at = now()
            WHERE id = $2 AND user_id = $3
            RETURNING {VERSION_COLUMNS}""",
         selected_design,
