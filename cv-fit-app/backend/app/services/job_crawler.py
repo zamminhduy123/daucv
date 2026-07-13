@@ -12,6 +12,7 @@ import json
 import re
 from contextlib import asynccontextmanager
 from typing import Any
+from urllib.parse import urljoin, urlparse
 
 from httpx import AsyncClient, Timeout
 from playwright.async_api import BrowserContext, Page
@@ -364,6 +365,68 @@ def _extract_links(page: Page, selector: str) -> list[tuple[str, str]]:
         return []
 
 
+def _safe_company_logo_url(raw_url: str | None, base_url: str) -> str | None:
+    """Return a safe absolute remote image URL, or ``None`` when unavailable.
+
+    Job boards commonly lazy-load company logos using relative ``src`` or
+    ``data-src`` values. We intentionally accept HTTPS images from the job
+    board's own domain only, so scraped markup cannot make a user's browser
+    request an arbitrary or private-network host.
+    """
+    if not raw_url:
+        return None
+
+    candidate = raw_url.strip()
+    if not candidate or candidate.startswith(("data:", "javascript:")):
+        return None
+
+    absolute_url = urljoin(base_url, candidate)
+    parsed = urlparse(absolute_url)
+    base_host = (urlparse(base_url).hostname or "").lower()
+    trusted_root = base_host.removeprefix("www.")
+    host = (parsed.hostname or "").lower()
+    if (
+        parsed.scheme != "https"
+        or not host
+        or not trusted_root
+        or (host != trusted_root and not host.endswith(f".{trusted_root}"))
+    ):
+        return None
+    return absolute_url
+
+
+def _extract_company_logo(card: Any, base_url: str) -> str | None:
+    """Extract a company logo already present in a job-search result card.
+
+    This does not visit a company page or call a third-party logo service. It
+    only uses an image the job board supplied with the listing, preserving the
+    posting's provenance and avoiding additional scan latency.
+    """
+    selectors = (
+        "[class*='company'] img, [class*='employer'] img, "
+        "[class*='logo'] img, img[class*='company'], img[class*='logo']"
+    )
+    try:
+        images = card.query_selector_all(selectors)
+        for image in images:
+            for attribute in ("src", "data-src", "data-original", "data-lazy-src"):
+                logo_url = _safe_company_logo_url(
+                    image.get_attribute(attribute, timeout=3000), base_url
+                )
+                if logo_url:
+                    return logo_url
+
+            srcset = image.get_attribute("srcset", timeout=3000)
+            if srcset:
+                first_candidate = srcset.split(",", 1)[0].strip().split(" ", 1)[0]
+                logo_url = _safe_company_logo_url(first_candidate, base_url)
+                if logo_url:
+                    return logo_url
+    except Exception:
+        return None
+    return None
+
+
 def _clean_text(text: str) -> str:
     """Clean whitespace and normalize text."""
     if not text:
@@ -491,6 +554,7 @@ async def _crawl_itviec(page: Page, query: str, location: str) -> list[dict]:
                 if company_el
                 else "Không rõ công ty"
             )
+            company_logo_url = _extract_company_logo(card, "https://itviec.com")
             location = (
                 location_el.inner_text(timeout=3000).strip() if location_el else None
             )
@@ -508,6 +572,7 @@ async def _crawl_itviec(page: Page, query: str, location: str) -> list[dict]:
                         "source": "itviec",
                         "title": _clean_text(title),
                         "company": company,
+                        "company_logo_url": company_logo_url,
                         "location": location,
                         "salary": salary,
                         "level": level,
@@ -564,6 +629,7 @@ async def _crawl_topcv(page: Page, query: str, location: str) -> list[dict]:
                 if company_el
                 else "Không rõ công ty"
             )
+            company_logo_url = _extract_company_logo(card, "https://topcv.vn")
             location = (
                 location_el.inner_text(timeout=3000).strip() if location_el else None
             )
@@ -580,6 +646,7 @@ async def _crawl_topcv(page: Page, query: str, location: str) -> list[dict]:
                         "source": "topcv",
                         "title": title,
                         "company": company,
+                        "company_logo_url": company_logo_url,
                         "location": location,
                         "salary": salary,
                         "level": level,
@@ -658,6 +725,7 @@ async def _crawl_glints(page: Page, query: str, location: str) -> list[dict]:
                 if company_el
                 else "Không rõ công ty"
             )
+            company_logo_url = _extract_company_logo(card, "https://glints.com")
             location = (
                 location_el.inner_text(timeout=3000).strip() if location_el else None
             )
@@ -674,6 +742,7 @@ async def _crawl_glints(page: Page, query: str, location: str) -> list[dict]:
                         "source": "glints",
                         "title": title,
                         "company": company,
+                        "company_logo_url": company_logo_url,
                         "location": location,
                         "salary": salary,
                         "level": level,
@@ -729,6 +798,7 @@ async def _crawl_jobsgo(page: Page, query: str, location: str) -> list[dict]:
                 if company_el
                 else "Không rõ công ty"
             )
+            company_logo_url = _extract_company_logo(card, "https://jobsgo.vn")
             location = (
                 location_el.inner_text(timeout=3000).strip() if location_el else None
             )
@@ -745,6 +815,7 @@ async def _crawl_jobsgo(page: Page, query: str, location: str) -> list[dict]:
                         "source": "jobsgo",
                         "title": title,
                         "company": company,
+                        "company_logo_url": company_logo_url,
                         "location": location,
                         "salary": salary,
                         "level": level,
@@ -798,6 +869,7 @@ async def _crawl_vieclam24h(page: Page, query: str, location: str) -> list[dict]
                 if company_el
                 else "Không rõ công ty"
             )
+            company_logo_url = _extract_company_logo(card, "https://www.vieclam24h.vn")
             location = (
                 location_el.inner_text(timeout=3000).strip() if location_el else None
             )
@@ -814,6 +886,7 @@ async def _crawl_vieclam24h(page: Page, query: str, location: str) -> list[dict]
                         "source": "vieclam24h",
                         "title": title,
                         "company": company,
+                        "company_logo_url": company_logo_url,
                         "location": location,
                         "salary": salary,
                         "level": level,
@@ -889,6 +962,9 @@ async def _crawl_vietnamworks(page: Page, query: str, location: str) -> list[dic
                 if company_el
                 else "Không rõ công ty"
             )
+            company_logo_url = _extract_company_logo(
+                card, "https://www.vietnamworks.com"
+            )
             location = (
                 location_el.inner_text(timeout=3000).strip() if location_el else None
             )
@@ -905,6 +981,7 @@ async def _crawl_vietnamworks(page: Page, query: str, location: str) -> list[dic
                         "source": "vietnamworks",
                         "title": title,
                         "company": company,
+                        "company_logo_url": company_logo_url,
                         "location": location,
                         "salary": salary,
                         "level": level,
@@ -1037,6 +1114,15 @@ async def _crawl_ybox(query: str, location: str) -> list[dict]:
                 company = publisher.get(
                     "fullName", publisher.get("username", "Không rõ công ty")
                 )
+                raw_logo = (
+                    publisher.get("logo")
+                    or publisher.get("avatar")
+                    or publisher.get("image")
+                    or publisher.get("avatarUrl")
+                )
+                if isinstance(raw_logo, dict):
+                    raw_logo = raw_logo.get("url") or raw_logo.get("src")
+                company_logo_url = _safe_company_logo_url(raw_logo, "https://ybox.vn")
 
                 slug = post.get("slug", "")
                 post_id = post.get("_id", post.get("id", ""))
@@ -1056,6 +1142,7 @@ async def _crawl_ybox(query: str, location: str) -> list[dict]:
                         "source": "ybox",
                         "title": _clean_text(title),
                         "company": company,
+                        "company_logo_url": company_logo_url,
                         "location": job_location,
                         "salary": salary,
                         "level": level,
@@ -1221,6 +1308,7 @@ def _normalize_key(s: str) -> str:
     normalized = unicodedata.normalize("NFD", s.lower())
     # Remove combining diacritical marks (Vietnamese accents)
     normalized = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+    normalized = normalized.replace("đ", "d")
     return re.sub(r"[^a-z0-9]", "", normalized).strip()
 
 
@@ -1237,6 +1325,44 @@ _LEVEL_HIERARCHY: dict[str, int] = {
     "unknown": 2,
 }
 
+_MIN_GOOD_MATCH_SCORE = 70
+_MIN_STRETCH_SCORE = 50
+_MAX_STRETCH_RESULTS = 3
+
+
+def _is_closed_job(job: dict) -> bool:
+    """Return True when a source explicitly marks a listing as unavailable."""
+    status = _normalize_key(str(job.get("status") or ""))
+    if status in {
+        "closed",
+        "expired",
+        "inactive",
+        "filled",
+        "dadong",
+        "hethan",
+        "ngungtuyen",
+    }:
+        return True
+
+    availability_text = " ".join(
+        str(job.get(field) or "")
+        for field in ("posted_text", "title", "description_snippet")
+    ).lower()
+    normalized_text = _normalize_key(availability_text)
+    closed_markers = (
+        "dadong",
+        "daketthuc",
+        "hethanungtuyen",
+        "hetnhanhoso",
+        "ngungtuyen",
+        "jobclosed",
+        "jobexpired",
+        "positionfilled",
+        "applicationsclosed",
+        "nolongeracceptingapplications",
+    )
+    return any(marker in normalized_text for marker in closed_markers)
+
 
 def rank_jobs(
     jobs: list[dict],
@@ -1248,16 +1374,26 @@ def rank_jobs(
 ) -> list[dict]:
     """Rank jobs by match score against candidate profile."""
     ranked = [
-        calculate_match(job, target_roles, skills, seniority, location) for job in jobs
+        calculate_match(job, target_roles, skills, seniority, location)
+        for job in jobs
+        if not _is_closed_job(job)
     ]
 
     # Sort by score descending
     ranked.sort(key=lambda j: j["match_score"], reverse=True)
 
+    good_matches = [
+        job for job in ranked if job["match_score"] >= _MIN_GOOD_MATCH_SCORE
+    ]
     if not show_stretch:
-        ranked = [j for j in ranked if j["match_label"] == "good_match"]
+        return good_matches
 
-    return ranked
+    stretch_matches = [
+        job
+        for job in ranked
+        if _MIN_STRETCH_SCORE <= job["match_score"] < _MIN_GOOD_MATCH_SCORE
+    ][:_MAX_STRETCH_RESULTS]
+    return good_matches + stretch_matches
 
 
 def calculate_match(
@@ -1410,7 +1546,7 @@ def calculate_match(
             - seniority_penalty,
         ),
     )
-    label = "good_match" if final >= 70 else "stretch"
+    label = "good_match" if final >= _MIN_GOOD_MATCH_SCORE else "stretch"
 
     result = dict(job)
     result["match_score"] = final

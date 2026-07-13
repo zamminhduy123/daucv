@@ -14,6 +14,7 @@ export interface JobResult {
   source: "itviec" | "topcv" | "vietnamworks" | "glints" | "ybox" | "jobsgo" | "careerviet" | "vieclam24h";
   title: string;
   company?: string;
+  companyLogoUrl?: string | null;
   location?: string;
   salary?: string;
   level?: "intern" | "fresher" | "junior" | "middle" | "senior" | "unknown";
@@ -32,7 +33,7 @@ export interface RankedJobResult extends JobResult {
 
 export interface JobSourceStatus {
   source: string;
-  status: "success" | "failed" | "timeout";
+  status: "success" | "empty" | "failed" | "timeout";
   count: number;
   error?: string;
 }

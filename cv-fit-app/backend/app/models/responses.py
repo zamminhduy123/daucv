@@ -245,6 +245,7 @@ class JobResult(BaseModel):
     ]
     title: str
     company: str | None = None
+    company_logo_url: str | None = None
     location: str | None = None
     salary: str | None = None
     level: (

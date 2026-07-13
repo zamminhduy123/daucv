@@ -7,15 +7,17 @@ POST /api/jobs/search
     ranks, and returns matching jobs with match scores.
 """
 
+from contextlib import suppress
+
 from fastapi import APIRouter, BackgroundTasks, Depends
 
+from app.dependencies import get_current_user, refund_credits, reserve_credits
 from app.models.domain import Message
 from app.models.requests import JobSearchRequest
 from app.models.responses import CandidateProfileResponse
 from app.prompts.system_prompts import build_job_parser_prompt
 from app.services.ai_service import call_llm_with_fallback
 from app.services.job_crawler import generate_search_queries, search_jobs
-from app.dependencies import get_current_user, refund_credits, reserve_credits
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -389,15 +391,13 @@ async def search_jobs_endpoint(
             target_role_override=req.target_role,
         )
     except Exception:
-        try:
+        with suppress(Exception):
             await refund_credits(
                 user_id=user["id"],
                 amount=1,
                 tx_type="job_search",
                 description="Hoàn credit do lỗi khi quét tìm việc làm phù hợp",
             )
-        except Exception:
-            pass
         raise
 
     # Step 4: Format response
@@ -416,6 +416,7 @@ async def search_jobs_endpoint(
                 "source": job["source"],
                 "title": job["title"],
                 "company": job.get("company"),
+                "companyLogoUrl": job.get("company_logo_url"),
                 "location": job.get("location"),
                 "salary": job.get("salary"),
                 "level": job.get("level"),

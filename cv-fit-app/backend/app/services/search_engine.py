@@ -292,6 +292,7 @@ async def search_via_engine(query: str, domain: str, limit: int = 4) -> list[dic
                 "source": source,
                 "title": title,
                 "company": company,
+                "company_logo_url": None,
                 "location": location,
                 "salary": salary,
                 "level": level,
