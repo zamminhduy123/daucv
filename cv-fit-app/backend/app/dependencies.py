@@ -1,5 +1,6 @@
 import jwt
 from fastapi import Depends, Header, HTTPException
+
 from app.core.config import NEXTAUTH_SECRET
 from app.core.db import Database
 
@@ -38,7 +39,7 @@ async def get_current_user(authorization: str = Header(None)) -> dict:
 
         try:
             await Database.execute(
-                "INSERT INTO public.users (email, name, image, credits) VALUES ($1, $2, $3, 5) ON CONFLICT (email) DO NOTHING",
+                "INSERT INTO public.users (email, name, image, credits) VALUES ($1, $2, $3, 20) ON CONFLICT (email) DO NOTHING",
                 email,
                 name,
                 image,
@@ -73,9 +74,7 @@ def verify_credits(required_credits: int = 1):
     return _verify
 
 
-async def deduct_credits(
-    user_id, amount: int, tx_type: str, description: str
-) -> int:
+async def deduct_credits(user_id, amount: int, tx_type: str, description: str) -> int:
     """
     Transactionally deducts credits from a user profile and logs a transaction ledger record.
     Returns the new credit balance.
@@ -86,46 +85,43 @@ async def deduct_credits(
     if not Database.pool:
         await Database.connect()
 
-    async with Database.pool.acquire() as conn:
-        async with conn.transaction():
-            # Select user for update to lock the row and prevent race conditions
-            user = await conn.fetchrow(
-                "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE", user_id
-            )
-            if not user:
-                raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
+    async with Database.pool.acquire() as conn, conn.transaction():
+        # Select user for update to lock the row and prevent race conditions
+        user = await conn.fetchrow(
+            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE", user_id
+        )
+        if not user:
+            raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
 
-            current_credits = user["credits"]
-            if current_credits < abs(amount):
-                raise HTTPException(
-                    status_code=403,
-                    detail="Số dư credit không đủ để thực hiện thao tác này.",
-                )
-
-            new_credits = current_credits + amount
-
-            # Update credits
-            await conn.execute(
-                "UPDATE public.users SET credits = $1, updated_at = now() WHERE id = $2",
-                new_credits,
-                user_id,
+        current_credits = user["credits"]
+        if current_credits < abs(amount):
+            raise HTTPException(
+                status_code=403,
+                detail="Số dư credit không đủ để thực hiện thao tác này.",
             )
 
-            # Record ledger record
-            await conn.execute(
-                "INSERT INTO public.credit_transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
-                user_id,
-                amount,
-                tx_type,
-                description,
-            )
+        new_credits = current_credits + amount
 
-            return new_credits
+        # Update credits
+        await conn.execute(
+            "UPDATE public.users SET credits = $1, updated_at = now() WHERE id = $2",
+            new_credits,
+            user_id,
+        )
+
+        # Record ledger record
+        await conn.execute(
+            "INSERT INTO public.credit_transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
+            user_id,
+            amount,
+            tx_type,
+            description,
+        )
+
+        return new_credits
 
 
-async def reserve_credits(
-    user_id, amount: int, tx_type: str, description: str
-) -> int:
+async def reserve_credits(user_id, amount: int, tx_type: str, description: str) -> int:
     """
     Reserve credits before expensive work starts.
 
@@ -153,38 +149,35 @@ async def add_credits(user_id, amount: int, tx_type: str, description: str) -> i
     if not Database.pool:
         await Database.connect()
 
-    async with Database.pool.acquire() as conn:
-        async with conn.transaction():
-            user = await conn.fetchrow(
-                "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE", user_id
-            )
-            if not user:
-                raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
+    async with Database.pool.acquire() as conn, conn.transaction():
+        user = await conn.fetchrow(
+            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE", user_id
+        )
+        if not user:
+            raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
 
-            new_credits = user["credits"] + amount
+        new_credits = user["credits"] + amount
 
-            # Update credits
-            await conn.execute(
-                "UPDATE public.users SET credits = $1, updated_at = now() WHERE id = $2",
-                new_credits,
-                user_id,
-            )
+        # Update credits
+        await conn.execute(
+            "UPDATE public.users SET credits = $1, updated_at = now() WHERE id = $2",
+            new_credits,
+            user_id,
+        )
 
-            # Record ledger record
-            await conn.execute(
-                "INSERT INTO public.credit_transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
-                user_id,
-                amount,
-                tx_type,
-                description,
-            )
+        # Record ledger record
+        await conn.execute(
+            "INSERT INTO public.credit_transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
+            user_id,
+            amount,
+            tx_type,
+            description,
+        )
 
-            return new_credits
+        return new_credits
 
 
-async def refund_credits(
-    user_id, amount: int, tx_type: str, description: str
-) -> int:
+async def refund_credits(user_id, amount: int, tx_type: str, description: str) -> int:
     """
     Return a previously reserved credit after an operation fails.
     """

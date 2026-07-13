@@ -60,9 +60,9 @@ const handler = NextAuth({
         );
 
         if (checkRes.rows.length === 0) {
-          // New user sign up - assign 5 credits
+          // New user sign up - assign 20 credits
           const insertRes = await query(
-            "INSERT INTO public.users (email, name, image, credits) VALUES ($1, $2, $3, 5) RETURNING id",
+            "INSERT INTO public.users (email, name, image, credits) VALUES ($1, $2, $3, 20) RETURNING id",
             [user.email, name, image]
           );
           user.id = insertRes.rows[0].id;
@@ -72,9 +72,9 @@ const handler = NextAuth({
             "INSERT INTO public.credit_transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
             [
               user.id,
-              5,
+              20,
               "signup_bonus",
-              "Tặng 5 credits khi đăng ký tài khoản mới.",
+              "Tặng 20 credits khi đăng ký tài khoản mới.",
             ]
           );
         } else {

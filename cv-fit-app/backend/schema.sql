@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.users (
     email TEXT UNIQUE NOT NULL,
     name TEXT,
     image TEXT, -- Avatar URL from Google
-    credits INTEGER NOT NULL DEFAULT 5,
+    credits INTEGER NOT NULL DEFAULT 20,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -54,8 +54,10 @@ CREATE TABLE IF NOT EXISTS public.tailored_cv_versions (
     company_name TEXT,
     jd_text TEXT NOT NULL DEFAULT '',
     tailored_cv JSONB NOT NULL,
+    analysis_key TEXT NOT NULL,
     selected_design TEXT NOT NULL DEFAULT 'classic_ats' CHECK (selected_design IN ('classic_ats', 'modern_professional', 'compact_one_page')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_tailored_cv_versions_user_created ON public.tailored_cv_versions(user_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tailored_cv_versions_entitlement ON public.tailored_cv_versions(user_id, analysis_key);
