@@ -10,7 +10,7 @@ import asyncio
 import hashlib
 import json
 import re
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -277,7 +277,15 @@ _browser_mgr = BrowserManager()
 @asynccontextmanager
 async def managed_browser():
     """Context manager for a short-lived browser session."""
-    await _browser_mgr.start()
+    try:
+        await _browser_mgr.start()
+    except Exception:
+        # start() may have entered Playwright before Chromium launch failed.
+        # Release that partial state so repeated Render requests do not leak
+        # driver processes while the search-engine fallback is in use.
+        with suppress(Exception):
+            await _browser_mgr.stop()
+        raise
     try:
         yield _browser_mgr
     finally:
@@ -1180,11 +1188,13 @@ _HTTP_CRAWLERS = {
 
 
 async def crawl_source(
-    source: str, query: str, location: str, page: Page
+    source: str, query: str, location: str, page: Page | None
 ) -> tuple[list[dict], str | None]:
     """Run a single source crawler. Returns (jobs, error)."""
     try:
         if source in _ASYNC_CRAWLERS:
+            if page is None:
+                return [], "browser unavailable"
             fn = _ASYNC_CRAWLERS[source]
             jobs = await asyncio.wait_for(fn(page, query, location), timeout=20)
             return jobs, None
@@ -1635,101 +1645,113 @@ async def search_jobs(
     source_status: list[dict] = []
     all_jobs: list[dict] = []
 
-    async with managed_browser() as browser_mgr:
-        page = await browser_mgr.new_page()
+    async def run_source(
+        src: str, page: Page | None, browser_error: str | None = None
+    ) -> None:
+        """Run crawler first (free, no API credit), search engine as fallback.
 
-        async def run_source(src: str) -> None:
-            """Run crawler first (free, no API credit), search engine as fallback.
+        The Playwright crawler is the primary data source because it doesn't
+        consume API credits. The search engine (Serper/Google CSE) is used
+        as a fallback only when the crawler returns 0 results — for example
+        when sites block bots with Cloudflare or JS-heavy rendering breaks
+        selectors.
+        """
+        from app.services.search_engine import search_via_engine_for_source
 
-            The Playwright crawler is the primary data source because it doesn't
-            consume API credits. The search engine (Serper/Google CSE) is used
-            as a fallback only when the crawler returns 0 results — for example
-            when sites block bots with Cloudflare or JS-heavy rendering breaks
-            selectors.
-            """
-            from app.services.search_engine import search_via_engine_for_source
+        primary_query = final_queries[0] if final_queries else "Developer"
+        error: str | None = browser_error
 
-            nonlocal page
+        # Map source to search engine domain
+        domain_map = {
+            "itviec": "itviec.com",
+            "topcv": "topcv.vn",
+            "glints": "glints.com",
+            "jobsgo": "jobsgo.vn",
+            "vieclam24h": "vieclam24h.vn",
+            "vietnamworks": "vietnamworks.com",
+            "ybox": "ybox.vn",
+            "careerviet": "careerviet.vn",
+        }
+        domain = domain_map.get(src, src)
 
-            primary_query = final_queries[0] if final_queries else "Developer"
-            error: str | None = None
+        is_crawlable = src in _ASYNC_CRAWLERS or src in _HTTP_CRAWLERS
 
-            # Map source to search engine domain
-            domain_map = {
-                "itviec": "itviec.com",
-                "topcv": "topcv.vn",
-                "glints": "glints.com",
-                "jobsgo": "jobsgo.vn",
-                "vieclam24h": "vieclam24h.vn",
-                "vietnamworks": "vietnamworks.com",
-                "ybox": "ybox.vn",
-                "careerviet": "careerviet.vn",
-            }
-            domain = domain_map.get(src, src)
+        # Phase 1: Crawler (primary, free — no API credit cost)
+        jobs: list[dict] = []
+        status = "empty"
 
-            is_crawlable = src in _ASYNC_CRAWLERS or src in _HTTP_CRAWLERS
+        if src in _ASYNC_CRAWLERS and page is None:
+            status = "failed"
+        elif is_crawlable:
+            jobs, error = await crawl_source(src, primary_query, location, page)
+            if error == "timeout":
+                status = "timeout"
+            elif error:
+                status = "failed"
+            else:
+                status = "success" if jobs else "empty"
 
-            # Phase 1: Crawler (primary, free — no API credit cost)
-            jobs: list[dict] = []
-            status = "empty"
+            # Try secondary query for crawler
+            if not jobs and len(final_queries) > 1:
+                secondary_query = final_queries[1]
+                jobs2, _ = await crawl_source(src, secondary_query, location, page)
+                existing_urls = {j.get("url", "") for j in jobs}
+                for j in jobs2:
+                    if j.get("url") not in existing_urls:
+                        jobs.append(j)
+                        existing_urls.add(j.get("url", ""))
+                if jobs:
+                    status = "success"
 
-            if is_crawlable:
-                jobs, error = await crawl_source(src, primary_query, location, page)
-                if error == "timeout":
-                    status = "timeout"
-                elif error:
-                    status = "failed"
-                else:
-                    status = "success" if jobs else "empty"
-
-                # Try secondary query for crawler
-                if not jobs and len(final_queries) > 1:
-                    secondary_query = final_queries[1]
-                    jobs2, _ = await crawl_source(src, secondary_query, location, page)
-                    existing_urls = {j.get("url", "") for j in jobs}
-                    for j in jobs2:
-                        if j.get("url") not in existing_urls:
-                            jobs.append(j)
-                            existing_urls.add(j.get("url", ""))
-                    if jobs:
-                        status = "success"
-
-            # Phase 2: Search engine fallback — only when crawler returned 0 results
-            se_jobs: list[dict] = []
-            if not jobs and status not in ("timeout", "failed"):
+        # Phase 2: Search engine fallback — only when crawler returned 0 results
+        se_jobs: list[dict] = []
+        if not jobs and status != "timeout":
+            try:
                 se_jobs = await search_via_engine_for_source(
                     src, primary_query, domain, limit=limit_per_source
                 )
-                if se_jobs:
-                    jobs = se_jobs
-                    status = "success"
+            except Exception as exc:
+                se_jobs = []
+                error = error or str(exc)
+            if se_jobs:
+                jobs = se_jobs
+                status = "success"
 
-                # Try secondary query for search engine
-                if not jobs and len(final_queries) > 1:
-                    secondary_query = final_queries[1]
+            # Try secondary query for search engine
+            if not jobs and len(final_queries) > 1:
+                secondary_query = final_queries[1]
+                try:
                     se_jobs2 = await search_via_engine_for_source(
                         src, secondary_query, domain, limit=limit_per_source
                     )
-                    if se_jobs2:
-                        jobs = se_jobs2
-                        status = "success"
+                except Exception as exc:
+                    se_jobs2 = []
+                    error = error or str(exc)
+                if se_jobs2:
+                    jobs = se_jobs2
+                    status = "success"
 
-            source_status.append(
-                {
-                    "source": src,
-                    "status": status,
-                    "count": len(jobs),
-                    "error": None if status in ("success", "empty") else error,
-                }
-            )
-            all_jobs.extend(jobs)
+        source_status.append(
+            {
+                "source": src,
+                "status": status,
+                "count": len(jobs),
+                "error": None if status in ("success", "empty") else error,
+            }
+        )
+        all_jobs.extend(jobs)
 
-        # Run sources with concurrency limit of 2
-        semaphore = asyncio.Semaphore(2)
+    # Run sources with concurrency limit of 2. Browser startup is best-effort:
+    # Render can temporarily be unable to launch Chromium, while the HTTP and
+    # configured search-engine fallbacks remain usable.
+    semaphore = asyncio.Semaphore(2)
 
+    async def run_enabled_sources(
+        page: Page | None, browser_error: str | None = None
+    ) -> None:
         async def limited_run(src: str) -> None:
             async with semaphore:
-                await run_source(src)
+                await run_source(src, page, browser_error)
 
         tasks = [
             asyncio.create_task(limited_run(src))
@@ -1737,6 +1759,13 @@ async def search_jobs(
             if src in _ASYNC_CRAWLERS or src in _HTTP_CRAWLERS
         ]
         await asyncio.gather(*tasks, return_exceptions=True)
+
+    try:
+        async with managed_browser() as browser_mgr:
+            page = await browser_mgr.new_page()
+            await run_enabled_sources(page)
+    except Exception as exc:
+        await run_enabled_sources(None, f"browser unavailable: {exc}")
 
     # Deduplicate
     unique_jobs = deduplicate_jobs(all_jobs)

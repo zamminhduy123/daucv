@@ -124,10 +124,9 @@ def test_tts_rejects_no_body(client: TestClient) -> None:
 
 
 def test_jobs_search_accepts_minimal_body(client: TestClient) -> None:
-    """Job search should accept minimal body and attempt processing (→ error from LLM/infra, not 422)."""
+    """Job search failures must degrade to a response instead of an unhandled 500."""
     resp = client.post("/api/jobs/search", json={"cv_text": "Test CV"})
-    # Could be 422, 500, or 502 — but NOT 404/405
-    assert resp.status_code not in (404, 405)
+    assert resp.status_code == 200, resp.text
 
 
 def test_get_user_profile(client: TestClient) -> None:
