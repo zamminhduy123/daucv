@@ -84,7 +84,7 @@ export function LandingNavbar() {
           </a>
         ))} */}
       </nav>
-      <Link href="/app" className="btn-green text-sm sm:text-base px-4 py-2 sm:px-6 sm:py-3">
+      <Link href="/app/setup" className="btn-green text-sm sm:text-base px-4 py-2 sm:px-6 sm:py-3">
         Bắt đầu ngay
       </Link>
     </header>

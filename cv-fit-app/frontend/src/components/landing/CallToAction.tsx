@@ -40,7 +40,7 @@ export default function CallToAction() {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.97 }}
       >
-        <Link href="/app" className="btn-green btn-green--lg">
+        <Link href="/app/setup" className="btn-green btn-green--lg">
           Bắt đầu ngay <ChevronRight size={24} />
         </Link>
       </motion.div>
