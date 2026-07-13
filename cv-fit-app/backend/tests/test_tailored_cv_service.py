@@ -16,6 +16,10 @@ class UndefinedColumnError(Exception):
     sqlstate = "42703"
 
 
+class UniqueViolationError(Exception):
+    sqlstate = "23505"
+
+
 def _legacy_row() -> dict:
     now = datetime.now(UTC)
     return {
@@ -87,6 +91,34 @@ async def test_create_version_falls_back_to_legacy_columns() -> None:
     assert fetch_one.await_count == 3
     assert "document_v2" in fetch_one.await_args_list[1].args[0]
     assert "document_v2" not in fetch_one.await_args_list[2].args[0]
+
+
+@pytest.mark.asyncio
+async def test_create_version_rejects_replayed_entitlement() -> None:
+    request = TailoredCVVersionCreate(
+        tailored_cv=TailoredCV(name="Duy", sections=[]),
+        source_cv_text="Duy\nduy@example.com",
+        jd_text="Backend Engineer role",
+        selected_design="classic_ats",
+        tailoring_entitlement="x" * 65,
+    )
+    fetch_one = AsyncMock(side_effect=[None, UniqueViolationError()])
+
+    with (
+        patch.object(tailored_cv_service.Database, "fetch_one", fetch_one),
+        patch.object(
+            tailored_cv_service,
+            "verify_tailoring_entitlement",
+            return_value="replayed-analysis-key",
+        ),
+        patch.object(
+            tailored_cv_service,
+            "build_source_preserving_tailored_cv_from_parts",
+            return_value=request.tailored_cv,
+        ),
+        pytest.raises(tailored_cv_service.TailoredCVEntitlementUsedError),
+    ):
+        await tailored_cv_service.create_version(USER_ID, request)
 
 
 @pytest.mark.asyncio

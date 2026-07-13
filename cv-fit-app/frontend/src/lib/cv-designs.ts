@@ -15,3 +15,10 @@ export const CV_DESIGNS: readonly CVDesignDefinition[] = [
 export const CV_DESIGN_LABELS = Object.fromEntries(
   CV_DESIGNS.map((design) => [design.value, design.label]),
 ) as Record<CVDesign, string>;
+
+export function cvSectionKind(title: string): "skills" | "education" | "main" {
+  const normalized = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (normalized.includes("skill") || normalized.includes("ky nang")) return "skills";
+  if (normalized.includes("education") || normalized.includes("hoc van")) return "education";
+  return "main";
+}

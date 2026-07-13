@@ -193,7 +193,7 @@ export async function listUserCVsAPI() {
   return res.json();
 }
 
-export async function createTailoredCVVersionAPI(payload: { tailored_cv: TailoredCV; source_cv_text: string; suggested_edits: SuggestedEdit[]; jd_text: string; target_role?: string; company_name?: string; selected_design: CVDesign }) {
+export async function createTailoredCVVersionAPI(payload: { tailored_cv: TailoredCV; source_cv_text: string; suggested_edits: SuggestedEdit[]; jd_text: string; target_role?: string; company_name?: string; selected_design: CVDesign; tailoring_entitlement: string }) {
   const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   if (!res.ok) throw await parseApiError(res);
   return res.json() as Promise<TailoredCVVersion>;

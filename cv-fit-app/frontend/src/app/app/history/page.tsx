@@ -8,6 +8,7 @@ import type { CVDesign, TailoredCVVersion } from "@/types";
 import { deleteTailoredCVVersionAPI, downloadTailoredCVPDFAPI, listTailoredCVVersionsAPI, updateTailoredCVDesignAPI } from "@/lib/api";
 import { CV_DESIGN_LABELS } from "@/lib/cv-designs";
 import { apiErrorMessage } from "@/lib/errorMessages";
+import { tailoredCVDisplayName } from "@/lib/tailored-cv";
 import CVDesignSelector from "@/components/workspace/CVDesignSelector";
 import TailoredCVLibrary from "@/components/workspace/TailoredCVLibrary";
 import TailoredCVPreview from "@/components/workspace/TailoredCVPreview";
@@ -21,9 +22,30 @@ export default function HistoryPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   useEffect(() => { listTailoredCVVersionsAPI().then(({ versions }) => { setVersions(versions); setSelectedId((current) => current || versions[0]?.id || null); }).catch(() => setVersions([])); }, []);
   const selected = versions.find((version) => version.id === selectedId);
-  const changeDesign = async (design: CVDesign) => { if (!selected || design === selected.selected_design) return; setIsChangingDesign(true); try { const updated = await updateTailoredCVDesignAPI(selected.id, design); setVersions((items) => items.map((item) => item.id === updated.id ? updated : item)); } finally { setIsChangingDesign(false); } };
+  const changeDesign = async (design: CVDesign) => {
+    if (!selected || design === selected.selected_design) return;
+    setIsChangingDesign(true);
+    try {
+      const updated = await updateTailoredCVDesignAPI(selected.id, design);
+      setVersions((items) => items.map((item) => item.id === updated.id ? updated : item));
+    } catch (error) {
+      toast.error(apiErrorMessage(error));
+    } finally {
+      setIsChangingDesign(false);
+    }
+  };
   const download = async (version: TailoredCVVersion) => { setDownloadingId(version.id); try { const blob = await downloadTailoredCVPDFAPI(version.id); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); const label = [version.target_role, version.company_name].filter(Boolean).join("-") || "tailored-cv"; anchor.href = url; anchor.download = `${label.replace(/[^a-zA-Z0-9À-ỹ_-]+/g, "-")}.pdf`; anchor.click(); URL.revokeObjectURL(url); } catch (error) { toast.error(apiErrorMessage(error)); } finally { setDownloadingId(null); } };
-  const remove = async (id: string) => { if (!confirm("Xóa CV đã tối ưu này? CV gốc của bạn sẽ không bị ảnh hưởng.")) return; await deleteTailoredCVVersionAPI(id); setVersions((items) => items.filter((item) => item.id !== id)); if (selectedId === id) setSelectedId(null); };
+  const remove = async (id: string) => {
+    if (!confirm("Xóa CV đã tối ưu này? CV gốc của bạn sẽ không bị ảnh hưởng.")) return;
+    try {
+      await deleteTailoredCVVersionAPI(id);
+      const remaining = versions.filter((item) => item.id !== id);
+      setVersions(remaining);
+      if (selectedId === id) setSelectedId(remaining[0]?.id || null);
+    } catch (error) {
+      toast.error(apiErrorMessage(error));
+    }
+  };
   return <div className="min-h-screen pb-12 text-[#2F4F4F]">
     <div className="mx-auto w-full max-w-7xl space-y-8 p-4 ">
       <header className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
@@ -54,7 +76,7 @@ export default function HistoryPage() {
         {selected && <main className="min-w-0 overflow-hidden rounded-3xl border border-[#2F4F4F]/5 bg-white shadow-md">
           <div className="flex flex-col gap-4 border-b border-[#2F4F4F]/5 p-5 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-xl font-black">{selected.target_role || "CV đã tối ưu"}</h2>
+              <h2 className="text-xl font-black">{tailoredCVDisplayName(selected)}</h2>
               <p className="mt-1 text-xs font-bold uppercase tracking-widest text-gray-400">{CV_DESIGN_LABELS[selected.selected_design]} · {new Date(selected.created_at).toLocaleDateString("vi-VN")}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">

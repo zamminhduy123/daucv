@@ -1,4 +1,40 @@
+import hashlib
+import hmac
+import os
 import re
+import secrets
+from uuid import UUID
+
+
+def issue_tailoring_entitlement(user_id: UUID, cv_text: str, jd_text: str) -> str:
+    nonce = secrets.token_hex(16)
+    digest = hashlib.sha256(f"{cv_text}\0{jd_text}".encode()).hexdigest()
+    secret = os.environ["NEXTAUTH_SECRET"].encode()
+    signature = hmac.new(
+        secret, f"{user_id}:{nonce}:{digest}".encode(), hashlib.sha256
+    ).hexdigest()
+    return f"{nonce}.{digest}.{signature}"
+
+
+def verify_tailoring_entitlement(
+    entitlement: str, user_id: UUID, cv_text: str, jd_text: str
+) -> str:
+    try:
+        nonce, supplied_digest, supplied_signature = entitlement.split(".", 2)
+    except ValueError as exc:
+        raise ValueError("Invalid tailoring entitlement") from exc
+    expected_digest = hashlib.sha256(f"{cv_text}\0{jd_text}".encode()).hexdigest()
+    secret = os.environ["NEXTAUTH_SECRET"].encode()
+    expected_signature = hmac.new(
+        secret,
+        f"{user_id}:{nonce}:{expected_digest}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(
+        supplied_digest, expected_digest
+    ) or not hmac.compare_digest(supplied_signature, expected_signature):
+        raise ValueError("Invalid tailoring entitlement")
+    return hashlib.sha256(entitlement.encode()).hexdigest()
 
 
 def extract_target_metadata(jd_text: str) -> tuple[str | None, str | None]:

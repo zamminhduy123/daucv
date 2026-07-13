@@ -2,23 +2,35 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { Link as Linkedin, Mail, MapPin, Phone } from "lucide-react";
-import { CV_DESIGN_LABELS } from "@/lib/cv-designs";
+import { CV_DESIGN_LABELS, cvSectionKind } from "@/lib/cv-designs";
 import type { CVDesign, TailoredCV, TailoredCVSection } from "@/types";
 
+function normalizeSectionItems(items: string[]) {
+  return items.reduce<string[]>((normalized, item) => {
+    const stripped = item.trim();
+    const previous = normalized.at(-1);
+    if (previous?.match(/^[•●▪◦]/) && stripped && /^\p{Ll}/u.test(stripped)) {
+      normalized[normalized.length - 1] = `${previous.trimEnd()} ${stripped}`;
+    } else {
+      normalized.push(item);
+    }
+    return normalized;
+  }, []);
+}
+
+function normalizeSections(sections: TailoredCVSection[]) {
+  return sections.map((section) => ({ ...section, items: normalizeSectionItems(section.items) }));
+}
+
 function getSections(cv: TailoredCV): TailoredCVSection[] {
-  if (cv.sections?.length) return cv.sections;
-  return [
+  if (cv.sections?.length) return normalizeSections(cv.sections);
+  return normalizeSections([
     ...(cv.experience?.length
       ? [{ title: "Experience", items: cv.experience.flatMap((item) => [`${item.role} — ${item.company}`, ...item.bullet_points]) }]
       : []),
     ...(cv.skills?.length ? [{ title: "Skills", items: cv.skills }] : []),
     ...(cv.education ? [{ title: "Education", items: [cv.education] }] : []),
-  ];
-}
-
-function isSection(section: TailoredCVSection, words: string[]) {
-  const title = section.title.toLocaleLowerCase();
-  return words.some((word) => title.includes(word));
+  ]);
 }
 
 function initials(name?: string) {
@@ -33,6 +45,11 @@ function initials(name?: string) {
 
 function cleanBullet(item: string) {
   return item.replace(/^[•●▪◦]\s*/, "");
+}
+
+function isEntryHeadline(items: string[], index: number) {
+  if (items[index].match(/^[•●▪◦]\s*/)) return false;
+  return index === 0 || items[index - 1].match(/^[•●▪◦]\s*/);
 }
 
 function documentLabels(cv: TailoredCV) {
@@ -69,7 +86,7 @@ function ClassicTemplate({ cv, sections }: { cv: TailoredCV; sections: TailoredC
         <div className="space-y-1 text-gray-800">
           {section.items.map((item, index) => item.match(/^[•●▪◦]\s*/)
             ? <p key={index} className="ml-4 pl-1 before:-ml-3 before:mr-2 before:content-['•']">{cleanBullet(item)}</p>
-            : <p key={index} className="whitespace-pre-line font-medium first:font-bold">{item}</p>)}
+            : <p key={index} className={`whitespace-pre-line ${isEntryHeadline(section.items, index) ? "font-bold" : "font-normal"}`}>{item}</p>)}
         </div>
       </section>)}
     </div>
@@ -105,11 +122,11 @@ function CompactTemplate({ cv, sections }: { cv: TailoredCV; sections: TailoredC
         </section>}
         {sections.map((section) => <section key={section.title}>
           <h2 className="mb-2 border-l-2 border-[#4A90A4] pl-2 text-sm font-semibold uppercase tracking-[0.12em] text-gray-900">{section.title}</h2>
-          {isSection(section, ["skill", "kỹ năng", "ky nang"])
+          {cvSectionKind(section.title) === "skills"
             ? <div className="flex flex-wrap gap-1.5">{section.items.map((item, index) => <span key={index} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{cleanBullet(item)}</span>)}</div>
             : <div className="space-y-1 text-gray-700">{section.items.map((item, index) => item.match(/^[•●▪◦]\s*/)
               ? <p key={index} className="ml-4 list-item list-disc">{cleanBullet(item)}</p>
-              : <p key={index} className="whitespace-pre-line font-medium first:font-bold">{item}</p>)}</div>}
+              : <p key={index} className={`whitespace-pre-line ${isEntryHeadline(section.items, index) ? "font-bold text-gray-950" : "font-medium"}`}>{item}</p>)}</div>}
         </section>)}
       </div>
     </div>
@@ -119,8 +136,8 @@ function CompactTemplate({ cv, sections }: { cv: TailoredCV; sections: TailoredC
 
 function ModernTemplate({ cv, sections }: { cv: TailoredCV; sections: TailoredCVSection[] }) {
   const labels = documentLabels(cv);
-  const skillSections = sections.filter((section) => isSection(section, ["skill", "kỹ năng", "ky nang"]));
-  const educationSections = sections.filter((section) => isSection(section, ["education", "học vấn", "hoc van"]));
+  const skillSections = sections.filter((section) => cvSectionKind(section.title) === "skills");
+  const educationSections = sections.filter((section) => cvSectionKind(section.title) === "education");
   const sidebarSections = new Set([...skillSections, ...educationSections]);
   const mainSections = sections.filter((section) => !sidebarSections.has(section));
 
@@ -160,7 +177,7 @@ function ModernTemplate({ cv, sections }: { cv: TailoredCV; sections: TailoredCV
           <div className="mb-3 border-l-4 border-[#6A9B5E] pl-3"><h2 className="text-sm font-black uppercase tracking-[0.16em] text-[#6A9B5E]">{section.title}</h2></div>
           <div className="space-y-1.5 text-[11px] leading-relaxed text-gray-600">{section.items.map((item, index) => item.match(/^[•●▪◦]\s*/)
             ? <div key={index} className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#6A9B5E]" /><span>{cleanBullet(item)}</span></div>
-            : <p key={index} className="whitespace-pre-line font-medium text-[#2F4F4F] first:text-sm first:font-black">{item}</p>)}</div>
+            : <p key={index} className={`whitespace-pre-line text-[#2F4F4F] ${isEntryHeadline(section.items, index) ? "text-sm font-black" : "font-medium"}`}>{item}</p>)}</div>
         </section>)}
       </div>
     </div>
@@ -182,6 +199,6 @@ export default function TailoredCVPreview({ cv, design, onDownload }: { cv: Tail
       {onDownload && <button type="button" onClick={onDownload} className="rounded-xl bg-[#6A9B5E] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#6A9B5E]/20 transition hover:bg-[#5a874e] active:scale-95">Tải PDF</button>}
     </div>
     <Renderer cv={cv} sections={sections} />
-    <style>{`@media print { body * { visibility: hidden; } .cv-print, .cv-print * { visibility: visible; } .cv-print { position: absolute; left: 0; top: 0; width: 210mm; min-height: 297mm; max-width: none; border: 0; box-shadow: none; } @page { size: A4; margin: 0; } }`}</style>
+    <style>{`@media print { body * { visibility: hidden; } .cv-print, .cv-print * { visibility: visible; } .cv-print { position: absolute; left: 0; top: 0; width: 210mm; min-height: 297mm; max-width: none; border: 0; box-shadow: none; } .compact_one_page { max-height: 297mm !important; overflow: hidden !important; } @page { size: A4; margin: 0; } }`}</style>
   </div>;
 }

@@ -2,6 +2,7 @@
 
 import { Library, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { CV_DESIGN_LABELS } from "@/lib/cv-designs";
+import { tailoredCVDisplayName } from "@/lib/tailored-cv";
 import type { TailoredCVVersion } from "@/types";
 
 export default function TailoredCVLibrary({ versions, selectedId, onSelect, onDelete, onCreate }: { versions: TailoredCVVersion[]; selectedId: string | null; onSelect: (id: string) => void; onDelete: (id: string) => void; onCreate: () => void }) {
@@ -16,7 +17,7 @@ export default function TailoredCVLibrary({ versions, selectedId, onSelect, onDe
           <button type="button" onClick={() => onSelect(version.id)} className="flex w-full items-center gap-3 text-left">
             <span className={`h-2 w-2 rounded-full ${selectedId === version.id ? "bg-[#6A9B5E]" : "bg-gray-300"}`} />
             <span className="min-w-0 flex-1">
-              <span className={`block truncate text-sm font-black ${selectedId === version.id ? "text-[#6A9B5E]" : "text-[#2F4F4F]"}`}>{version.target_role || "CV đã tối ưu"}</span>
+              <span className={`block truncate text-sm font-black ${selectedId === version.id ? "text-[#6A9B5E]" : "text-[#2F4F4F]"}`}>{tailoredCVDisplayName(version)}</span>
               <span className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-bold text-gray-400">
                 <span className="rounded bg-gray-100 px-1.5 py-0.5 uppercase">{CV_DESIGN_LABELS[version.selected_design]}</span>
                 <span>{version.company_name || new Date(version.created_at).toLocaleDateString("vi-VN")}</span>

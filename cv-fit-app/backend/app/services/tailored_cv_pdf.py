@@ -1,7 +1,20 @@
+import unicodedata
 from html import escape
 
 from app.models.domain import TailoredCV, TailoredCVSection
 from app.schemas.tailored_cv import CVDesign
+
+
+def _section_kind(title: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", title.lower())
+    normalized = "".join(
+        character for character in decomposed if not unicodedata.combining(character)
+    )
+    if "skill" in normalized or "ky nang" in normalized:
+        return "skills"
+    if "education" in normalized or "hoc van" in normalized:
+        return "education"
+    return "main"
 
 
 def _sections(cv: TailoredCV) -> list[TailoredCVSection]:
@@ -30,10 +43,31 @@ def _sections(cv: TailoredCV) -> list[TailoredCVSection]:
 
 
 def _section_html(section: TailoredCVSection) -> str:
-    items = []
+    normalized_items: list[str] = []
     for item in section.items:
+        stripped = item.strip()
+        if (
+            normalized_items
+            and normalized_items[-1][:1] in "•●▪◦"
+            and stripped
+            and stripped[0].islower()
+        ):
+            normalized_items[-1] = f"{normalized_items[-1].rstrip()} {stripped}"
+        else:
+            normalized_items.append(item)
+
+    items = []
+    for index, item in enumerate(normalized_items):
         cleaned = item.lstrip("•●▪◦ ")
-        class_name = "bullet" if item[:1] in "•●▪◦" else "item"
+        is_bullet = item[:1] in "•●▪◦"
+        follows_bullet = index > 0 and normalized_items[index - 1][:1] in "•●▪◦"
+        class_name = (
+            "bullet"
+            if is_bullet
+            else "headline"
+            if index == 0 or follows_bullet
+            else "item"
+        )
         items.append(f'<p class="{class_name}">{escape(cleaned)}</p>')
     return f"<section><h2>{escape(section.title)}</h2>{''.join(items)}</section>"
 
@@ -65,11 +99,10 @@ def render_tailored_cv_html(cv: TailoredCV, design: CVDesign) -> str:
     )
     body = f"{summary}{sections}"
     if design == "modern_professional":
-        sidebar_titles = {"skills", "skill", "education", "học vấn", "kỹ năng"}
         sidebar = [
             section
             for section in cv_sections
-            if section.title.strip().lower() in sidebar_titles
+            if _section_kind(section.title) in {"skills", "education"}
         ]
         main = [section for section in cv_sections if section not in sidebar]
         body = (
@@ -88,6 +121,7 @@ def render_tailored_cv_html(cv: TailoredCV, design: CVDesign) -> str:
       .contacts {{ color: #596565; font-size: 8.5pt; }} section {{ margin-top: 6mm; break-inside: avoid; }}
       h2 {{ margin: 0 0 2.5mm; border-bottom: 1px solid #9ca3af; padding-bottom: 1mm; font-size: 10pt; text-transform: uppercase; letter-spacing: 1.2px; }}
       .item, .bullet {{ margin: 0 0 1.5mm; font-size: 9pt; line-height: 1.45; white-space: pre-wrap; }}
+      .headline {{ margin: 0 0 1.5mm; font-size: 9pt; line-height: 1.45; font-weight: 700; white-space: pre-wrap; }}
       .bullet {{ padding-left: 4mm; }} .bullet::before {{ content: '•'; margin-left: -3mm; margin-right: 2mm; }}
       .classic_ats {{ font-family: Georgia, 'Times New Roman', serif; }}
       .compact_one_page {{ border-top: 1.5mm solid #4A90A4; padding: 10mm 13mm; }}

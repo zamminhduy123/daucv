@@ -60,7 +60,16 @@ export default function AnalyzerPage() {
     if (!analysisResult?.tailored_cv) return;
     setIsSavingTailoredCV(true);
     try {
-      const version = await createTailoredCVVersionAPI({ tailored_cv: analysisResult.tailored_cv, source_cv_text: cvText, suggested_edits: analysisResult.suggested_edits, jd_text: jdText, selected_design: "classic_ats" });
+      const version = await createTailoredCVVersionAPI({
+        tailored_cv: analysisResult.tailored_cv,
+        source_cv_text: cvText,
+        suggested_edits: analysisResult.suggested_edits,
+        jd_text: jdText,
+        target_role: analysisResult.target_role || undefined,
+        company_name: analysisResult.company_name || undefined,
+        selected_design: "classic_ats",
+        tailoring_entitlement: analysisResult.tailoring_entitlement,
+      });
       router.push(`/app/history?preview=${version.id}`);
     } catch (err) {
       toast.error(apiErrorMessage(err));

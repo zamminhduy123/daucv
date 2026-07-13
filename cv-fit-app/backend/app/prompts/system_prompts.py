@@ -80,6 +80,8 @@ def build_cv_analysis_prompt(context_instruction: str) -> str:
         '    * "Missing": Hoàn toàn không tìm thấy bằng chứng nào trong CV.\n'
         '  + comment: Nhận xét ngắn gọn giải thích đánh giá (VD: "Supported by 8M+ MAU metrics", "No leadership evidence found")\n\n'
         "- tailored_cv: CV hoàn chỉnh, sẵn sàng xuất PDF, chỉ dùng thông tin trong CV gốc. Gồm name, headline, contact_lines, summary và sections. sections là mảng {title, items[]}; giữ nguyên ngôn ngữ và tên của mọi phần nhận diện được (kinh nghiệm, dự án, học vấn, kỹ năng, chứng chỉ, ngôn ngữ, giải thưởng, hoạt động). Mỗi Source Section phải xuất hiện đúng một lần và có ít nhất số item như phần tương ứng trong CV gốc; giữ nguyên tên công ty, chức danh, ngày tháng, URL và mọi số liệu có thật. Mỗi item là đoạn/bullet ngắn, viết lại để phù hợp JD khi có thể dùng ngay mà không tạo claim mới. BỎ mọi phần cần metric/fact chưa xác minh; không dùng placeholder, không thêm ảnh.\n\n"
+        "- target_role: Tên vị trí tuyển dụng (job title) trích xuất hoặc suy luận từ Job Description (JD). Ví dụ: 'Software Engineer' hoặc 'Lập trình viên React'. Trả về null nếu không có hoặc không xác định được.\n"
+        "- company_name: Tên công ty tuyển dụng trích xuất hoặc suy luận từ Job Description (JD). Ví dụ: 'Google' hoặc 'Tập đoàn Vingroup'. Trả về null nếu không có hoặc không xác định được.\n\n"
         "Hãy trung thực, mang tính xây dựng và cung cấp kết quả ở định dạng JSON hợp lệ duy nhất."
     )
 

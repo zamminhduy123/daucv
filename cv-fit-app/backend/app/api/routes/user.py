@@ -66,6 +66,7 @@ from app.services.cv_quality_checks import (
     build_scored_analysis,
     build_source_preserving_tailored_cv,
 )
+from app.services.tailored_cv_metadata import issue_tailoring_entitlement
 from app.utils.helpers import extract_text_from_pdf
 
 router = APIRouter(prefix="/api", tags=["user"])
@@ -225,7 +226,11 @@ async def analyze_cv(
             background_tasks=background_tasks,
         )
         parsed.tailored_cv = build_source_preserving_tailored_cv(parsed, extracted_text)
-        return build_scored_analysis(parsed)
+        scored = build_scored_analysis(parsed)
+        scored.tailoring_entitlement = issue_tailoring_entitlement(
+            to_uuid(user["id"]), extracted_text, jd_text
+        )
+        return scored
     except HTTPException:
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise

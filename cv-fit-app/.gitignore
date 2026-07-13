@@ -1,0 +1,6 @@
+# Local agent/tool installations
+.agents/
+skills-lock.json
+
+# Playwright CLI debug captures
+frontend/.playwright-cli/

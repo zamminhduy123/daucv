@@ -11,6 +11,11 @@ from app.schemas.tailored_cv import (
 )
 from app.services import tailored_cv_service
 from app.services.tailored_cv_pdf import generate_tailored_cv_pdf
+from app.services.tailored_cv_service import (
+    TailoredCVEntitlementError,
+    TailoredCVEntitlementUsedError,
+    TailoredCVNotFoundError,
+)
 
 router = APIRouter(prefix="/api/user/tailored-cvs", tags=["tailored-cv"])
 
@@ -39,16 +44,33 @@ async def list_tailored_cvs(
 async def create_tailored_cv_version(
     req: TailoredCVVersionCreate, user: dict = Depends(get_current_user)
 ) -> TailoredCVVersionResponse:
-    return await tailored_cv_service.create_version(_user_id(user), req)
+    try:
+        return await tailored_cv_service.create_version(_user_id(user), req)
+    except TailoredCVEntitlementError:
+        raise HTTPException(
+            status_code=403,
+            detail="Lượt tạo CV không hợp lệ. Vui lòng phân tích CV lại.",
+        )
+    except TailoredCVEntitlementUsedError:
+        raise HTTPException(
+            status_code=409,
+            detail="CV đã tối ưu của lượt phân tích này đã được tạo.",
+        )
 
 
 @router.get("/{version_id}/pdf")
 async def download_tailored_cv_pdf(
     version_id: str, user: dict = Depends(get_current_user)
 ) -> Response:
-    version = await tailored_cv_service.get_version(
-        _version_id(version_id), _user_id(user)
-    )
+    try:
+        version = await tailored_cv_service.get_version(
+            _version_id(version_id), _user_id(user)
+        )
+    except TailoredCVNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy CV đã tối ưu hoặc bạn không có quyền truy cập.",
+        )
     pdf = await generate_tailored_cv_pdf(version.tailored_cv, version.selected_design)
     filename = f"tailored-cv-{version.id}.pdf"
     return Response(
@@ -64,14 +86,28 @@ async def update_tailored_cv_design(
     req: TailoredCVVersionUpdate,
     user: dict = Depends(get_current_user),
 ) -> TailoredCVVersionResponse:
-    return await tailored_cv_service.update_design(
-        _version_id(version_id), _user_id(user), req.selected_design
-    )
+    try:
+        return await tailored_cv_service.update_design(
+            _version_id(version_id), _user_id(user), req.selected_design
+        )
+    except TailoredCVNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy CV đã tối ưu hoặc bạn không có quyền truy cập.",
+        )
 
 
 @router.delete("/{version_id}")
 async def delete_tailored_cv_version(
     version_id: str, user: dict = Depends(get_current_user)
 ) -> dict:
-    await tailored_cv_service.delete_version(_version_id(version_id), _user_id(user))
-    return {"success": True}
+    try:
+        await tailored_cv_service.delete_version(
+            _version_id(version_id), _user_id(user)
+        )
+        return {"success": True}
+    except TailoredCVNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy CV đã tối ưu hoặc bạn không có quyền truy cập.",
+        )

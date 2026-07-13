@@ -40,6 +40,29 @@ def test_analyze_cv_rejects_empty_body(client: TestClient) -> None:
     assert resp.status_code == 422
 
 
+def test_tailored_cv_create_requires_analysis_entitlement(client: TestClient) -> None:
+    resp = client.post(
+        "/api/user/tailored-cvs",
+        json={
+            "tailored_cv": {"name": "Duy", "sections": []},
+            "source_cv_text": "Duy\nduy@example.com",
+            "jd_text": "Backend Engineer",
+        },
+    )
+    assert resp.status_code == 422
+
+
+def test_tailored_cv_routes_validate_version_id(client: TestClient) -> None:
+    patch_response = client.patch(
+        "/api/user/tailored-cvs/not-a-uuid",
+        json={"selected_design": "modern_professional"},
+    )
+    pdf_response = client.get("/api/user/tailored-cvs/not-a-uuid/pdf")
+
+    assert patch_response.status_code == 400
+    assert pdf_response.status_code == 400
+
+
 def test_analyze_cv_rejects_no_cv_text(client: TestClient) -> None:
     resp = client.post("/api/analyze-cv", json={"cv_text": ""})
     assert resp.status_code == 422
@@ -177,3 +200,76 @@ def test_list_feedbacks_route(client: TestClient) -> None:
     resp = client.get("/api/feedbacks")
     assert resp.status_code == 200
     assert isinstance(resp.json(), list)
+
+
+@patch(
+    "app.api.routes.tailored_cv.tailored_cv_service.get_version", new_callable=AsyncMock
+)
+def test_get_tailored_cv_pdf_ownership(mock_get: AsyncMock, client: TestClient) -> None:
+    from app.services.tailored_cv_service import TailoredCVNotFoundError
+
+    mock_get.side_effect = TailoredCVNotFoundError()
+
+    resp = client.get("/api/user/tailored-cvs/12345678-1234-1234-1234-123456789012/pdf")
+    assert resp.status_code == 404
+
+
+@patch("app.api.routes.tailored_cv.generate_tailored_cv_pdf", new_callable=AsyncMock)
+@patch(
+    "app.api.routes.tailored_cv.tailored_cv_service.get_version", new_callable=AsyncMock
+)
+def test_get_tailored_cv_pdf_downloads_pdf(
+    mock_get: AsyncMock, mock_generate: AsyncMock, client: TestClient
+) -> None:
+    from types import SimpleNamespace
+    from uuid import UUID
+
+    from app.models.domain import TailoredCV
+
+    version_id = UUID("12345678-1234-1234-1234-123456789012")
+    mock_get.return_value = SimpleNamespace(
+        id=version_id,
+        tailored_cv=TailoredCV(name="Duy", sections=[]),
+        selected_design="classic_ats",
+    )
+    mock_generate.return_value = b"%PDF-test"
+
+    resp = client.get(f"/api/user/tailored-cvs/{version_id}/pdf")
+
+    assert resp.status_code == 200
+    assert resp.content.startswith(b"%PDF")
+    assert resp.headers["content-type"] == "application/pdf"
+    assert "attachment" in resp.headers["content-disposition"]
+
+
+@patch(
+    "app.api.routes.tailored_cv.tailored_cv_service.update_design",
+    new_callable=AsyncMock,
+)
+def test_update_tailored_cv_design_ownership(
+    mock_update: AsyncMock, client: TestClient
+) -> None:
+    from app.services.tailored_cv_service import TailoredCVNotFoundError
+
+    mock_update.side_effect = TailoredCVNotFoundError()
+
+    resp = client.patch(
+        "/api/user/tailored-cvs/12345678-1234-1234-1234-123456789012",
+        json={"selected_design": "modern_professional"},
+    )
+    assert resp.status_code == 404
+
+
+@patch(
+    "app.api.routes.tailored_cv.tailored_cv_service.delete_version",
+    new_callable=AsyncMock,
+)
+def test_delete_tailored_cv_version_ownership(
+    mock_delete: AsyncMock, client: TestClient
+) -> None:
+    from app.services.tailored_cv_service import TailoredCVNotFoundError
+
+    mock_delete.side_effect = TailoredCVNotFoundError()
+
+    resp = client.delete("/api/user/tailored-cvs/12345678-1234-1234-1234-123456789012")
+    assert resp.status_code == 404
