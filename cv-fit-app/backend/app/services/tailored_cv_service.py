@@ -1,4 +1,5 @@
 import json
+import logging
 from uuid import UUID
 
 from app.core.db import Database
@@ -16,6 +17,17 @@ from app.services.tailored_cv_metadata import (
 )
 
 VERSION_COLUMNS = "id, source_cv_id, target_role, company_name, jd_text, tailored_cv, document_v2, selected_design, document_schema_version, reconstruction_version, source_hash, jd_hash, reconstruction_warnings, created_at, updated_at"
+LEGACY_VERSION_COLUMNS = "id, source_cv_id, target_role, company_name, jd_text, tailored_cv, selected_design, created_at, updated_at"
+PHASE_ONE_VERSION_COLUMNS = (
+    "document_v2",
+    "document_schema_version",
+    "reconstruction_version",
+    "source_hash",
+    "jd_hash",
+    "reconstruction_warnings",
+)
+
+logger = logging.getLogger(__name__)
 
 
 class TailoredCVNotFoundError(Exception):
@@ -28,6 +40,42 @@ class TailoredCVEntitlementError(Exception):
 
 class TailoredCVEntitlementUsedError(Exception):
     pass
+
+
+def _phase_one_columns_missing(exc: Exception) -> bool:
+    """Allow the export feature to run while migration 003 is rolling out."""
+    message = str(exc).lower()
+    return getattr(exc, "sqlstate", None) == "42703" and any(
+        column in message for column in PHASE_ONE_VERSION_COLUMNS
+    )
+
+
+async def _fetch_version_row(
+    query: str, legacy_query: str, *args: object
+) -> dict | None:
+    try:
+        return await Database.fetch_one(query, *args)
+    except Exception as exc:
+        if not _phase_one_columns_missing(exc):
+            raise
+        logger.warning(
+            "CV document V2 columns are unavailable; using temporary V1 compatibility path"
+        )
+        return await Database.fetch_one(legacy_query, *args)
+
+
+async def _fetch_version_rows(
+    query: str, legacy_query: str, *args: object
+) -> list[dict]:
+    try:
+        return await Database.fetch_all(query, *args)
+    except Exception as exc:
+        if not _phase_one_columns_missing(exc):
+            raise
+        logger.warning(
+            "CV document V2 columns are unavailable; using temporary V1 compatibility path"
+        )
+        return await Database.fetch_all(legacy_query, *args)
 
 
 def _tailored_version(row: dict) -> TailoredCVVersionResponse:
@@ -87,31 +135,50 @@ async def create_version(
         document_v2_json = json.dumps(request.document_v2.model_dump())
         schema_version = 2
 
+    legacy_args = (
+        user_id,
+        source["id"] if source else None,
+        request.target_role or inferred_role,
+        request.company_name or inferred_company,
+        request.jd_text,
+        json.dumps(complete_cv.model_dump()),
+        request.selected_design,
+        analysis_key,
+    )
     try:
-        row = await Database.fetch_one(
-            f"""INSERT INTO public.tailored_cv_versions (
-                   user_id, source_cv_id, target_role, company_name, jd_text,
-                   tailored_cv, selected_design, analysis_key,
-                   document_v2, document_schema_version, reconstruction_version,
-                   source_hash, jd_hash, reconstruction_warnings
-               )
-               VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9::jsonb, $10, $11, $12, $13, $14)
-               RETURNING {VERSION_COLUMNS}""",
-            user_id,
-            source["id"] if source else None,
-            request.target_role or inferred_role,
-            request.company_name or inferred_company,
-            request.jd_text,
-            json.dumps(complete_cv.model_dump()),
-            request.selected_design,
-            analysis_key,
-            document_v2_json,
-            schema_version,
-            reconstruction_version,
-            source_hash,
-            jd_hash,
-            reconstruction_warnings,
-        )
+        try:
+            row = await Database.fetch_one(
+                f"""INSERT INTO public.tailored_cv_versions (
+                       user_id, source_cv_id, target_role, company_name, jd_text,
+                       tailored_cv, selected_design, analysis_key,
+                       document_v2, document_schema_version, reconstruction_version,
+                       source_hash, jd_hash, reconstruction_warnings
+                   )
+                   VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9::jsonb, $10, $11, $12, $13, $14)
+                   RETURNING {VERSION_COLUMNS}""",
+                *legacy_args,
+                document_v2_json,
+                schema_version,
+                reconstruction_version,
+                source_hash,
+                jd_hash,
+                reconstruction_warnings,
+            )
+        except Exception as exc:
+            if not _phase_one_columns_missing(exc):
+                raise
+            logger.warning(
+                "CV document V2 columns are unavailable; saving through temporary V1 compatibility path"
+            )
+            row = await Database.fetch_one(
+                f"""INSERT INTO public.tailored_cv_versions (
+                       user_id, source_cv_id, target_role, company_name, jd_text,
+                       tailored_cv, selected_design, analysis_key
+                   )
+                   VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8)
+                   RETURNING {LEGACY_VERSION_COLUMNS}""",
+                *legacy_args,
+            )
     except Exception as exc:
         if getattr(exc, "sqlstate", None) == "23505":
             raise TailoredCVEntitlementUsedError from exc
@@ -120,16 +187,18 @@ async def create_version(
 
 
 async def list_versions(user_id: UUID) -> list[TailoredCVVersionResponse]:
-    rows = await Database.fetch_all(
+    rows = await _fetch_version_rows(
         f"SELECT {VERSION_COLUMNS} FROM public.tailored_cv_versions WHERE user_id = $1 ORDER BY created_at DESC",
+        f"SELECT {LEGACY_VERSION_COLUMNS} FROM public.tailored_cv_versions WHERE user_id = $1 ORDER BY created_at DESC",
         user_id,
     )
     return [_tailored_version(row) for row in rows]
 
 
 async def get_version(version_id: UUID, user_id: UUID) -> TailoredCVVersionResponse:
-    row = await Database.fetch_one(
+    row = await _fetch_version_row(
         f"SELECT {VERSION_COLUMNS} FROM public.tailored_cv_versions WHERE id = $1 AND user_id = $2",
+        f"SELECT {LEGACY_VERSION_COLUMNS} FROM public.tailored_cv_versions WHERE id = $1 AND user_id = $2",
         version_id,
         user_id,
     )
@@ -141,10 +210,13 @@ async def get_version(version_id: UUID, user_id: UUID) -> TailoredCVVersionRespo
 async def update_design(
     version_id: UUID, user_id: UUID, selected_design: CVDesign
 ) -> TailoredCVVersionResponse:
-    row = await Database.fetch_one(
+    row = await _fetch_version_row(
         f"""UPDATE public.tailored_cv_versions SET selected_design = $1, updated_at = now()
            WHERE id = $2 AND user_id = $3
            RETURNING {VERSION_COLUMNS}""",
+        f"""UPDATE public.tailored_cv_versions SET selected_design = $1, updated_at = now()
+           WHERE id = $2 AND user_id = $3
+           RETURNING {LEGACY_VERSION_COLUMNS}""",
         selected_design,
         version_id,
         user_id,
