@@ -283,6 +283,11 @@ def test_tailored_cv_skill_items_are_language_neutral() -> None:
                             "Google Cloud Platform",
                             "Machine Learning",
                             "Project Management",
+                            "React Native",
+                            "Natural Language Processing",
+                            "Data Analysis",
+                            "Microsoft Office",
+                            "UI UX Design",
                         ],
                     )
                 ],

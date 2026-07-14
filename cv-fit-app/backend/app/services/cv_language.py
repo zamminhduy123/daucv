@@ -57,6 +57,7 @@ _VIETNAMESE_MARKERS = {
 
 _ENGLISH_MARKERS = {
     "achievements",
+    "applicant",
     "built",
     "backend",
     "collaborated",
@@ -76,6 +77,7 @@ _ENGLISH_MARKERS = {
     "clearer",
     "missing",
     "profile",
+    "proven",
     "professional",
     "projects",
     "readable",
@@ -97,6 +99,8 @@ _ENGLISH_MARKERS = {
     "role",
     "section",
     "strong",
+    "leader",
+    "outstanding",
     "the",
     "this",
     "uses",
@@ -114,6 +118,8 @@ _TECHNICAL_SKILL_TERMS = {
     "cloud",
     "c",
     "csharp",
+    "data",
+    "design",
     "docker",
     "dotnet",
     "fastapi",
@@ -121,15 +127,25 @@ _TECHNICAL_SKILL_TERMS = {
     "kubernetes",
     "learning",
     "leadership",
+    "language",
     "machine",
     "management",
     "nodejs",
+    "natural",
+    "native",
+    "office",
     "platform",
     "project",
+    "processing",
     "python",
+    "react",
     "services",
     "sql",
     "teamwork",
+    "ui",
+    "ux",
+    "analysis",
+    "microsoft",
     "web",
 }
 
@@ -275,7 +291,27 @@ def _tailored_cv_skill_fields(cv: TailoredCV) -> list[str]:
 
 def _is_language_neutral_technical_skill(text: str) -> bool:
     tokens = set(_normalized_text(text).split())
-    return bool(tokens) and tokens <= _TECHNICAL_SKILL_TERMS
+    if bool(tokens) and tokens <= _TECHNICAL_SKILL_TERMS:
+        return True
+    original_words = re.findall(r"[A-Za-z]+", text)
+    return 1 < len(original_words) <= 5 and all(
+        word[0].isupper() for word in original_words
+    )
+
+
+def _skill_conflicts_with_language(text: str, expected_language: CVLanguage) -> bool:
+    tokens = set(_normalized_text(text).split())
+    if bool(tokens) and tokens <= _TECHNICAL_SKILL_TERMS:
+        return False
+    if _group_conflicts_with_language(
+        text,
+        expected_language,
+        require_expected_evidence=False,
+    ):
+        return True
+    if _is_language_neutral_technical_skill(text):
+        return False
+    return _group_conflicts_with_language(text, expected_language)
 
 
 def _group_conflicts_with_language(
@@ -319,8 +355,7 @@ def ensure_analysis_response_language(
         for field in [*generated_fields, *tailored_prose_fields, tailored_text]
     )
     skill_mismatch = any(
-        not _is_language_neutral_technical_skill(field)
-        and _group_conflicts_with_language(field, expected_language)
+        _skill_conflicts_with_language(field, expected_language)
         for field in tailored_skill_fields
     )
     if prose_mismatch or skill_mismatch:
