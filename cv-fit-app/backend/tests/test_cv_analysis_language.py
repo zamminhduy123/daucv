@@ -174,7 +174,16 @@ def test_analysis_response_in_wrong_language_is_rejected() -> None:
 
 @pytest.mark.parametrize(
     "wrong_value",
-    ["Strong fit", "Good fit", "Missing", "Excellent candidate"],
+    [
+        "Strong fit",
+        "Good fit",
+        "Missing",
+        "Excellent candidate",
+        "Outstanding applicant",
+        "Highly qualified",
+        "Proven communicator",
+        "Clear impact",
+    ],
 )
 def test_short_english_analysis_fields_are_rejected_for_vietnamese_cv(
     wrong_value: str,
@@ -185,6 +194,37 @@ def test_short_english_analysis_fields_are_rejected_for_vietnamese_cv(
 
     with pytest.raises(AnalysisLanguageMismatchError):
         ensure_analysis_response_language(response, expected_language="vi")
+
+
+def test_unrecognized_english_prose_is_rejected_in_each_analysis_field() -> None:
+    response = _vietnamese_analysis_response().model_copy(
+        update={
+            "cv_strengths": ["Outstanding applicant"],
+            "evidence_analysis": [
+                EvidenceAnalysis(
+                    claim="Clear impact",
+                    evidence_strength="Medium",
+                    comment="Proven communicator.",
+                )
+            ],
+        }
+    )
+
+    with pytest.raises(AnalysisLanguageMismatchError):
+        ensure_analysis_response_language(response, expected_language="vi")
+
+
+def test_language_neutral_keywords_remain_valid_for_vietnamese_analysis() -> None:
+    response = _vietnamese_analysis_response().model_copy(
+        update={
+            "missing_keywords": ["Amazon Web Services"],
+            "prioritized_keywords": [
+                PrioritizedKeyword(keyword="Google Cloud Platform", priority="High")
+            ],
+        }
+    )
+
+    ensure_analysis_response_language(response, expected_language="vi")
 
 
 def test_short_vietnamese_analysis_field_is_rejected_for_english_cv() -> None:

@@ -172,8 +172,6 @@ def _generated_analysis_fields(response: CVAnalysisLLMResponse) -> list[str]:
         response.match_headline,
         response.match_summary,
         *response.cv_strengths,
-        *response.missing_keywords,
-        *(item.keyword for item in response.prioritized_keywords),
     ]
     for edit in response.suggested_edits:
         values.extend(
@@ -191,12 +189,36 @@ def _generated_analysis_fields(response: CVAnalysisLLMResponse) -> list[str]:
     return [value for value in values if value.strip()]
 
 
+def _tailored_cv_prose_fields(cv: TailoredCV) -> list[str]:
+    """Return generated narrative fields, excluding language-neutral identity data."""
+    values = [
+        cv.summary,
+        *(section.title for section in cv.sections),
+        *(item for section in cv.sections for item in section.items),
+        *(
+            bullet
+            for experience in cv.experience
+            for bullet in experience.bullet_points
+        ),
+    ]
+    return [value for value in values if value.strip()]
+
+
 def _group_conflicts_with_language(text: str, expected_language: CVLanguage) -> bool:
     if not text.strip():
         return False
     vietnamese_score, english_score = _language_scores(text)
     if expected_language == "vi":
-        return english_score > vietnamese_score
+        if english_score > vietnamese_score:
+            return True
+
+        # Vietnamese output should contain Vietnamese evidence in every prose
+        # field. This closes the ambiguous-score gap where ordinary English
+        # phrases (for example, "Highly qualified") contain no marker from
+        # either language. Single-token technical terms are validated as
+        # keywords elsewhere and are intentionally language-neutral.
+        word_count = len(_normalized_text(text).split())
+        return word_count >= 2 and vietnamese_score == 0
     return vietnamese_score > english_score
 
 
@@ -208,9 +230,10 @@ def ensure_analysis_response_language(
     """Reject a response whose analysis prose is predominantly in another language."""
     generated_fields = _generated_analysis_fields(response)
     tailored_text = _tailored_cv_text(response.tailored_cv)
+    tailored_prose_fields = _tailored_cv_prose_fields(response.tailored_cv)
     if any(
         _group_conflicts_with_language(field, expected_language)
-        for field in [*generated_fields, tailored_text]
+        for field in [*generated_fields, *tailored_prose_fields, tailored_text]
     ):
         expected_name = "Vietnamese" if expected_language == "vi" else "English"
         raise AnalysisLanguageMismatchError(
