@@ -294,7 +294,11 @@ def test_tailored_cv_skill_items_are_language_neutral() -> None:
 
 @pytest.mark.parametrize(
     "wrong_skill",
-    ["Highly qualified communicator", "This candidate is highly qualified"],
+    [
+        "Highly qualified communicator",
+        "This candidate is highly qualified",
+        "This candidate has strong cloud experience",
+    ],
 )
 def test_tailored_cv_skills_section_rejects_wrong_language_narrative(
     wrong_skill: str,

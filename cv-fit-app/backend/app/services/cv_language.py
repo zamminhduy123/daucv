@@ -106,17 +106,22 @@ _ENGLISH_MARKERS = {
 }
 
 _TECHNICAL_SKILL_TERMS = {
+    "and",
     "amazon",
     "api",
     "aws",
     "azure",
     "cloud",
+    "c",
+    "csharp",
     "docker",
+    "dotnet",
     "fastapi",
     "google",
     "kubernetes",
     "learning",
     "machine",
+    "nodejs",
     "platform",
     "python",
     "services",
@@ -266,9 +271,7 @@ def _tailored_cv_skill_fields(cv: TailoredCV) -> list[str]:
 
 def _is_language_neutral_technical_skill(text: str) -> bool:
     tokens = set(_normalized_text(text).split())
-    return bool(tokens & _TECHNICAL_SKILL_TERMS) or bool(
-        re.search(r"[+#/.]|\b\w*\d\w*\b", text)
-    )
+    return bool(tokens) and tokens <= _TECHNICAL_SKILL_TERMS
 
 
 def _group_conflicts_with_language(
