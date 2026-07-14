@@ -134,6 +134,12 @@ Python, FastAPI
 """
 
     assert detect_cv_language(cv_text) == "en"
+
+
+def test_vietnamese_prose_does_not_require_a_known_heading_marker() -> None:
+    cv_text = "TÓM TẮT\nLập trình viên có năm năm làm sản phẩm số."
+
+    assert detect_cv_language(cv_text) == "vi"
     assert (
         detect_cv_language(
             "WORK EXPERIENCE\nDeveloped backend systems and collaborated with customers."
@@ -164,6 +170,30 @@ def test_analysis_response_in_wrong_language_is_rejected() -> None:
         ensure_analysis_response_language(response, expected_language="vi")
 
     ensure_analysis_response_language(response, expected_language="en")
+
+
+@pytest.mark.parametrize(
+    "wrong_value",
+    ["Strong fit", "Good fit", "Missing", "Excellent candidate"],
+)
+def test_short_english_analysis_fields_are_rejected_for_vietnamese_cv(
+    wrong_value: str,
+) -> None:
+    response = _vietnamese_analysis_response().model_copy(
+        update={"match_headline": wrong_value}
+    )
+
+    with pytest.raises(AnalysisLanguageMismatchError):
+        ensure_analysis_response_language(response, expected_language="vi")
+
+
+def test_short_vietnamese_analysis_field_is_rejected_for_english_cv() -> None:
+    response = _analysis_response(
+        summary="The profile is relevant but still has a few important gaps."
+    ).model_copy(update={"match_headline": "Phù hợp tốt"})
+
+    with pytest.raises(AnalysisLanguageMismatchError):
+        ensure_analysis_response_language(response, expected_language="en")
 
 
 def test_tailored_cv_candidate_in_wrong_language_is_rejected_independently() -> None:
