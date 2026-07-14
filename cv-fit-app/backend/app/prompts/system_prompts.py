@@ -5,6 +5,7 @@ Each function builds a complete system prompt string. Keeping prompts here
 makes them easy to version, A/B test, and review in code review.
 """
 
+from typing import Literal
 
 # ---------------------------------------------------------------------------
 # CV Upload & Match
@@ -34,10 +35,34 @@ def build_upload_and_match_prompt() -> str:
 # ---------------------------------------------------------------------------
 
 
-def build_cv_analysis_prompt(context_instruction: str) -> str:
+def build_cv_analysis_prompt(
+    context_instruction: str,
+    source_language: Literal["vi", "en"] | None = None,
+) -> str:
+    if source_language == "en":
+        language_instruction = (
+            "DETECTED SOURCE CV LANGUAGE: ENGLISH.\n"
+            "Every user-facing text field must be written in English, including "
+            "headlines, summaries, strengths, keyword explanations, evidence comments, "
+            "suggested edits, reasons, questions, and Tailored CV content."
+        )
+    elif source_language == "vi":
+        language_instruction = (
+            "NGÔN NGỮ CV NGUỒN ĐÃ XÁC ĐỊNH: TIẾNG VIỆT.\n"
+            "Mọi trường văn bản hiển thị cho người dùng phải viết bằng tiếng Việt, "
+            "bao gồm tiêu đề, tóm tắt, điểm mạnh, giải thích từ khóa, nhận xét bằng chứng, "
+            "đề xuất chỉnh sửa, lý do, câu hỏi và nội dung CV đã tối ưu."
+        )
+    else:
+        language_instruction = (
+            "Tự xác định ngôn ngữ chính của CV và dùng chính ngôn ngữ đó cho mọi "
+            "trường văn bản hiển thị cho người dùng."
+        )
+
     return (
         "Bạn là một Senior Tech Recruiter đóng vai trò chuyên gia review CV. Bạn thẳng thắn, trực tiếp và luôn mang tính xây dựng.\n\n"
         f"{context_instruction}\n\n"
+        f"{language_instruction}\n\n"
         "QUY TẮC BẮT BUỘC VỀ NGÔN NGỮ:\n"
         "- BƯỚC 1: Xác định ngôn ngữ chính của CV ứng viên (Tiếng Anh hoặc Tiếng Việt).\n"
         "- BƯỚC 2: TẤT CẢ các mảng văn bản trả về PHẢI viết bằng CHÍNH ngôn ngữ của CV đó.\n"

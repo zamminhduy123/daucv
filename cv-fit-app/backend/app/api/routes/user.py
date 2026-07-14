@@ -34,19 +34,15 @@ from app.models.requests import (
 )
 from app.models.responses import (
     CandidateProfileResponse,
-    CVAnalysisLLMResponse,
     CVAnalysisResponse,
     FinalInterviewReport,
     InterviewTurnResponse,
     WriterResponse,
 )
 from app.prompts.system_prompts import (
-    CV_ANALYSIS_CONTEXT_WITH_JD,
-    CV_ANALYSIS_CONTEXT_WITHOUT_JD,
     INTERVIEW_FIRST_TURN_ADDENDUM,
     PERSONA_INSTRUCTIONS,
     ROUND_LABELS,
-    build_cv_analysis_prompt,
     build_interview_chat_prompt,
     build_interview_finish_prompt,
     build_job_parser_prompt,
@@ -60,12 +56,8 @@ from app.schemas.user import (
     UpdateCVRequest,
     UserProfileResponse,
 )
-from app.services import user_cv_service
+from app.services import cv_analysis_service, user_cv_service
 from app.services.ai_service import call_llm_with_fallback
-from app.services.cv_quality_checks import (
-    build_scored_analysis,
-    build_source_preserving_tailored_cv,
-)
 from app.services.tailored_cv_metadata import issue_tailoring_entitlement
 from app.utils.helpers import extract_text_from_pdf
 
@@ -188,7 +180,7 @@ async def analyze_cv(
     Return a structured analysis.
     """
     extracted_text = req.cv_text.strip()
-    jd_text = req.jd_text
+    jd_text = req.jd_text or ""
 
     if not extracted_text:
         raise HTTPException(
@@ -196,16 +188,6 @@ async def analyze_cv(
             detail="Cần cung cấp nội dung CV.",
         )
 
-    if jd_text.strip():
-        context_instruction = CV_ANALYSIS_CONTEXT_WITH_JD
-        user_content = (
-            f"CV của ứng viên:\n{extracted_text}\n\nMô tả Công việc (JD):\n{jd_text}"
-        )
-    else:
-        context_instruction = CV_ANALYSIS_CONTEXT_WITHOUT_JD
-        user_content = f"CV của ứng viên:\n{extracted_text}"
-
-    system_prompt = build_cv_analysis_prompt(context_instruction)
     tx_type = "cv_analysis"
     refund_description = "Hoàn credit do lỗi khi phân tích CV"
 
@@ -217,16 +199,11 @@ async def analyze_cv(
     )
 
     try:
-        parsed = await call_llm_with_fallback(
-            system_prompt,
-            user_content,
-            CVAnalysisLLMResponse,
-            feature_name="cv_analyzer",
-            prompt_version="1.0.0",
+        scored = await cv_analysis_service.analyze_cv(
+            cv_text=extracted_text,
+            jd_text=jd_text,
             background_tasks=background_tasks,
         )
-        parsed.tailored_cv = build_source_preserving_tailored_cv(parsed, extracted_text)
-        scored = build_scored_analysis(parsed)
         scored.tailoring_entitlement = issue_tailoring_entitlement(
             to_uuid(user["id"]), extracted_text, jd_text
         )

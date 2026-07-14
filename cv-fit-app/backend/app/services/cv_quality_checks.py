@@ -8,6 +8,7 @@ and fabricated impact metrics before the response reaches the frontend.
 
 import re
 import unicodedata
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -358,7 +359,10 @@ def check_score_consistency(response: CVAnalysisResponse) -> list[str]:
     return warnings
 
 
-def build_scored_analysis(response: CVAnalysisLLMResponse) -> CVAnalysisResponse:
+def build_scored_analysis(
+    response: CVAnalysisLLMResponse,
+    source_language: Literal["vi", "en"] = "vi",
+) -> CVAnalysisResponse:
     """
     Calculate scores from sub-scores and deterministic penalties.
 
@@ -418,6 +422,7 @@ def build_scored_analysis(response: CVAnalysisLLMResponse) -> CVAnalysisResponse
         role_fit_score=raw_score,
         match_score=match_score,
         total_penalty=total_penalty,
+        source_language=source_language,
     )
     response_data = response.model_dump()
     response_data.update(
@@ -436,9 +441,39 @@ def _build_deterministic_match_copy(
     role_fit_score: int,
     match_score: int,
     total_penalty: int,
+    source_language: Literal["vi", "en"],
 ) -> tuple[str, str]:
     """Build headline + summary explaining Role Fit and CV Match scores."""
-    penalty_reason = _summarize_penalty_reason(response)
+    penalty_reason = _summarize_penalty_reason(response, source_language)
+
+    if source_language == "en":
+        if match_score >= 85:
+            headline = (
+                "Strong fit — the CV closely matches the JD and is ready to apply."
+            )
+        elif match_score >= 70:
+            headline = "Good fit — the CV has a strong foundation but still needs optimization."
+        elif match_score >= 55:
+            headline = "Promising fit — the CV needs more optimization for this JD."
+        elif match_score >= 40:
+            headline = "Weak fit — improve the CV substantially before applying."
+        else:
+            headline = "Poor fit — the CV is missing several important requirements."
+
+        if role_fit_score - match_score >= 10:
+            summary = (
+                f"Role Fit is {role_fit_score}%, indicating a solid candidate foundation. "
+                f"CV Match is only {match_score}% after a {total_penalty}-point deduction "
+                f"because {penalty_reason}. {response.match_summary}"
+            )
+        elif total_penalty >= 3:
+            summary = (
+                f"CV Match: {match_score}%. Deducted {total_penalty} points because "
+                f"{penalty_reason}. {response.match_summary}"
+            )
+        else:
+            summary = response.match_summary
+        return headline, summary
 
     # Headlines based on CV Match (the penalized score — what HR/ATS screens see)
     if match_score >= 85:
@@ -472,7 +507,10 @@ def _build_deterministic_match_copy(
     return headline, summary
 
 
-def _summarize_penalty_reason(response: CVAnalysisLLMResponse) -> str:
+def _summarize_penalty_reason(
+    response: CVAnalysisLLMResponse,
+    source_language: Literal["vi", "en"] = "vi",
+) -> str:
     critical_count = sum(
         1 for item in response.prioritized_keywords if item.priority == "Critical"
     )
@@ -486,6 +524,17 @@ def _summarize_penalty_reason(response: CVAnalysisLLMResponse) -> str:
     )
 
     reasons: list[str] = []
+    if source_language == "en":
+        if critical_count:
+            reasons.append(f"{critical_count} Critical requirement(s) are missing")
+        if high_count:
+            reasons.append(f"{high_count} High-priority requirement(s) are missing")
+        if unsupported_count:
+            reasons.append(
+                f"{unsupported_count} suggestion(s) require candidate confirmation"
+            )
+        return ", ".join(reasons) if reasons else "the CV evidence is not clear enough"
+
     if critical_count:
         reasons.append(f"{critical_count} yêu cầu Critical còn thiếu")
     if high_count:

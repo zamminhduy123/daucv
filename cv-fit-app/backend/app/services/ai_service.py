@@ -9,6 +9,7 @@ Pydantic model.
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -31,6 +32,7 @@ async def call_llm_with_fallback(
     prompt_version: str = "1.0.0",
     background_tasks: BackgroundTasks | None = None,
     max_retries: int = 1,
+    result_validator: Callable[[Any], None] | None = None,
 ):
     """
     Tries multiple providers in a waterfall logic.
@@ -76,6 +78,8 @@ async def call_llm_with_fallback(
                 input_tokens = result.input_tokens
                 output_tokens = result.output_tokens
                 json_valid = True  # If it didn't raise ValidationError, it's valid
+                if result_validator is not None:
+                    result_validator(result.data)
 
                 # --- Log success --------------------------------------------
                 latency_ms = int((time.perf_counter() - start_time) * 1000)
@@ -136,7 +140,6 @@ async def call_llm_with_fallback(
                     sanitize(last_error),
                 )
                 await asyncio.sleep(1)  # wait before retry
-
 
     raise HTTPException(
         status_code=503,
