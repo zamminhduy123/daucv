@@ -5,7 +5,7 @@ Each function builds a complete system prompt string. Keeping prompts here
 makes them easy to version, A/B test, and review in code review.
 """
 
-from typing import Literal
+from app.services.cv_language import CVLanguage
 
 # ---------------------------------------------------------------------------
 # CV Upload & Match
@@ -37,7 +37,7 @@ def build_upload_and_match_prompt() -> str:
 
 def build_cv_analysis_prompt(
     context_instruction: str,
-    source_language: Literal["vi", "en"] | None = None,
+    source_language: CVLanguage | None = None,
 ) -> str:
     if source_language == "en":
         language_instruction = (

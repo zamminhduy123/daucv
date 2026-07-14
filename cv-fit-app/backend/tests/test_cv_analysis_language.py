@@ -8,6 +8,7 @@ from app.models.domain import (
     PrioritizedKeyword,
     SuggestedEdit,
     TailoredCV,
+    TailoredCVSection,
 )
 from app.models.responses import CVAnalysisLLMResponse
 from app.prompts.system_prompts import build_cv_analysis_prompt
@@ -115,6 +116,22 @@ def test_source_language_detection_handles_vietnamese_english_and_unaccented_cv(
         )
         == "vi"
     )
+
+
+def test_english_cv_with_vietnamese_identity_is_classified_by_body_language() -> None:
+    cv_text = """NGUYỄN THỊ HỒNG HẠNH
+Hồ Chí Minh, Việt Nam
+PROFESSIONAL SUMMARY
+Software engineer.
+WORK EXPERIENCE
+Built APIs.
+EDUCATION
+Computer Science
+SKILLS
+Python, FastAPI
+"""
+
+    assert detect_cv_language(cv_text) == "en"
     assert (
         detect_cv_language(
             "WORK EXPERIENCE\nDeveloped backend systems and collaborated with customers."
@@ -145,6 +162,27 @@ def test_analysis_response_in_wrong_language_is_rejected() -> None:
         ensure_analysis_response_language(response, expected_language="vi")
 
     ensure_analysis_response_language(response, expected_language="en")
+
+
+def test_tailored_cv_candidate_in_wrong_language_is_rejected_independently() -> None:
+    response = _vietnamese_analysis_response().model_copy(
+        update={
+            "tailored_cv": TailoredCV(
+                name="Nguyễn Văn An",
+                headline="Backend Engineer",
+                summary="Experienced engineer building reliable customer systems.",
+                sections=[
+                    TailoredCVSection(
+                        title="Work Experience",
+                        items=["Developed backend services for customer workflows."],
+                    )
+                ],
+            )
+        }
+    )
+
+    with pytest.raises(AnalysisLanguageMismatchError):
+        ensure_analysis_response_language(response, expected_language="vi")
 
 
 def test_llm_call_retries_when_response_language_validation_fails(
@@ -224,6 +262,7 @@ def test_analyze_cv_uses_source_language_for_prompt_validation_and_scoring(
     assert "DETECTED SOURCE CV LANGUAGE: ENGLISH" in captured["prompt"]
     assert captured["max_retries"] == 2
     assert response.match_headline.startswith("Good fit")
+    assert response.source_language == "en"
 
 
 def test_analyze_cv_keeps_vietnamese_source_analysis_in_vietnamese(

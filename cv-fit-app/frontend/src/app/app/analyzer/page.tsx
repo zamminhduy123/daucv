@@ -107,7 +107,10 @@ export default function AnalyzerPage() {
         <div className="flex flex-col pb-12">
           <MatchDashboard result={analysisResult} />
           <div id="diff-viewer">
-            <DiffViewer edits={analysisResult.suggested_edits} />
+            <DiffViewer
+              edits={analysisResult.suggested_edits}
+              language={analysisResult.source_language ?? "vi"}
+            />
           </div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}

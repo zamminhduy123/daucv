@@ -33,7 +33,7 @@ async def call_llm_with_fallback(
     background_tasks: BackgroundTasks | None = None,
     max_retries: int = 1,
     result_validator: Callable[[Any], None] | None = None,
-):
+) -> Any:
     """
     Tries multiple providers in a waterfall logic.
     If a provider fails, switches to the next one.

@@ -184,6 +184,7 @@ class CVAnalysisLLMResponse(BaseModel):
 
 
 class CVAnalysisResponse(CVAnalysisLLMResponse):
+    source_language: Literal["vi", "en"] = "vi"
     tailoring_entitlement: str = ""
     role_fit_score: int = Field(
         ge=0, le=100

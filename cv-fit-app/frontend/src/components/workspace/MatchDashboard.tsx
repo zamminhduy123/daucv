@@ -22,47 +22,93 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 const SUB_SCORES = [
   {
     key: "technical_match" as const,
-    label: "Kỹ năng chuyên môn",
+    label: { vi: "Kỹ năng chuyên môn", en: "Technical skills" },
     icon: Code2,
     iconBg: "bg-green-50",
     iconColor: "text-green-600",
   },
   {
     key: "experience_relevance" as const,
-    label: "Kinh nghiệm liên quan",
+    label: { vi: "Kinh nghiệm liên quan", en: "Relevant experience" },
     icon: Briefcase,
     iconBg: "bg-blue-50",
     iconColor: "text-blue-600",
   },
   {
     key: "keyword_coverage" as const,
-    label: "Độ phủ từ khóa",
+    label: { vi: "Độ phủ từ khóa", en: "Keyword coverage" },
     icon: Tags,
     iconBg: "bg-yellow-50",
     iconColor: "text-yellow-600",
   },
   {
     key: "impact_evidence" as const,
-    label: "Định lượng kết quả",
+    label: { vi: "Định lượng kết quả", en: "Impact evidence" },
     icon: BarChart2,
     iconBg: "bg-orange-50",
     iconColor: "text-orange-600",
   },
   {
     key: "tone_quality" as const,
-    label: "Giọng văn (tone)",
+    label: { vi: "Giọng văn", en: "Tone quality" },
     icon: Pen,
     iconBg: "bg-purple-50",
     iconColor: "text-purple-600",
   },
   {
     key: "ats_readiness" as const,
-    label: "ATS score",
+    label: { vi: "Điểm ATS", en: "ATS readiness" },
     icon: ShieldCheck,
     iconBg: "bg-teal-50",
     iconColor: "text-teal-600",
   },
 ] as const;
+
+type AnalysisLanguage = CVAnalysisResponse["source_language"];
+
+const ANALYSIS_COPY = {
+  vi: {
+    title: "Kết quả phân tích",
+    generalSubtitle: "Đánh giá chất lượng CV của bạn",
+    jdSubtitle: "Dựa trên JD và nội dung CV của bạn",
+    overallAssessment: "Đánh giá chung",
+    keywordAssessment: "Đánh giá từ khóa",
+    penaltyTitle: "Vì sao điểm CV Match thấp hơn?",
+    penaltyText: (roleFit: number, gap: number) => (
+      <>Role Fit của bạn là <span className="font-bold">{roleFit}%</span>, nhưng điểm cuối bị trừ{" "}<span className="font-bold">{gap}</span> điểm vì CV còn thiếu hoặc chưa xác nhận một số tín hiệu ưu tiên trong JD.</>
+    ),
+    strengths: "Điểm sáng của CV",
+    keywords: "Từ khóa cần bổ sung",
+    keywordWarning: "Chỉ thêm những từ khóa này nếu bạn thực sự có kinh nghiệm liên quan.",
+    evidence: "Phân tích Bằng chứng Năng lực",
+    claim: "Năng lực / Claim",
+    clarity: "Độ rõ ràng",
+    comment: "Nhận xét",
+  },
+  en: {
+    title: "Analysis Results",
+    generalSubtitle: "An assessment of your CV quality",
+    jdSubtitle: "Based on your CV and the job description",
+    overallAssessment: "Overall assessment",
+    keywordAssessment: "Keyword assessment",
+    penaltyTitle: "Why is CV Match lower?",
+    penaltyText: (roleFit: number, gap: number) => (
+      <>Your Role Fit is <span className="font-bold">{roleFit}%</span>, but the final score is reduced by{" "}<span className="font-bold">{gap}</span> points because the CV is missing or has not confirmed some priority signals from the JD.</>
+    ),
+    strengths: "CV Strengths",
+    keywords: "Keywords to Add",
+    keywordWarning: "Add these keywords only if you genuinely have relevant experience.",
+    evidence: "Capability Evidence Analysis",
+    claim: "Capability / Claim",
+    clarity: "Evidence strength",
+    comment: "Comment",
+  },
+} as const;
+
+const PRIORITY_LABELS: Record<AnalysisLanguage, Record<PrioritizedKeyword["priority"], string>> = {
+  vi: { Critical: "Rất quan trọng", High: "Cao", Medium: "Trung bình", Low: "Thấp" },
+  en: { Critical: "Critical", High: "High", Medium: "Medium", Low: "Low" },
+};
 
 const PRIORITY_BADGE_STYLE: Record<PrioritizedKeyword["priority"], string> = {
   Critical: "bg-red-100 text-red-700",
@@ -77,11 +123,13 @@ function CircularScore({
   label,
   sublabel,
   icon: Icon,
+  evaluationLabel,
 }: {
   score: number;
   label: string;
   sublabel?: string;
   icon: React.ElementType;
+  evaluationLabel: string;
 }) {
   const radius = 57;
   const circumference = 2 * Math.PI * radius;
@@ -138,7 +186,7 @@ function CircularScore({
       <div className="flex items-center gap-1.5">
         <Icon size={14} className={score >= 70 ? "text-green-600" : score >= 45 ? "text-yellow-600" : "text-red-600"} />
         <span className="text-xs font-semibold text-gray-500">
-          {label === "Role Fit" ? "Đánh giá chung" : "Đánh giá keywords"}
+          {evaluationLabel}
         </span>
       </div>
     </div>
@@ -147,6 +195,8 @@ function CircularScore({
 
 export default function MatchDashboard({ result }: { result: CVAnalysisResponse }) {
   const { jdText } = useWorkspace();
+  const language = result.source_language ?? "vi";
+  const copy = ANALYSIS_COPY[language];
   const isGeneral = !jdText?.trim();
 
   // Two scores: Role Fit (raw LLM) and CV Match (penalized)
@@ -156,7 +206,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
   const showPenaltyContext = !isGeneral && penaltyGap >= 8;
 
   // Penalty reason sublabel for CV Match gauge
-  const penaltyReason = _getPenaltyReason(result);
+  const penaltyReason = _getPenaltyReason(result, language);
 
   return (
     <div>
@@ -170,10 +220,10 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
           style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 700, color: "#2F4F4F" }}
           className="mb-1"
         >
-          Kết quả phân tích
+          {copy.title}
         </h1>
         <p className="text-lg text-[#2F4F4F]/70">
-          {isGeneral ? "Đánh giá chất lượng CV của bạn" : "Dựa trên JD và nội dung CV của bạn"}
+          {isGeneral ? copy.generalSubtitle : copy.jdSubtitle}
         </p>
       </motion.div>
 
@@ -191,6 +241,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
             score={roleFitScore}
             label="Role Fit"
             icon={UserCheck}
+            evaluationLabel={copy.overallAssessment}
           />
 
           {/* CV Match gauge (only when JD provided) */}
@@ -200,6 +251,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
               label="CV Match"
               sublabel={showPenaltyContext ? penaltyReason : undefined}
               icon={AlertTriangle}
+              evaluationLabel={copy.keywordAssessment}
             />
           )}
         </div>
@@ -221,12 +273,10 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-wide text-orange-700">
-                      Vì sao điểm CV Match thấp hơn?
+                      {copy.penaltyTitle}
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-orange-800">
-                      Role Fit của bạn là <span className="font-bold">{roleFitScore}%</span>
-                      , nhưng điểm cuối bị trừ{" "}
-                      <span className="font-bold">{penaltyGap}</span> điểm vì CV còn thiếu hoặc chưa xác nhận một số tín hiệu ưu tiên trong JD.
+                      {copy.penaltyText(roleFitScore, penaltyGap)}
                     </p>
                   </div>
                   <div className="flex-shrink-0 text-right">
@@ -256,7 +306,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                     {result[key] ?? 0}%
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 text-center font-medium leading-tight">{label}</p>
+                <p className="text-xs text-gray-500 text-center font-medium leading-tight">{label[language]}</p>
               </motion.div>
             ))}
           </div>
@@ -278,7 +328,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                 <div className="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center">
                   <Sparkles size={16} className="text-green-600" />
                 </div>
-                <h2 className="text-base font-bold text-[#2F4F4F]">Điểm sáng của CV</h2>
+                <h2 className="text-base font-bold text-[#2F4F4F]">{copy.strengths}</h2>
               </div>
               <div className="flex flex-col gap-3">
                 {result.cv_strengths.map((s, i) => (
@@ -303,7 +353,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                 <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center">
                   <AlertTriangle size={16} className="text-orange-600" />
                 </div>
-                <h2 className="text-base font-bold text-[#2F4F4F]">Từ khóa cần bổ sung</h2>
+                <h2 className="text-base font-bold text-[#2F4F4F]">{copy.keywords}</h2>
               </div>
               <div className="flex flex-wrap gap-2 mb-4 flex-1">
                 {result.prioritized_keywords.map(({ keyword, priority }, i) => {
@@ -315,7 +365,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                     >
                       <span className="text-sm text-gray-700 font-medium">{keyword}</span>
                       <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${badgeStyle}`}>
-                        {priority}
+                        {PRIORITY_LABELS[language][priority]}
                       </span>
                     </div>
                   );
@@ -324,7 +374,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
               <div className="bg-yellow-50/50 border border-yellow-100 p-3 rounded-xl flex gap-2 mt-auto">
                 <AlertTriangle size={14} className="text-yellow-600 mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-yellow-800 leading-relaxed">
-                  Chỉ thêm những từ khóa này nếu bạn thực sự có kinh nghiệm liên quan.
+                  {copy.keywordWarning}
                 </p>
               </div>
             </motion.div>
@@ -344,30 +394,30 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
             <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
               <ClipboardCheck size={16} className="text-blue-600" />
             </div>
-            <h2 className="text-base font-bold text-[#2F4F4F]">Phân tích Bằng chứng Năng lực</h2>
+            <h2 className="text-base font-bold text-[#2F4F4F]">{copy.evidence}</h2>
           </div>
 
           <table className="w-full text-left min-w-[500px]">
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3 pr-4">
-                  Năng lực / Claim
+                  {copy.claim}
                 </th>
                 <th className="text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3 pr-4">
-                  Độ rõ ràng
+                  {copy.clarity}
                 </th>
                 <th className="text-xs font-semibold text-gray-400 uppercase tracking-wider pb-3">
-                  Nhận xét
+                  {copy.comment}
                 </th>
               </tr>
             </thead>
             <tbody>
               {result.evidence_analysis.map(({ claim, evidence_strength, comment }, i) => {
                 const strengthConfig = {
-                  Strong: { color: "text-green-600", icon: CheckCircle, label: "Strong" },
-                  Medium: { color: "text-orange-500", icon: HelpCircle, label: "Medium" },
-                  Weak: { color: "text-red-500", icon: AlertTriangle, label: "Weak" },
-                  Missing: { color: "text-red-600", icon: XCircle, label: "Missing" },
+                  Strong: { color: "text-green-600", icon: CheckCircle, label: { vi: "Mạnh", en: "Strong" } },
+                  Medium: { color: "text-orange-500", icon: HelpCircle, label: { vi: "Trung bình", en: "Medium" } },
+                  Weak: { color: "text-red-500", icon: AlertTriangle, label: { vi: "Yếu", en: "Weak" } },
+                  Missing: { color: "text-red-600", icon: XCircle, label: { vi: "Thiếu", en: "Missing" } },
                 }[evidence_strength] ?? { color: "text-gray-400", icon: HelpCircle, label: evidence_strength };
 
                 const StrengthIcon = strengthConfig.icon;
@@ -381,7 +431,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                     <td className="py-3 pr-4">
                       <span className={`flex items-center gap-1.5 text-sm font-semibold ${strengthConfig.color}`}>
                         <StrengthIcon size={14} />
-                        {strengthConfig.label}
+                        {typeof strengthConfig.label === "string" ? strengthConfig.label : strengthConfig.label[language]}
                       </span>
                     </td>
                     <td className="py-3 text-sm text-gray-500">{comment}</td>
@@ -400,18 +450,29 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
 // Helper: summarize penalty reason for CV Match sublabel
 // ---------------------------------------------------------------------------
 
-function _getPenaltyReason(result: CVAnalysisResponse): string {
-  const { score_breakdown, prioritized_keywords } = result;
+function _getPenaltyReason(
+  result: CVAnalysisResponse,
+  language: AnalysisLanguage,
+): string {
+  const { score_breakdown } = result;
   const criticalCount = score_breakdown.critical_missing_count;
   const highCount = score_breakdown.high_missing_count;
 
   const parts: string[] = [];
-  if (criticalCount) parts.push(`${criticalCount} yêu cầu Critical`);
-  if (highCount) parts.push(`${highCount} yêu cầu High-priority`);
-
-  if (parts.length === 0) {
-    return `Bị trừ ${score_breakdown.total_penalty} điểm`;
+  if (criticalCount) {
+    parts.push(language === "vi" ? `${criticalCount} yêu cầu Critical` : `${criticalCount} Critical requirement(s)`);
+  }
+  if (highCount) {
+    parts.push(language === "vi" ? `${highCount} yêu cầu High-priority` : `${highCount} High-priority requirement(s)`);
   }
 
-  return `Bị trừ ${score_breakdown.total_penalty} điểm vì còn thiếu ${parts.join(", ")}`;
+  if (parts.length === 0) {
+    return language === "vi"
+      ? `Bị trừ ${score_breakdown.total_penalty} điểm`
+      : `${score_breakdown.total_penalty}-point deduction`;
+  }
+
+  return language === "vi"
+    ? `Bị trừ ${score_breakdown.total_penalty} điểm vì còn thiếu ${parts.join(", ")}`
+    : `${score_breakdown.total_penalty}-point deduction for ${parts.join(", ")}`;
 }

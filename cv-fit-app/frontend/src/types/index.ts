@@ -109,6 +109,7 @@ export interface ScoreBreakdown {
 }
 
 export interface CVAnalysisResponse {
+  source_language: "vi" | "en";
   role_fit_score: number;           // Raw LLM assessment — what a human recruiter gives
   match_score: number;              // "CV Match" — penalized by missing JD keywords
   score_breakdown: ScoreBreakdown;

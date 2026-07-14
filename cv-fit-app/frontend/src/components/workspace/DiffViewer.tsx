@@ -7,19 +7,40 @@ import { motion } from "framer-motion";
 
 const RISK_CONFIG = {
   safe: {
-    label: "Safe",
+    label: { vi: "An toàn", en: "Safe" },
     className: "bg-green-100/80 text-green-700",
     icon: ShieldCheck,
   },
   needs_user_input: {
-    label: "Needs input",
+    label: { vi: "Cần bổ sung", en: "Needs input" },
     className: "bg-yellow-100/80 text-yellow-700",
     icon: HelpCircle,
   },
   risky: {
-    label: "Risky",
+    label: { vi: "Rủi ro", en: "Risky" },
     className: "bg-red-100/80 text-red-700",
     icon: AlertTriangle,
+  },
+} as const;
+
+const COPY = {
+  vi: {
+    title: "Đề xuất viết lại",
+    original: "Bản gốc",
+    safeRewrite: "Bản viết lại an toàn",
+    whyBetter: "Vì sao tốt hơn:",
+    coachingVersion: "Phiên bản gợi ý bổ sung số liệu",
+    questions: "Câu hỏi để định lượng",
+    assumptions: "Giả định chưa được xác nhận",
+  },
+  en: {
+    title: "Suggested Rewrites",
+    original: "Original",
+    safeRewrite: "Safe final rewrite",
+    whyBetter: "Why this is better:",
+    coachingVersion: "Metric coaching version",
+    questions: "Questions to quantify",
+    assumptions: "Unsupported assumptions",
   },
 } as const;
 
@@ -32,7 +53,13 @@ function RichText({ html, className }: { html: string; className: string }) {
   );
 }
 
-export default function DiffViewer({ edits }: { edits: SuggestedEdit[] }) {
+export default function DiffViewer({
+  edits,
+  language,
+}: {
+  edits: SuggestedEdit[];
+  language: "vi" | "en";
+}) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   if (!edits || edits.length === 0) return null;
@@ -41,6 +68,7 @@ export default function DiffViewer({ edits }: { edits: SuggestedEdit[] }) {
   const entry = edits[activeIndex];
   const riskConfig = RISK_CONFIG[entry.rewrite_risk] ?? RISK_CONFIG.needs_user_input;
   const RiskIcon = riskConfig.icon;
+  const copy = COPY[language];
   const sectionCounts = edits.reduce<Record<string, number>>((counts, edit) => {
     counts[edit.section] = (counts[edit.section] ?? 0) + 1;
     return counts;
@@ -59,7 +87,7 @@ export default function DiffViewer({ edits }: { edits: SuggestedEdit[] }) {
           <div className="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center">
             <Pen size={16} className="text-purple-500" />
           </div>
-          <h2 className="text-base font-bold text-[#2F4F4F]">Suggested Rewrites</h2>
+          <h2 className="text-base font-bold text-[#2F4F4F]">{copy.title}</h2>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 mb-5">
@@ -96,7 +124,7 @@ export default function DiffViewer({ edits }: { edits: SuggestedEdit[] }) {
             <h3 className="text-sm font-bold text-[#2F4F4F]">{entry.section}</h3>
             <span className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${riskConfig.className}`}>
               <RiskIcon size={12} />
-              {riskConfig.label}
+              {riskConfig.label[language]}
             </span>
           </div>
 
@@ -105,7 +133,7 @@ export default function DiffViewer({ edits }: { edits: SuggestedEdit[] }) {
             {/* Original card */}
             <div className="flex-1 border border-gray-100 rounded-2xl p-5 bg-gray-50">
               <span className="text-[11px] uppercase tracking-wider text-gray-700 mb-2.5 block font-bold">
-                Original
+                {copy.original}
               </span>
               <p className="text-sm text-gray-500 leading-relaxed">
                 {entry.original_text}
@@ -127,7 +155,7 @@ export default function DiffViewer({ edits }: { edits: SuggestedEdit[] }) {
             {/* Improved card */}
             <div className="flex-1 bg-green-50/60 border border-green-100 rounded-2xl p-5">
               <span className="inline-block text-[11px] font-semibold uppercase tracking-wider text-green-600 bg-green-100/80 px-2 py-0.5 rounded mb-2.5">
-                Safe final rewrite
+                {copy.safeRewrite}
               </span>
               <RichText
                 html={entry.improved_safe}
@@ -136,7 +164,7 @@ export default function DiffViewer({ edits }: { edits: SuggestedEdit[] }) {
               {/* Reason — inline under improved text */}
               {entry.reason && (
                 <p className="mt-3 text-xs text-gray-400 leading-relaxed">
-                  <span className="font-semibold text-gray-500">Why this is better:</span>{" "}
+                  <span className="font-semibold text-gray-500">{copy.whyBetter}</span>{" "}
                   {entry.reason}
                 </p>
               )}
@@ -146,7 +174,7 @@ export default function DiffViewer({ edits }: { edits: SuggestedEdit[] }) {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-5">
               <span className="inline-block text-[11px] font-semibold uppercase tracking-wider text-blue-600 bg-blue-100/80 px-2 py-0.5 rounded mb-2.5">
-                Metric coaching version
+                {copy.coachingVersion}
               </span>
               <RichText
                 html={entry.improved_with_placeholders}
@@ -158,7 +186,7 @@ export default function DiffViewer({ edits }: { edits: SuggestedEdit[] }) {
               {entry.metric_questions?.length > 0 && (
                 <div>
                   <span className="text-[11px] uppercase tracking-wider text-gray-700 mb-2.5 block font-bold">
-                    Questions to quantify
+                    {copy.questions}
                   </span>
                   <ul className="flex flex-col gap-2">
                     {entry.metric_questions.map((question, questionIndex) => (
@@ -174,7 +202,7 @@ export default function DiffViewer({ edits }: { edits: SuggestedEdit[] }) {
               {entry.unsupported_assumptions?.length > 0 && (
                 <div className={entry.metric_questions?.length > 0 ? "mt-4 pt-4 border-t border-gray-100" : ""}>
                   <span className="text-[11px] uppercase tracking-wider text-gray-700 mb-2.5 block font-bold">
-                    Unsupported assumptions
+                    {copy.assumptions}
                   </span>
                   <ul className="flex flex-col gap-2">
                     {entry.unsupported_assumptions.map((assumption, assumptionIndex) => (

@@ -8,7 +8,6 @@ and fabricated impact metrics before the response reaches the frontend.
 
 import re
 import unicodedata
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +17,7 @@ from app.models.responses import (
     CVAnalysisResponse,
     ScoreBreakdown,
 )
+from app.services.cv_language import CVLanguage
 
 SCORE_WEIGHTS = {
     "technical_match": 0.30,
@@ -361,7 +361,7 @@ def check_score_consistency(response: CVAnalysisResponse) -> list[str]:
 
 def build_scored_analysis(
     response: CVAnalysisLLMResponse,
-    source_language: Literal["vi", "en"] = "vi",
+    source_language: CVLanguage = "vi",
 ) -> CVAnalysisResponse:
     """
     Calculate scores from sub-scores and deterministic penalties.
@@ -426,6 +426,7 @@ def build_scored_analysis(
     )
     response_data = response.model_dump()
     response_data.update(
+        source_language=source_language,
         match_headline=match_headline,
         match_summary=match_summary,
         role_fit_score=raw_score,
@@ -441,7 +442,7 @@ def _build_deterministic_match_copy(
     role_fit_score: int,
     match_score: int,
     total_penalty: int,
-    source_language: Literal["vi", "en"],
+    source_language: CVLanguage,
 ) -> tuple[str, str]:
     """Build headline + summary explaining Role Fit and CV Match scores."""
     penalty_reason = _summarize_penalty_reason(response, source_language)
@@ -509,7 +510,7 @@ def _build_deterministic_match_copy(
 
 def _summarize_penalty_reason(
     response: CVAnalysisLLMResponse,
-    source_language: Literal["vi", "en"] = "vi",
+    source_language: CVLanguage = "vi",
 ) -> str:
     critical_count = sum(
         1 for item in response.prioritized_keywords if item.priority == "Critical"
