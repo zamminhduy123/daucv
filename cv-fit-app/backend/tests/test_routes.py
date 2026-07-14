@@ -63,6 +63,21 @@ def test_tailored_cv_routes_validate_version_id(client: TestClient) -> None:
     assert pdf_response.status_code == 400
 
 
+def test_tailored_cv_list_returns_controlled_future_schema_error(
+    client: TestClient,
+) -> None:
+    from app.services.tailored_cv_service import UnsupportedCVSchemaVersionError
+
+    with patch(
+        "app.services.tailored_cv_service.list_versions",
+        new=AsyncMock(side_effect=UnsupportedCVSchemaVersionError(3)),
+    ):
+        response = client.get("/api/user/tailored-cvs")
+
+    assert response.status_code == 409
+    assert "schema 3" in response.json()["detail"]
+
+
 def test_analyze_cv_rejects_no_cv_text(client: TestClient) -> None:
     resp = client.post("/api/analyze-cv", json={"cv_text": ""})
     assert resp.status_code == 422
@@ -230,6 +245,8 @@ def test_get_tailored_cv_pdf_downloads_pdf(
         id=version_id,
         tailored_cv=TailoredCV(name="Duy", sections=[]),
         selected_design="classic_ats",
+        document_v2=None,
+        source_language="vi",
     )
     mock_generate.return_value = b"%PDF-test"
 

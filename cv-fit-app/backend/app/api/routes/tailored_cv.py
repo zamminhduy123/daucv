@@ -15,6 +15,7 @@ from app.services.tailored_cv_service import (
     TailoredCVEntitlementError,
     TailoredCVEntitlementUsedError,
     TailoredCVNotFoundError,
+    UnsupportedCVSchemaVersionError,
 )
 
 router = APIRouter(prefix="/api/user/tailored-cvs", tags=["tailored-cv"])
@@ -35,9 +36,12 @@ def _user_id(user: dict) -> UUID:
 async def list_tailored_cvs(
     user: dict = Depends(get_current_user),
 ) -> TailoredCVVersionListResponse:
-    return TailoredCVVersionListResponse(
-        versions=await tailored_cv_service.list_versions(_user_id(user))
-    )
+    try:
+        return TailoredCVVersionListResponse(
+            versions=await tailored_cv_service.list_versions(_user_id(user))
+        )
+    except UnsupportedCVSchemaVersionError as exc:
+        raise _unsupported_schema(exc) from exc
 
 
 @router.post("", response_model=TailoredCVVersionResponse)
@@ -56,6 +60,8 @@ async def create_tailored_cv_version(
             status_code=409,
             detail="CV đã tối ưu của lượt phân tích này đã được tạo.",
         )
+    except UnsupportedCVSchemaVersionError as exc:
+        raise _unsupported_schema(exc) from exc
 
 
 @router.get("/{version_id}/pdf")
@@ -71,7 +77,14 @@ async def download_tailored_cv_pdf(
             status_code=404,
             detail="Không tìm thấy CV đã tối ưu hoặc bạn không có quyền truy cập.",
         )
-    pdf = await generate_tailored_cv_pdf(version.tailored_cv, version.selected_design)
+    except UnsupportedCVSchemaVersionError as exc:
+        raise _unsupported_schema(exc) from exc
+    pdf = await generate_tailored_cv_pdf(
+        tailored_cv=version.tailored_cv,
+        design=version.selected_design,
+        document_v2=version.document_v2,
+        language=version.source_language,
+    )
     filename = f"tailored-cv-{version.id}.pdf"
     return Response(
         content=pdf,
@@ -95,6 +108,8 @@ async def update_tailored_cv_design(
             status_code=404,
             detail="Không tìm thấy CV đã tối ưu hoặc bạn không có quyền truy cập.",
         )
+    except UnsupportedCVSchemaVersionError as exc:
+        raise _unsupported_schema(exc) from exc
 
 
 @router.delete("/{version_id}")
@@ -111,3 +126,13 @@ async def delete_tailored_cv_version(
             status_code=404,
             detail="Không tìm thấy CV đã tối ưu hoặc bạn không có quyền truy cập.",
         )
+
+
+def _unsupported_schema(exc: UnsupportedCVSchemaVersionError) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail=(
+            "Phiên bản dữ liệu CV này chưa được hỗ trợ. "
+            f"Vui lòng cập nhật ứng dụng (schema {exc.schema_version})."
+        ),
+    )

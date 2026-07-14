@@ -60,7 +60,7 @@ async def test_get_version_falls_back_when_v2_columns_are_not_migrated() -> None
         version = await tailored_cv_service.get_version(VERSION_ID, USER_ID)
 
     assert version.id == VERSION_ID
-    assert version.document_v2 is None
+    assert version.document_v2 is not None
     assert version.document_schema_version == 1
     assert version.source_language == "vi"
     assert fetch_one.await_count == 2
@@ -183,6 +183,20 @@ async def test_get_version_prefers_v2_columns_when_available() -> None:
 
     fetch_one.assert_awaited_once()
     assert "document_v2" in fetch_one.await_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_get_version_rejects_future_schema_version() -> None:
+    fetch_one = AsyncMock(return_value={**_legacy_row(), "document_schema_version": 3})
+
+    with (
+        patch.object(tailored_cv_service.Database, "fetch_one", fetch_one),
+        pytest.raises(
+            tailored_cv_service.UnsupportedCVSchemaVersionError,
+            match="schema version: 3",
+        ),
+    ):
+        await tailored_cv_service.get_version(VERSION_ID, USER_ID)
 
 
 @pytest.mark.asyncio

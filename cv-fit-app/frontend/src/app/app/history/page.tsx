@@ -97,7 +97,7 @@ export default function HistoryPage() {
 
           <div className="bg-[#f1f3f0] p-4 sm:p-8">
             <div className="mx-auto w-full transition duration-300 hover:scale-[1.005]">
-              <TailoredCVPreview cv={selected.tailored_cv} design={selected.selected_design} language={selected.source_language ?? "vi"} onDownload={() => download(selected)} />
+              <TailoredCVPreview cv={selected.tailored_cv} design={selected.selected_design} document_v2={selected.document_v2 ?? undefined} language={selected.source_language ?? "vi"} onDownload={() => download(selected)} />
             </div>
           </div>
 
