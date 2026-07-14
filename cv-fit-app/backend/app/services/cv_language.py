@@ -68,6 +68,9 @@ _ENGLISH_MARKERS = {
     "experience",
     "fit",
     "good",
+    "highly",
+    "qualified",
+    "communicator",
     "candidate",
     "clear",
     "clearer",
@@ -100,6 +103,25 @@ _ENGLISH_MARKERS = {
     "users",
     "with",
     "your",
+}
+
+_TECHNICAL_SKILL_TERMS = {
+    "amazon",
+    "api",
+    "aws",
+    "azure",
+    "cloud",
+    "docker",
+    "fastapi",
+    "google",
+    "kubernetes",
+    "learning",
+    "machine",
+    "platform",
+    "python",
+    "services",
+    "sql",
+    "web",
 }
 
 
@@ -232,7 +254,29 @@ def _is_skills_section(title: str) -> bool:
     )
 
 
-def _group_conflicts_with_language(text: str, expected_language: CVLanguage) -> bool:
+def _tailored_cv_skill_fields(cv: TailoredCV) -> list[str]:
+    return [
+        item
+        for section in cv.sections
+        if _is_skills_section(section.title)
+        for item in section.items
+        if item.strip()
+    ]
+
+
+def _is_language_neutral_technical_skill(text: str) -> bool:
+    tokens = set(_normalized_text(text).split())
+    return bool(tokens & _TECHNICAL_SKILL_TERMS) or bool(
+        re.search(r"[+#/.]|\b\w*\d\w*\b", text)
+    )
+
+
+def _group_conflicts_with_language(
+    text: str,
+    expected_language: CVLanguage,
+    *,
+    require_expected_evidence: bool = True,
+) -> bool:
     if not text.strip():
         return False
     vietnamese_score, english_score = _language_scores(text)
@@ -246,11 +290,11 @@ def _group_conflicts_with_language(text: str, expected_language: CVLanguage) -> 
         # either language. Single-token technical terms are validated as
         # keywords elsewhere and are intentionally language-neutral.
         word_count = len(_normalized_text(text).split())
-        return word_count >= 2 and vietnamese_score == 0
+        return require_expected_evidence and word_count >= 2 and vietnamese_score == 0
     if vietnamese_score > english_score:
         return True
     word_count = len(_normalized_text(text).split())
-    return word_count >= 2 and english_score == 0
+    return require_expected_evidence and word_count >= 2 and english_score == 0
 
 
 def ensure_analysis_response_language(
@@ -262,10 +306,21 @@ def ensure_analysis_response_language(
     generated_fields = _generated_analysis_fields(response)
     tailored_text = _tailored_cv_text(response.tailored_cv)
     tailored_prose_fields = _tailored_cv_prose_fields(response.tailored_cv)
-    if any(
+    tailored_skill_fields = _tailored_cv_skill_fields(response.tailored_cv)
+    prose_mismatch = any(
         _group_conflicts_with_language(field, expected_language)
         for field in [*generated_fields, *tailored_prose_fields, tailored_text]
-    ):
+    )
+    skill_mismatch = any(
+        not _is_language_neutral_technical_skill(field)
+        and _group_conflicts_with_language(
+            field,
+            expected_language,
+            require_expected_evidence=False,
+        )
+        for field in tailored_skill_fields
+    )
+    if prose_mismatch or skill_mismatch:
         expected_name = "Vietnamese" if expected_language == "vi" else "English"
         raise AnalysisLanguageMismatchError(
             f"CV Analysis response must use {expected_name}."

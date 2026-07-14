@@ -292,6 +292,27 @@ def test_tailored_cv_skill_items_are_language_neutral() -> None:
     ensure_analysis_response_language(response, expected_language="vi")
 
 
+@pytest.mark.parametrize(
+    "wrong_skill",
+    ["Highly qualified communicator", "This candidate is highly qualified"],
+)
+def test_tailored_cv_skills_section_rejects_wrong_language_narrative(
+    wrong_skill: str,
+) -> None:
+    response = _vietnamese_analysis_response().model_copy(
+        update={
+            "tailored_cv": TailoredCV(
+                name="Nguyễn Văn An",
+                summary="Phát triển hệ thống ổn định cho khách hàng.",
+                sections=[TailoredCVSection(title="Kỹ năng", items=[wrong_skill])],
+            )
+        }
+    )
+
+    with pytest.raises(AnalysisLanguageMismatchError):
+        ensure_analysis_response_language(response, expected_language="vi")
+
+
 def test_english_schema_fallbacks_cannot_hide_inside_vietnamese_analysis() -> None:
     payload = _vietnamese_analysis_response().model_dump()
     payload["suggested_edits"] = payload["suggested_edits"][:1]
