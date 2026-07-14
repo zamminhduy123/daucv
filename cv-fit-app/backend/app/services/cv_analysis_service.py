@@ -50,6 +50,7 @@ async def analyze_cv(
             ensure_analysis_response_language,
             expected_language=source_language,
             source_cv_text=cv_text,
+            source_reference_text=f"{cv_text}\n{jd_text}",
         ),
     )
     parsed.tailored_cv = build_source_preserving_tailored_cv(parsed, cv_text)

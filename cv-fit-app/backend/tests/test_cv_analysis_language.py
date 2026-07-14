@@ -224,7 +224,34 @@ def test_language_neutral_keywords_remain_valid_for_vietnamese_analysis() -> Non
         }
     )
 
-    ensure_analysis_response_language(response, expected_language="vi")
+    ensure_analysis_response_language(
+        response,
+        expected_language="vi",
+        source_reference_text="Amazon Web Services, Google Cloud Platform",
+    )
+
+
+@pytest.mark.parametrize(
+    "wrong_keyword",
+    [
+        "You need stronger leadership evidence",
+        "This candidate needs stronger communication",
+    ],
+)
+def test_keyword_lists_reject_wrong_language_narrative(
+    wrong_keyword: str,
+) -> None:
+    response = _vietnamese_analysis_response().model_copy(
+        update={
+            "missing_keywords": [wrong_keyword],
+            "prioritized_keywords": [
+                PrioritizedKeyword(keyword=wrong_keyword, priority="High")
+            ],
+        }
+    )
+
+    with pytest.raises(AnalysisLanguageMismatchError):
+        ensure_analysis_response_language(response, expected_language="vi")
 
 
 def test_short_vietnamese_analysis_field_is_rejected_for_english_cv() -> None:

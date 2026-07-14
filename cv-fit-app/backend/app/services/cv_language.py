@@ -211,6 +211,17 @@ def _generated_analysis_fields(response: CVAnalysisLLMResponse) -> list[str]:
     return [value for value in values if value.strip()]
 
 
+def _generated_keyword_fields(response: CVAnalysisLLMResponse) -> list[str]:
+    return [
+        value
+        for value in [
+            *response.missing_keywords,
+            *(item.keyword for item in response.prioritized_keywords),
+        ]
+        if value.strip()
+    ]
+
+
 def _tailored_cv_prose_fields(cv: TailoredCV) -> list[str]:
     """Return generated narrative fields, excluding language-neutral identity data."""
     values = [
@@ -261,6 +272,18 @@ def _skill_conflicts_with_language(
     return _group_conflicts_with_language(text, expected_language)
 
 
+def _keyword_conflicts_with_language(
+    text: str,
+    expected_language: CVLanguage,
+    source_reference_text: str,
+) -> bool:
+    normalized_keyword = _normalized_text(text)
+    normalized_reference = _normalized_text(source_reference_text)
+    if normalized_keyword and normalized_keyword in normalized_reference:
+        return False
+    return _group_conflicts_with_language(text, expected_language)
+
+
 def _group_conflicts_with_language(
     text: str,
     expected_language: CVLanguage,
@@ -292,9 +315,11 @@ def ensure_analysis_response_language(
     *,
     expected_language: CVLanguage,
     source_cv_text: str = "",
+    source_reference_text: str = "",
 ) -> None:
     """Reject a response whose analysis prose is predominantly in another language."""
     generated_fields = _generated_analysis_fields(response)
+    generated_keyword_fields = _generated_keyword_fields(response)
     tailored_text = _tailored_cv_text(response.tailored_cv)
     tailored_prose_fields = _tailored_cv_prose_fields(response.tailored_cv)
     tailored_skill_fields = _tailored_cv_skill_fields(response.tailored_cv)
@@ -306,7 +331,15 @@ def ensure_analysis_response_language(
         _skill_conflicts_with_language(field, expected_language, source_cv_text)
         for field in tailored_skill_fields
     )
-    if prose_mismatch or skill_mismatch:
+    keyword_mismatch = any(
+        _keyword_conflicts_with_language(
+            field,
+            expected_language,
+            source_reference_text,
+        )
+        for field in generated_keyword_fields
+    )
+    if prose_mismatch or skill_mismatch or keyword_mismatch:
         expected_name = "Vietnamese" if expected_language == "vi" else "English"
         raise AnalysisLanguageMismatchError(
             f"CV Analysis response must use {expected_name}."
