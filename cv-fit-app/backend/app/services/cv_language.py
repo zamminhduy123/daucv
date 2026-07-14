@@ -27,7 +27,10 @@ _VIETNAMESE_MARKERS = {
     "khach hang",
     "kinh nghiem",
     "ky nang",
+    "ho so",
+    "an tuong",
     "lam viec",
+    "lap trinh",
     "muc tieu",
     "nhan vien",
     "phat trien",
@@ -42,6 +45,9 @@ _VIETNAMESE_MARKERS = {
     "tot",
     "trach nhiem",
     "toi",
+    "ung vien",
+    "vien",
+    "gioi",
     "va",
     "voi",
     "trong",
@@ -52,6 +58,7 @@ _VIETNAMESE_MARKERS = {
 _ENGLISH_MARKERS = {
     "achievements",
     "built",
+    "backend",
     "collaborated",
     "customers",
     "developed",
@@ -62,12 +69,18 @@ _ENGLISH_MARKERS = {
     "fit",
     "good",
     "candidate",
+    "clear",
+    "clearer",
     "missing",
     "profile",
     "professional",
     "projects",
+    "readable",
+    "reliable",
     "responsibilities",
     "skills",
+    "services",
+    "structure",
     "summary",
     "systems",
     "tech stack",
@@ -83,6 +96,8 @@ _ENGLISH_MARKERS = {
     "strong",
     "the",
     "this",
+    "uses",
+    "users",
     "with",
     "your",
 }
@@ -194,7 +209,12 @@ def _tailored_cv_prose_fields(cv: TailoredCV) -> list[str]:
     values = [
         cv.summary,
         *(section.title for section in cv.sections),
-        *(item for section in cv.sections for item in section.items),
+        *(
+            item
+            for section in cv.sections
+            if not _is_skills_section(section.title)
+            for item in section.items
+        ),
         *(
             bullet
             for experience in cv.experience
@@ -202,6 +222,14 @@ def _tailored_cv_prose_fields(cv: TailoredCV) -> list[str]:
         ),
     ]
     return [value for value in values if value.strip()]
+
+
+def _is_skills_section(title: str) -> bool:
+    normalized = _normalized_text(title)
+    return any(
+        marker in normalized
+        for marker in ("skills", "ky nang", "technologies", "cong nghe")
+    )
 
 
 def _group_conflicts_with_language(text: str, expected_language: CVLanguage) -> bool:
@@ -219,7 +247,10 @@ def _group_conflicts_with_language(text: str, expected_language: CVLanguage) -> 
         # keywords elsewhere and are intentionally language-neutral.
         word_count = len(_normalized_text(text).split())
         return word_count >= 2 and vietnamese_score == 0
-    return vietnamese_score > english_score
+    if vietnamese_score > english_score:
+        return True
+    word_count = len(_normalized_text(text).split())
+    return word_count >= 2 and english_score == 0
 
 
 def ensure_analysis_response_language(

@@ -236,6 +236,18 @@ def test_short_vietnamese_analysis_field_is_rejected_for_english_cv() -> None:
         ensure_analysis_response_language(response, expected_language="en")
 
 
+@pytest.mark.parametrize("wrong_value", ["Ung vien gioi", "Ho so an tuong"])
+def test_unaccented_vietnamese_prose_is_rejected_for_english_cv(
+    wrong_value: str,
+) -> None:
+    response = _analysis_response(
+        summary="The profile is relevant but still has a few important gaps."
+    ).model_copy(update={"match_headline": wrong_value})
+
+    with pytest.raises(AnalysisLanguageMismatchError):
+        ensure_analysis_response_language(response, expected_language="en")
+
+
 def test_tailored_cv_candidate_in_wrong_language_is_rejected_independently() -> None:
     response = _vietnamese_analysis_response().model_copy(
         update={
@@ -255,6 +267,29 @@ def test_tailored_cv_candidate_in_wrong_language_is_rejected_independently() -> 
 
     with pytest.raises(AnalysisLanguageMismatchError):
         ensure_analysis_response_language(response, expected_language="vi")
+
+
+def test_tailored_cv_skill_items_are_language_neutral() -> None:
+    response = _vietnamese_analysis_response().model_copy(
+        update={
+            "tailored_cv": TailoredCV(
+                name="Nguyễn Văn An",
+                summary="Phát triển hệ thống ổn định cho khách hàng.",
+                sections=[
+                    TailoredCVSection(
+                        title="Kỹ năng",
+                        items=[
+                            "Amazon Web Services",
+                            "Google Cloud Platform",
+                            "Machine Learning",
+                        ],
+                    )
+                ],
+            )
+        }
+    )
+
+    ensure_analysis_response_language(response, expected_language="vi")
 
 
 def test_english_schema_fallbacks_cannot_hide_inside_vietnamese_analysis() -> None:
