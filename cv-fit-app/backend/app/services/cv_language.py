@@ -120,12 +120,16 @@ _TECHNICAL_SKILL_TERMS = {
     "google",
     "kubernetes",
     "learning",
+    "leadership",
     "machine",
+    "management",
     "nodejs",
     "platform",
+    "project",
     "python",
     "services",
     "sql",
+    "teamwork",
     "web",
 }
 
@@ -316,11 +320,7 @@ def ensure_analysis_response_language(
     )
     skill_mismatch = any(
         not _is_language_neutral_technical_skill(field)
-        and _group_conflicts_with_language(
-            field,
-            expected_language,
-            require_expected_evidence=False,
-        )
+        and _group_conflicts_with_language(field, expected_language)
         for field in tailored_skill_fields
     )
     if prose_mismatch or skill_mismatch:

@@ -282,6 +282,7 @@ def test_tailored_cv_skill_items_are_language_neutral() -> None:
                             "Amazon Web Services",
                             "Google Cloud Platform",
                             "Machine Learning",
+                            "Project Management",
                         ],
                     )
                 ],
@@ -298,6 +299,8 @@ def test_tailored_cv_skill_items_are_language_neutral() -> None:
         "Highly qualified communicator",
         "This candidate is highly qualified",
         "This candidate has strong cloud experience",
+        "Outstanding applicant",
+        "Proven leader",
     ],
 )
 def test_tailored_cv_skills_section_rejects_wrong_language_narrative(
