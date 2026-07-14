@@ -52,10 +52,10 @@ function isEntryHeadline(items: string[], index: number) {
   return index === 0 || items[index - 1].match(/^[•●▪◦]\s*/);
 }
 
-function documentLabels(cv: TailoredCV) {
-  const text = [cv.name, cv.summary, ...(cv.sections || []).flatMap((section) => [section.title, ...section.items])].join(" ");
-  const vietnamese = /[ăâđêôơưĂÂĐÊÔƠƯ]|\b(kỹ năng|kinh nghiệm|học vấn|dự án)\b/i.test(text);
-  return vietnamese ? { profile: "Tóm tắt", contact: "Liên hệ" } : { profile: "Profile", contact: "Contact" };
+function documentLabels(language: "vi" | "en") {
+  return language === "vi"
+    ? { profile: "Tóm tắt", contact: "Liên hệ" }
+    : { profile: "Profile", contact: "Contact" };
 }
 
 function ContactIcon({ line }: { line: string }) {
@@ -66,8 +66,14 @@ function ContactIcon({ line }: { line: string }) {
   return <MapPin size={12} />;
 }
 
-function ClassicTemplate({ cv, sections }: { cv: TailoredCV; sections: TailoredCVSection[] }) {
-  const labels = documentLabels(cv);
+type TemplateProps = {
+  cv: TailoredCV;
+  sections: TailoredCVSection[];
+  language: "vi" | "en";
+};
+
+function ClassicTemplate({ cv, sections, language }: TemplateProps) {
+  const labels = documentLabels(language);
   return <article className="cv-print mx-auto min-h-[1123px] w-full max-w-[794px] bg-white p-10 text-gray-900 shadow-xl md:p-12" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
     <header className="border-b border-gray-400 pb-5 text-left">
       <h1 className="mb-1 text-3xl font-black uppercase tracking-[0.08em] text-gray-950">{cv.name || "CV"}</h1>
@@ -93,8 +99,8 @@ function ClassicTemplate({ cv, sections }: { cv: TailoredCV; sections: TailoredC
   </article>;
 }
 
-function CompactTemplate({ cv, sections }: { cv: TailoredCV; sections: TailoredCVSection[] }) {
-  const labels = documentLabels(cv);
+function CompactTemplate({ cv, sections, language }: TemplateProps) {
+  const labels = documentLabels(language);
   const documentRef = useRef<HTMLElement>(null);
   const [scale, setScale] = useState(1);
   useLayoutEffect(() => {
@@ -134,8 +140,8 @@ function CompactTemplate({ cv, sections }: { cv: TailoredCV; sections: TailoredC
   </div>;
 }
 
-function ModernTemplate({ cv, sections }: { cv: TailoredCV; sections: TailoredCVSection[] }) {
-  const labels = documentLabels(cv);
+function ModernTemplate({ cv, sections, language }: TemplateProps) {
+  const labels = documentLabels(language);
   const skillSections = sections.filter((section) => cvSectionKind(section.title) === "skills");
   const educationSections = sections.filter((section) => cvSectionKind(section.title) === "education");
   const sidebarSections = new Set([...skillSections, ...educationSections]);
@@ -190,7 +196,7 @@ const DESIGN_RENDERERS: Record<CVDesign, typeof ClassicTemplate> = {
   compact_one_page: CompactTemplate,
 };
 
-export default function TailoredCVPreview({ cv, design, onDownload }: { cv: TailoredCV; design: CVDesign; onDownload?: () => void }) {
+export default function TailoredCVPreview({ cv, design, language = "vi", onDownload }: { cv: TailoredCV; design: CVDesign; language?: "vi" | "en"; onDownload?: () => void }) {
   const sections = getSections(cv);
   const Renderer = DESIGN_RENDERERS[design];
   return <div className="space-y-4">
@@ -198,7 +204,7 @@ export default function TailoredCVPreview({ cv, design, onDownload }: { cv: Tail
       <p className="text-sm font-bold text-[#2F4F4F]">{CV_DESIGN_LABELS[design]}</p>
       {onDownload && <button type="button" onClick={onDownload} className="rounded-xl bg-[#6A9B5E] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#6A9B5E]/20 transition hover:bg-[#5a874e] active:scale-95">Tải PDF</button>}
     </div>
-    <Renderer cv={cv} sections={sections} />
+    <Renderer cv={cv} sections={sections} language={language} />
     <style>{`@media print { body * { visibility: hidden; } .cv-print, .cv-print * { visibility: visible; } .cv-print { position: absolute; left: 0; top: 0; width: 210mm; min-height: 297mm; max-width: none; border: 0; box-shadow: none; } .compact_one_page { max-height: 297mm !important; overflow: hidden !important; } @page { size: A4; margin: 0; } }`}</style>
   </div>;
 }

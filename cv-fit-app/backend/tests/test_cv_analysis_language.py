@@ -16,9 +16,11 @@ from app.services import ai_service, cv_analysis_service
 from app.services.cv_language import (
     AnalysisLanguageMismatchError,
     detect_cv_language,
+    detect_tailored_cv_language,
     ensure_analysis_response_language,
 )
 from app.services.cv_quality_checks import build_scored_analysis
+from app.services.tailored_cv_pdf import render_tailored_cv_html
 
 
 def _analysis_response(*, summary: str) -> CVAnalysisLLMResponse:
@@ -183,6 +185,32 @@ def test_tailored_cv_candidate_in_wrong_language_is_rejected_independently() -> 
 
     with pytest.raises(AnalysisLanguageMismatchError):
         ensure_analysis_response_language(response, expected_language="vi")
+
+
+def test_english_schema_fallbacks_cannot_hide_inside_vietnamese_analysis() -> None:
+    payload = _vietnamese_analysis_response().model_dump()
+    payload["suggested_edits"] = payload["suggested_edits"][:1]
+    payload["cv_strengths"] = payload["cv_strengths"][:1]
+    response = CVAnalysisLLMResponse(**payload)
+
+    with pytest.raises(AnalysisLanguageMismatchError):
+        ensure_analysis_response_language(response, expected_language="vi")
+
+
+def test_unaccented_vietnamese_tailored_cv_keeps_vietnamese_renderer_labels() -> None:
+    cv = TailoredCV(
+        name="Nguyen Van An",
+        summary="Phat trien he thong va phoi hop voi khach hang.",
+        sections=[
+            TailoredCVSection(
+                title="KINH NGHIEM LAM VIEC",
+                items=["Phat trien dich vu backend on dinh."],
+            )
+        ],
+    )
+
+    assert detect_tailored_cv_language(cv) == "vi"
+    assert "Tóm tắt" in render_tailored_cv_html(cv, "classic_ats")
 
 
 def test_llm_call_retries_when_response_language_validation_fails(

@@ -62,6 +62,7 @@ export interface TailoredCVVersion {
   company_name?: string | null;
   jd_text: string;
   tailored_cv: TailoredCV;
+  source_language?: "vi" | "en";
   // V2 typed document (nullable for legacy records)
   document_v2?: _CVDocumentV2 | null;
   selected_design: CVDesign;

@@ -4,6 +4,7 @@ import re
 import unicodedata
 from typing import Literal
 
+from app.models.domain import TailoredCV
 from app.models.responses import CVAnalysisLLMResponse
 
 CVLanguage = Literal["vi", "en"]
@@ -36,6 +37,12 @@ _VIETNAMESE_MARKERS = {
     "thuc hien",
     "tieng viet",
     "trach nhiem",
+    "toi",
+    "va",
+    "voi",
+    "trong",
+    "cua",
+    "duoc",
 }
 
 _ENGLISH_MARKERS = {
@@ -45,14 +52,30 @@ _ENGLISH_MARKERS = {
     "customers",
     "developed",
     "education",
+    "employment",
     "experience",
+    "profile",
     "professional",
     "projects",
     "responsibilities",
     "skills",
     "summary",
     "systems",
+    "tech stack",
     "work",
+    "additional",
+    "clarify",
+    "details",
+    "relevant",
+    "require",
+    "review",
+    "role",
+    "section",
+    "strong",
+    "the",
+    "this",
+    "with",
+    "your",
 }
 
 
@@ -74,9 +97,9 @@ def _marker_score(text: str, markers: set[str]) -> int:
 def _language_scores(text: str) -> tuple[int, int]:
     normalized = _normalized_text(text)
     accent_count = len(_VIETNAMESE_DIACRITICS.findall(text))
-    vietnamese_score = _marker_score(normalized, _VIETNAMESE_MARKERS) + min(
-        accent_count, 4
-    )
+    vietnamese_marker_score = _marker_score(normalized, _VIETNAMESE_MARKERS)
+    accent_bonus = min(accent_count, 4) if vietnamese_marker_score else 0
+    vietnamese_score = vietnamese_marker_score + accent_bonus
     english_score = _marker_score(normalized, _ENGLISH_MARKERS)
     return vietnamese_score, english_score
 
@@ -91,27 +114,42 @@ def detect_cv_language(cv_text: str) -> CVLanguage:
     return "vi" if vietnamese_score > english_score else "en"
 
 
+def detect_tailored_cv_language(cv: TailoredCV) -> CVLanguage:
+    """Detect the primary language of structured Tailored CV content."""
+    values = [
+        cv.name,
+        cv.headline,
+        cv.summary,
+        cv.education,
+        *cv.contact_lines,
+        *cv.skills,
+        *(section.title for section in cv.sections),
+        *(item for section in cv.sections for item in section.items),
+        *(experience.company for experience in cv.experience),
+        *(experience.role for experience in cv.experience),
+        *(
+            bullet
+            for experience in cv.experience
+            for bullet in experience.bullet_points
+        ),
+    ]
+    return detect_cv_language("\n".join(value for value in values if value.strip()))
+
+
 class AnalysisLanguageMismatchError(ValueError):
     """Raised when CV Analysis prose does not use the source CV language."""
 
 
-def _joined(values: list[str]) -> str:
-    return "\n".join(value for value in values if value.strip())
-
-
-def _analysis_language_groups(response: CVAnalysisLLMResponse) -> list[str]:
-    core = _joined(
-        [response.match_headline, response.match_summary, *response.cv_strengths]
-    )
-    keywords = _joined(
-        [
-            *response.missing_keywords,
-            *(item.keyword for item in response.prioritized_keywords),
-        ]
-    )
-    edit_values: list[str] = []
+def _generated_analysis_fields(response: CVAnalysisLLMResponse) -> list[str]:
+    values = [
+        response.match_headline,
+        response.match_summary,
+        *response.cv_strengths,
+        *response.missing_keywords,
+        *(item.keyword for item in response.prioritized_keywords),
+    ]
     for edit in response.suggested_edits:
-        edit_values.extend(
+        values.extend(
             [
                 edit.section,
                 edit.improved_safe,
@@ -121,23 +159,21 @@ def _analysis_language_groups(response: CVAnalysisLLMResponse) -> list[str]:
                 *edit.unsupported_assumptions,
             ]
         )
-    evidence_values: list[str] = []
     for evidence in response.evidence_analysis:
-        evidence_values.extend([evidence.claim, evidence.comment])
-
-    tailored_values = [
-        response.tailored_cv.headline,
-        response.tailored_cv.summary,
-        *(section.title for section in response.tailored_cv.sections),
-        *(item for section in response.tailored_cv.sections for item in section.items),
-    ]
-    return [
-        core,
-        keywords,
-        _joined(edit_values),
-        _joined(evidence_values),
-        _joined(tailored_values),
-    ]
+        values.extend([evidence.claim, evidence.comment])
+    values.extend(
+        [
+            response.tailored_cv.headline,
+            response.tailored_cv.summary,
+            *(section.title for section in response.tailored_cv.sections),
+            *(
+                item
+                for section in response.tailored_cv.sections
+                for item in section.items
+            ),
+        ]
+    )
+    return [value for value in values if value.strip()]
 
 
 def _group_conflicts_with_language(text: str, expected_language: CVLanguage) -> bool:
@@ -156,8 +192,8 @@ def ensure_analysis_response_language(
 ) -> None:
     """Reject a response whose analysis prose is predominantly in another language."""
     if any(
-        _group_conflicts_with_language(group, expected_language)
-        for group in _analysis_language_groups(response)
+        _group_conflicts_with_language(field, expected_language)
+        for field in _generated_analysis_fields(response)
     ):
         expected_name = "Vietnamese" if expected_language == "vi" else "English"
         raise AnalysisLanguageMismatchError(

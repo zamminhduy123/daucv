@@ -3,11 +3,13 @@ import logging
 from uuid import UUID
 
 from app.core.db import Database
+from app.models.domain import TailoredCV
 from app.schemas.tailored_cv import (
     CVDesign,
     TailoredCVVersionCreate,
     TailoredCVVersionResponse,
 )
+from app.services.cv_language import detect_tailored_cv_language
 from app.services.cv_quality_checks import (
     build_source_preserving_tailored_cv_from_parts,
 )
@@ -84,6 +86,10 @@ def _tailored_version(row: dict) -> TailoredCVVersionResponse:
         data["tailored_cv"] = json.loads(data["tailored_cv"])
     if isinstance(data.get("document_v2"), str):
         data["document_v2"] = json.loads(data["document_v2"])
+    if data.get("tailored_cv"):
+        data["source_language"] = detect_tailored_cv_language(
+            TailoredCV.model_validate(data["tailored_cv"])
+        )
     return TailoredCVVersionResponse.model_validate(data)
 
 

@@ -40,7 +40,19 @@ async def test_get_version_falls_back_when_v2_columns_are_not_migrated() -> None
     fetch_one = AsyncMock(
         side_effect=[
             UndefinedColumnError('column "document_v2" does not exist'),
-            _legacy_row(),
+            {
+                **_legacy_row(),
+                "tailored_cv": {
+                    "name": "Nguyen Van An",
+                    "summary": "Phat trien he thong cho khach hang.",
+                    "sections": [
+                        {
+                            "title": "KINH NGHIEM LAM VIEC",
+                            "items": ["Phat trien dich vu backend."],
+                        }
+                    ],
+                },
+            },
         ]
     )
 
@@ -50,6 +62,7 @@ async def test_get_version_falls_back_when_v2_columns_are_not_migrated() -> None
     assert version.id == VERSION_ID
     assert version.document_v2 is None
     assert version.document_schema_version == 1
+    assert version.source_language == "vi"
     assert fetch_one.await_count == 2
     assert "document_v2" in fetch_one.await_args_list[0].args[0]
     assert "document_v2" not in fetch_one.await_args_list[1].args[0]

@@ -3,6 +3,7 @@ from html import escape
 
 from app.models.domain import TailoredCV, TailoredCVSection
 from app.schemas.tailored_cv import CVDesign
+from app.services.cv_language import detect_tailored_cv_language
 
 
 def _section_kind(title: str) -> str:
@@ -76,15 +77,7 @@ def render_tailored_cv_html(cv: TailoredCV, design: CVDesign) -> str:
     """Render a self-contained, escaped A4 document for browser PDF output."""
     contacts = " · ".join(escape(line) for line in cv.contact_lines)
     cv_sections = _sections(cv)
-    source_text = " ".join(
-        [cv.name, cv.summary]
-        + [
-            value
-            for section in cv_sections
-            for value in [section.title, *section.items]
-        ]
-    )
-    vietnamese = any(character in source_text for character in "ăâđêôơưĂÂĐÊÔƠƯ")
+    vietnamese = detect_tailored_cv_language(cv) == "vi"
     profile_label = "Tóm tắt" if vietnamese else "Profile"
     contact_label = "Liên hệ" if vietnamese else "Contact"
     summary = (

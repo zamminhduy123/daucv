@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.cv_document_v2 import CVDocumentV2
 from app.models.domain import SuggestedEdit, TailoredCV
+from app.services.cv_language import CVLanguage
 
 CVDesign = Literal["classic_ats", "modern_professional", "compact_one_page"]
 
@@ -37,6 +38,7 @@ class TailoredCVVersionResponse(BaseModel):
     jd_text: str
     # Legacy V1 document (still required for backward compatibility)
     tailored_cv: TailoredCV
+    source_language: CVLanguage = "vi"
     # V2 typed document (nullable for legacy records)
     document_v2: CVDocumentV2 | None = None
     selected_design: CVDesign
