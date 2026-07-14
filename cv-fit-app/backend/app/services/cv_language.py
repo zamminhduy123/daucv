@@ -109,46 +109,6 @@ _ENGLISH_MARKERS = {
     "your",
 }
 
-_TECHNICAL_SKILL_TERMS = {
-    "and",
-    "amazon",
-    "api",
-    "aws",
-    "azure",
-    "cloud",
-    "c",
-    "csharp",
-    "data",
-    "design",
-    "docker",
-    "dotnet",
-    "fastapi",
-    "google",
-    "kubernetes",
-    "learning",
-    "leadership",
-    "language",
-    "machine",
-    "management",
-    "nodejs",
-    "natural",
-    "native",
-    "office",
-    "platform",
-    "project",
-    "processing",
-    "python",
-    "react",
-    "services",
-    "sql",
-    "teamwork",
-    "ui",
-    "ux",
-    "analysis",
-    "microsoft",
-    "web",
-}
-
 
 def _normalized_text(text: str) -> str:
     decomposed = unicodedata.normalize("NFKD", text.lower())
@@ -289,27 +249,14 @@ def _tailored_cv_skill_fields(cv: TailoredCV) -> list[str]:
     ]
 
 
-def _is_language_neutral_technical_skill(text: str) -> bool:
-    tokens = set(_normalized_text(text).split())
-    if bool(tokens) and tokens <= _TECHNICAL_SKILL_TERMS:
-        return True
-    original_words = re.findall(r"[A-Za-z]+", text)
-    return 1 < len(original_words) <= 5 and all(
-        word[0].isupper() for word in original_words
-    )
-
-
-def _skill_conflicts_with_language(text: str, expected_language: CVLanguage) -> bool:
-    tokens = set(_normalized_text(text).split())
-    if bool(tokens) and tokens <= _TECHNICAL_SKILL_TERMS:
-        return False
-    if _group_conflicts_with_language(
-        text,
-        expected_language,
-        require_expected_evidence=False,
-    ):
-        return True
-    if _is_language_neutral_technical_skill(text):
+def _skill_conflicts_with_language(
+    text: str,
+    expected_language: CVLanguage,
+    source_cv_text: str,
+) -> bool:
+    normalized_skill = _normalized_text(text)
+    normalized_source = _normalized_text(source_cv_text)
+    if normalized_skill and normalized_skill in normalized_source:
         return False
     return _group_conflicts_with_language(text, expected_language)
 
@@ -344,6 +291,7 @@ def ensure_analysis_response_language(
     response: CVAnalysisLLMResponse,
     *,
     expected_language: CVLanguage,
+    source_cv_text: str = "",
 ) -> None:
     """Reject a response whose analysis prose is predominantly in another language."""
     generated_fields = _generated_analysis_fields(response)
@@ -355,7 +303,7 @@ def ensure_analysis_response_language(
         for field in [*generated_fields, *tailored_prose_fields, tailored_text]
     )
     skill_mismatch = any(
-        _skill_conflicts_with_language(field, expected_language)
+        _skill_conflicts_with_language(field, expected_language, source_cv_text)
         for field in tailored_skill_fields
     )
     if prose_mismatch or skill_mismatch:

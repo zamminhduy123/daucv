@@ -295,7 +295,15 @@ def test_tailored_cv_skill_items_are_language_neutral() -> None:
         }
     )
 
-    ensure_analysis_response_language(response, expected_language="vi")
+    ensure_analysis_response_language(
+        response,
+        expected_language="vi",
+        source_cv_text=(
+            "Amazon Web Services, Google Cloud Platform, Machine Learning, "
+            "Project Management, React Native, Natural Language Processing, "
+            "Data Analysis, Microsoft Office, UI UX Design"
+        ),
+    )
 
 
 @pytest.mark.parametrize(
@@ -306,6 +314,9 @@ def test_tailored_cv_skill_items_are_language_neutral() -> None:
         "This candidate has strong cloud experience",
         "Outstanding applicant",
         "Proven leader",
+        "Exceptional Strategic Thinker",
+        "Creative Problem Solver",
+        "Results Driven Innovator",
     ],
 )
 def test_tailored_cv_skills_section_rejects_wrong_language_narrative(
