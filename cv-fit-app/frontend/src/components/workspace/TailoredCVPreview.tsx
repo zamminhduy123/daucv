@@ -212,7 +212,9 @@ function initials(name?: string) {
 // ---------------------------------------------------------------------------
 
 function V2IframeRenderer({ doc, design, language }: { doc: CVDocumentV2; design: CVDesign; language: "vi" | "en" }) {
+  const sensorRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [scale, setScale] = useState(1);
 
   useLayoutEffect(() => {
     const iframe = iframeRef.current;
@@ -220,7 +222,45 @@ function V2IframeRenderer({ doc, design, language }: { doc: CVDocumentV2; design
     iframe.srcdoc = buildV2Html(doc, design, language);
   }, [doc, design, language]);
 
-  return <iframe ref={iframeRef} className="h-[1123px] w-full max-w-[794px] border-0 bg-white shadow-xl" title="CV Preview (V2)" />;
+  useLayoutEffect(() => {
+    const sensor = sensorRef.current;
+    if (!sensor) return;
+    const handleResize = () => {
+      const width = sensor.clientWidth;
+      const newScale = width > 0 ? Math.min(1, width / 794) : 1;
+      setScale(newScale);
+    };
+    handleResize();
+    const observer = new ResizeObserver(handleResize);
+    observer.observe(sensor);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div className="w-full relative flex justify-center">
+      {/* Hidden absolute sensor to measure container width without layout loop feedback */}
+      <div ref={sensorRef} className="absolute left-0 right-0 pointer-events-none invisible" />
+      
+      <div
+        className="overflow-hidden bg-white shadow-xl rounded-sm"
+        style={{
+          width: `${794 * scale}px`,
+          height: `${1123 * scale}px`,
+        }}
+      >
+        <iframe
+          ref={iframeRef}
+          className="border-0 bg-white origin-top-left"
+          style={{
+            width: "794px",
+            height: "1123px",
+            transform: `scale(${scale})`,
+          }}
+          title="CV Preview (V2)"
+        />
+      </div>
+    </div>
+  );
 }
 
 function buildV2Html(doc: CVDocumentV2, design: CVDesign, language: "vi" | "en") {
@@ -251,7 +291,7 @@ function buildV2Html(doc: CVDocumentV2, design: CVDesign, language: "vi" | "en")
 
   const css = `
     @page { size: A4; margin: 0; } * { box-sizing: border-box; }
-    body { margin: 0; color: #263b3b; font-family: Arial, sans-serif; }
+    html, body { margin: 0; color: #263b3b; font-family: Arial, sans-serif; overflow-x: hidden; }
     article { width: 210mm; min-height: 297mm; background: white; padding: 16mm; }
     header { border-bottom: 1px solid #9ca3af; padding-bottom: 5mm; }
     h1 { margin: 0 0 1mm; font-size: 24pt; } h3 { margin: 0 0 3mm; font-size: 11pt; }
