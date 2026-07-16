@@ -30,25 +30,20 @@ export default function Footer() {
           <ul className="space-y-2 text-sm">
             <li><Link href="/app" className="hover:text-(--primary) transition-colors">Phân tích CV</Link></li>
             <li><Link href="/app/interview" className="hover:text-(--primary) transition-colors">Luyện phỏng vấn AI</Link></li>
-            <li><Link href="#" className="hover:text-(--primary) transition-colors">Hướng dẫn sử dụng</Link></li>
           </ul>
         </div>
 
         <div className="space-y-4">
-          <h4 className="text-[#2F4F4F] font-bold text-sm uppercase tracking-wider">Công cụ</h4>
+          <h4 className="text-[#2F4F4F] font-bold text-sm uppercase tracking-wider">Blog</h4>
           <ul className="space-y-2 text-sm">
-            <li><Link href="#" className="hover:text-(--primary) transition-colors">Kiểm tra điểm ATS</Link></li>
-            <li><Link href="#" className="hover:text-(--primary) transition-colors">Dịch CV sang tiếng Anh</Link></li>
+            <li><Link href="/blog" className="hover:text-(--primary) transition-colors">Tất cả bài viết</Link></li>
+            <li><Link href="/blog/cv-chuan-ats-la-gi" className="hover:text-(--primary) transition-colors">CV chuẩn ATS là gì?</Link></li>
           </ul>
         </div>
       </div>
 
       <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-[rgba(47,79,79,0.05)] text-xs">
         <div>© 2026 Đậu — Chạm là Đậu. Được xây dựng vì sự nghiệp của người Việt.</div>
-        <div className="flex gap-6 mt-4 md:mt-0">
-          <Link href="#" className="hover:underline">Điều khoản</Link>
-          <Link href="#" className="hover:underline">Bảo mật</Link>
-        </div>
       </div>
     </footer>
   );
