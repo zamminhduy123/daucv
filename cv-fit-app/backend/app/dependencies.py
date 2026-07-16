@@ -39,7 +39,7 @@ async def get_current_user(authorization: str = Header(None)) -> dict:
 
         try:
             await Database.execute(
-                "INSERT INTO public.users (email, name, image, credits) VALUES ($1, $2, $3, 20) ON CONFLICT (email) DO NOTHING",
+                "INSERT INTO public.users (email, name, image, credits) VALUES ($1, $2, $3, 10) ON CONFLICT (email) DO NOTHING",
                 email,
                 name,
                 image,

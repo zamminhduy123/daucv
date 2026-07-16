@@ -62,7 +62,7 @@ const handler = NextAuth({
         if (checkRes.rows.length === 0) {
           // New user sign up - assign 20 credits
           const insertRes = await query(
-            "INSERT INTO public.users (email, name, image, credits) VALUES ($1, $2, $3, 20) RETURNING id",
+            "INSERT INTO public.users (email, name, image, credits) VALUES ($1, $2, $3, 10) RETURNING id",
             [user.email, name, image]
           );
           user.id = insertRes.rows[0].id;
