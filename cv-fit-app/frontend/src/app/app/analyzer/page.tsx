@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import LoadingOverlay from "@/components/workspace/LoadingOverlay";
 import MatchDashboard from "@/components/workspace/MatchDashboard";
 import DiffViewer from "@/components/workspace/DiffViewer";
+import { DauOverloadScreen } from "@/components/magicpath/ai-overload-error-screen-dau/DauOverloadScreen";
 import type { CVAnalysisResponse } from "@/types";
 import { analyzeCVAPI, createTailoredCVVersionAPI } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
@@ -16,7 +17,7 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 
 export default function AnalyzerPage() {
   const router = useRouter();
-  const { cvText, jdText, hasData, isLoaded, cache, setCachedAnalysis } = useWorkspace();
+  const { cvText, jdText, hasData, isLoaded, cache, setCachedAnalysis, layoutData } = useWorkspace();
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<CVAnalysisResponse | null>(
@@ -42,7 +43,7 @@ export default function AnalyzerPage() {
       setIsAnalyzing(true);
       setError("");
       try {
-        const data = await analyzeCVAPI(cvText, jdText);
+        const data = await analyzeCVAPI(cvText, jdText, layoutData);
         setAnalysisResult(data);
         setCachedAnalysis(data); // Save to cache
       } catch (err: unknown) {
@@ -54,7 +55,7 @@ export default function AnalyzerPage() {
     };
 
     runAnalysis();
-  }, [hasData, cvText, jdText, analysisResult, setCachedAnalysis]);
+  }, [hasData, cvText, jdText, layoutData, analysisResult, setCachedAnalysis]);
 
   const handleCreateTailoredCV = async () => {
     if (!analysisResult?.tailored_cv) return;
@@ -69,6 +70,8 @@ export default function AnalyzerPage() {
         company_name: analysisResult.company_name || undefined,
         selected_design: "classic_ats",
         tailoring_entitlement: analysisResult.tailoring_entitlement,
+        document_v2: analysisResult.document_v2,
+        source_document_v2: analysisResult.source_document_v2,
       });
       router.push(`/app/history?preview=${version.id}`);
     } catch (err) {
@@ -92,15 +95,7 @@ export default function AnalyzerPage() {
       {isAnalyzing && <LoadingOverlay />}
 
       {error && !isAnalyzing && (
-        <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <p className="text-red-600 font-medium">{error}</p>
-          <button
-            onClick={handleReanalyze}
-            className="px-6 py-3 bg-[var(--primary)] text-white rounded-2xl font-semibold hover:scale-105 transition-all"
-          >
-            Thử lại
-          </button>
-        </div>
+        <DauOverloadScreen message={error} onRetry={handleReanalyze} />
       )}
 
       {analysisResult && !isAnalyzing && (

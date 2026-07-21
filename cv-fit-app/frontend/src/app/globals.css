@@ -16,6 +16,13 @@
   --muted: #5A6D6D;
   --card: #FFFFFF;
   --radius: 16px;
+
+  /* Layout-aware surfaces & color tokens from spec */
+  --surface-1: #FFFFFF;
+  --surface-2: #F5F7F4;
+  --border: rgba(47, 79, 79, 0.08);
+  --text-muted: #7D8A8A;
+  --text-secondary: #4A5F5F;
 }
 
 * {
