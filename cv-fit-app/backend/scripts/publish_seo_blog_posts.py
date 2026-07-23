@@ -1,5 +1,4 @@
-"""
-Generate SEO blog posts, commit them, and push the current branch.
+"""Generate SEO blog posts, commit them, and push the current branch.
 
 This wrapper is intended for scheduled jobs. It keeps a daily state file so an
 OpenClaw retry does not publish duplicate posts for the same date.
@@ -25,7 +24,7 @@ LOCK_PATH = LOGS_DIR / "seo-blog-publish.lock"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate, commit, and push SEO blog posts."
+        description="Generate, commit, and push SEO blog posts.",
     )
     parser.add_argument("--min", type=int, default=2, help="Minimum posts to generate.")
     parser.add_argument("--max", type=int, default=4, help="Maximum posts to generate.")
@@ -37,14 +36,18 @@ def parse_args() -> argparse.Namespace:
         help="Optional topic seed. Can be repeated.",
     )
     parser.add_argument(
-        "--date", help="Publish date in YYYY-MM-DD. Defaults to Asia/Ho_Chi_Minh today."
+        "--date",
+        help="Publish date in YYYY-MM-DD. Defaults to Asia/Ho_Chi_Minh today.",
     )
     parser.add_argument("--remote", default="origin", help="Git remote to push.")
     parser.add_argument(
-        "--branch", help="Git branch to push. Defaults to current branch."
+        "--branch",
+        help="Git branch to push. Defaults to current branch.",
     )
     parser.add_argument(
-        "--no-push", action="store_true", help="Commit but do not push."
+        "--no-push",
+        action="store_true",
+        help="Commit but do not push.",
     )
     parser.add_argument(
         "--force",
@@ -86,7 +89,8 @@ def load_state() -> dict:
 def write_state(state: dict) -> None:
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     STATE_PATH.write_text(
-        json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(state, ensure_ascii=False, indent=2),
+        encoding="utf-8",
     )
 
 
@@ -95,7 +99,7 @@ def extract_generator_json(stdout: str) -> dict:
     start = stdout.rfind(marker)
     if start == -1:
         raise RuntimeError(
-            f"Could not find generator JSON summary in stdout:\n{stdout}"
+            f"Could not find generator JSON summary in stdout:\n{stdout}",
         )
     return json.loads(stdout[start:])
 
@@ -136,6 +140,7 @@ def stage_generated_posts(repo_root: Path, posts: list[dict[str, str]]) -> list[
 def has_staged_changes(repo_root: Path) -> bool:
     result = subprocess.run(
         ["git", "diff", "--cached", "--quiet"],
+        check=False,
         cwd=repo_root,
         text=True,
     )
@@ -167,7 +172,7 @@ def main() -> int:
                     },
                     ensure_ascii=False,
                     indent=2,
-                )
+                ),
             )
             return 0
 
@@ -175,7 +180,7 @@ def main() -> int:
         branch = args.branch or current_branch(repo_root)
         started_at = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).isoformat()
         write_state(
-            {"date": publish_date, "status": "running", "startedAt": started_at}
+            {"date": publish_date, "status": "running", "startedAt": started_at},
         )
 
         generator = run(generator_command(args), BACKEND_DIR)
@@ -194,19 +199,19 @@ def main() -> int:
                     "status": "published",
                     "startedAt": started_at,
                     "finishedAt": datetime.now(
-                        ZoneInfo("Asia/Ho_Chi_Minh")
+                        ZoneInfo("Asia/Ho_Chi_Minh"),
                     ).isoformat(),
                     "files": files,
                     "commit": None,
                     "note": "No staged changes after generation.",
-                }
+                },
             )
             print(
                 json.dumps(
                     {"status": "skipped", "reason": "no_changes", "files": files},
                     ensure_ascii=False,
                     indent=2,
-                )
+                ),
             )
             return 0
 
@@ -231,8 +236,10 @@ def main() -> int:
         write_state(final_state)
         print(
             json.dumps(
-                {"status": "published", **final_state}, ensure_ascii=False, indent=2
-            )
+                {"status": "published", **final_state},
+                ensure_ascii=False,
+                indent=2,
+            ),
         )
         return 0
 

@@ -1,8 +1,9 @@
 import { getSession } from "next-auth/react";
-import type { CVDesign, SuggestedEdit, TailoredCV, TailoredCVVersion } from "@/types";
+import type { CVAnalysisEnvelope, CVAnalysisResponse, CVDesign, LayoutLine, SuggestedEdit, TailoredCV, TailoredCVVersion } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const TTS_API_URL = process.env.NEXT_PUBLIC_TTS_SERVICE_URL || "http://127.0.0.1:8000";
+const CV_ANALYSIS_TIMEOUT_MS = 315_000;
 
 // Helper wrapper that automatically attaches the NextAuth accessToken to outgoing request headers
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
@@ -23,6 +24,12 @@ export async function pingAPI() {
   return res.json();
 }
 
+export interface PdfExtractResult {
+  text: string;
+  layout_data: LayoutLine[];
+  error?: string;
+}
+
 export async function extractPdfAPI(file: File) {
   const formData = new FormData();
   formData.append("file", file);
@@ -35,20 +42,44 @@ export async function extractPdfAPI(file: File) {
   if (!res.ok) {
     throw await parseApiError(res);
   }
-  return res.json();
+  return res.json() as Promise<PdfExtractResult>;
 }
 
-export async function analyzeCVAPI(cvText: string, jdText: string) {
-  const res = await fetchWithAuth(`${API_URL}/api/analyze-cv`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cv_text: cvText, jd_text: jdText }),
-  });
+export async function analyzeCVAPI(cvText: string, jdText: string, layoutData: LayoutLine[] | null = null) {
+  let res: Response;
+  try {
+    res = await fetchWithAuth(`${API_URL}/api/analyze-cv`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cv_text: cvText, jd_text: jdText, layout_data: layoutData }),
+      signal: AbortSignal.timeout(CV_ANALYSIS_TIMEOUT_MS),
+    });
+  } catch (err: unknown) {
+    if (
+      err instanceof DOMException &&
+      (err.name === "TimeoutError" || err.name === "AbortError")
+    ) {
+      throw {
+        type: "timeout",
+        message: "CV analysis timed out. Please try again.",
+        status: 504,
+      } satisfies ApiError;
+    }
+    throw parseNetworkError(err);
+  }
 
   if (!res.ok) {
     throw await parseApiError(res);
   }
-  return res.json();
+  const payload = await res.json() as CVAnalysisEnvelope;
+  return {
+    ...payload.analysis,
+    tailored_cv: payload.legacy_tailored_cv,
+    document_v2: payload.tailored_cv,
+    source_document_v2: payload.source_document_v2,
+    reconstruction_diagnostics: payload.reconstruction_diagnostics,
+    tailoring_entitlement: payload.tailoring_entitlement,
+  } satisfies CVAnalysisResponse;
 }
 
 export async function sendInterviewChatAPI(
@@ -193,7 +224,7 @@ export async function listUserCVsAPI() {
   return res.json();
 }
 
-export async function createTailoredCVVersionAPI(payload: { tailored_cv: TailoredCV; source_cv_text: string; suggested_edits: SuggestedEdit[]; jd_text: string; target_role?: string; company_name?: string; selected_design: CVDesign; tailoring_entitlement: string }) {
+export async function createTailoredCVVersionAPI(payload: { tailored_cv: TailoredCV; source_cv_text: string; suggested_edits: SuggestedEdit[]; jd_text: string; target_role?: string; company_name?: string; selected_design: CVDesign; tailoring_entitlement: string; document_v2?: import("@/types").CVDocumentV2 | null; source_document_v2?: import("@/types").CVDocumentV2 | null }) {
   const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   if (!res.ok) throw await parseApiError(res);
   return res.json() as Promise<TailoredCVVersion>;

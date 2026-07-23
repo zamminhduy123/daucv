@@ -1,5 +1,4 @@
-"""
-Request Logger Middleware — adds request_id tracking and logs requests/responses.
+"""Request Logger Middleware — adds request_id tracking and logs requests/responses.
 
 Adds a unique ``X-Request-ID`` header to every request (or reuses one from the
 client).  Logs method, path, status code, and duration — **never** request or
@@ -25,8 +24,7 @@ request_id_ctx: ContextVar[str] = ContextVar("request_id", default="")
 
 
 class RequestLogger(BaseHTTPMiddleware):
-    """
-    Middleware that logs every request with PII-safe fields.
+    """Middleware that logs every request with PII-safe fields.
 
     Logged fields:
     - request_id (UUID, for correlation)
@@ -46,7 +44,8 @@ class RequestLogger(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         # Generate or reuse request ID
         request_id = request.headers.get(
-            "x-request-id", str(uuid.uuid4())
+            "x-request-id",
+            str(uuid.uuid4()),
         )
         token = request_id_ctx.set(request_id)
 
@@ -82,8 +81,7 @@ def _log_request(
     status_code: int,
     duration_ms: int,
 ) -> None:
-    """
-    Log a single request event.
+    """Log a single request event.
 
     Uses the application logger (set up by ``logging_config.setup_logging()``)
     with structured fields. No PII is included.

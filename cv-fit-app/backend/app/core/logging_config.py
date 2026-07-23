@@ -1,5 +1,4 @@
-"""
-Application logging configuration.
+"""Application logging configuration.
 
 Sets up a JSON-based log formatter that automatically sanitizes PII from all
 log messages.  Call ``setup_logging()`` once at application startup (before
@@ -35,8 +34,7 @@ class JSONFormatter(logging.Formatter):
     """Format log records as JSON lines with PII sanitization."""
 
     def format(self, record: logging.LogRecord) -> str:
-        """
-        Build a JSON string from the log record.
+        """Build a JSON string from the log record.
 
         The ``message`` field (and ``exc_info`` if present) is sanitized
         through ``pii_sanitizer.sanitize()`` before being written.
@@ -84,8 +82,7 @@ class JSONFormatter(logging.Formatter):
 
 
 def setup_logging() -> None:
-    """
-    Configure the root logger with:
+    """Configure the root logger with:
 
     1. A console (stderr) handler — always active.
     2. A rotating file handler — writes JSON lines to ``logs/YYYY-MM-DD.jsonl``.

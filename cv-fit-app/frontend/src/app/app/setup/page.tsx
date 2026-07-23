@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import type { LayoutLine } from "@/types";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import InputSection from "@/components/workspace/InputSection";
 
@@ -10,11 +11,20 @@ interface LocalInputsState {
   jdText: string;
   cvFile: File | null;
   jdFile: File | null;
+  layoutData: LayoutLine[] | null;
 }
 
 export default function SetupPage() {
   const router = useRouter();
-  const { cvText, cvFileName, jdText, updateWorkspace, uploadFileCV, deleteActiveCV } = useWorkspace();
+  const {
+    cvText,
+    cvFileName,
+    jdText,
+    layoutData: workspaceLayoutData,
+    updateWorkspace,
+    uploadFileCV,
+    deleteActiveCV,
+  } = useWorkspace();
 
   // Local form state initialized from context
   const [localInputs, setLocalInputs] = useState<LocalInputsState>({
@@ -22,6 +32,7 @@ export default function SetupPage() {
     jdText: jdText,
     cvFile: null,
     jdFile: null,
+    layoutData: workspaceLayoutData,
   });
   
   const [error, setError] = useState("");
@@ -37,10 +48,11 @@ export default function SetupPage() {
         cvText,
         jdText,
         cvFile: mockFile,
-        jdFile: prev.jdFile
+        jdFile: prev.jdFile,
+        layoutData: workspaceLayoutData,
       };
     });
-  }, [cvText, jdText, cvFileName]);
+  }, [cvText, jdText, cvFileName, workspaceLayoutData]);
 
   const handleInputChange = (patch: Partial<LocalInputsState>) => {
     setLocalInputs(prev => ({ ...prev, ...patch }));
@@ -61,6 +73,11 @@ export default function SetupPage() {
       }
     }
 
+    // Sync layoutData to workspace locally (enables layout-aware reconstruction)
+    if (patch.layoutData !== undefined) {
+      updateWorkspace({ layoutData: patch.layoutData });
+    }
+
     // Sync JD text to workspace locally
     if (patch.jdText !== undefined) {
       updateWorkspace({ jdText: patch.jdText });
@@ -79,6 +96,7 @@ export default function SetupPage() {
       cvText: localInputs.cvText,
       cvFileName: localInputs.cvFile ? localInputs.cvFile.name : cvFileName,
       jdText: localInputs.jdText || "",
+      layoutData: localInputs.layoutData,
     });
 
     // Navigate to the chosen tool

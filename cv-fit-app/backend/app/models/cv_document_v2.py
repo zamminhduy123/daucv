@@ -1,5 +1,4 @@
-"""
-CVDocumentV2 — Typed CV document model.
+"""CVDocumentV2 — Typed CV document model.
 
 Replaces the legacy string-array sections (TailoredCV.sections: {title, items[]})
 with a discriminated-union block model that preserves semantic meaning:
@@ -45,11 +44,21 @@ CVSectionType = Literal[
 # ---------------------------------------------------------------------------
 
 
-class CVEntryBlock(BaseModel):
+class CVBlockBase(BaseModel):
+    """Metadata shared by every reconstructed block."""
+
+    block_id: str = Field(default_factory=lambda: uuid4().hex[:8])
+    confidence: float = Field(ge=0.0, le=1.0, default=1.0)
+    source_line_ids: list[str] = Field(default_factory=list)
+    reconstruction_warnings: list[str] = Field(default_factory=list)
+    original_values: dict[str, str | list[str]] = Field(default_factory=dict)
+    tailored_values: dict[str, str | list[str]] = Field(default_factory=dict)
+
+
+class CVEntryBlock(CVBlockBase):
     """A record with a title line (bold) and optional subtitle/date/organization."""
 
     type: Literal["entry"] = "entry"
-    block_id: str = Field(default_factory=lambda: uuid4().hex[:8])
     title: str
     subtitle: str | None = None
     organization: str | None = None
@@ -58,36 +67,32 @@ class CVEntryBlock(BaseModel):
     bullets: list[str] = Field(default_factory=list)
 
 
-class CVBulletBlock(BaseModel):
+class CVBulletBlock(CVBlockBase):
     """A standalone bullet point (not attached to an entry)."""
 
     type: Literal["bullet"] = "bullet"
-    block_id: str = Field(default_factory=lambda: uuid4().hex[:8])
     text: str
 
 
-class CVParagraphBlock(BaseModel):
+class CVParagraphBlock(CVBlockBase):
     """Plain text — no semantic structure beyond a single string."""
 
     type: Literal["paragraph"] = "paragraph"
-    block_id: str = Field(default_factory=lambda: uuid4().hex[:8])
     text: str
 
 
-class CVSkillGroupBlock(BaseModel):
+class CVSkillGroupBlock(CVBlockBase):
     """A labeled group of related skills (e.g. 'AI/ML Research: PyTorch, ...')."""
 
     type: Literal["skill_group"] = "skill_group"
-    block_id: str = Field(default_factory=lambda: uuid4().hex[:8])
     label: str | None = None
     skills: list[str] = Field(default_factory=list)
 
 
-class CVPublicationBlock(BaseModel):
+class CVPublicationBlock(CVBlockBase):
     """An academic publication / citation."""
 
     type: Literal["publication"] = "publication"
-    block_id: str = Field(default_factory=lambda: uuid4().hex[:8])
     title: str
     authors: str | None = None
     venue: str | None = None
@@ -95,11 +100,10 @@ class CVPublicationBlock(BaseModel):
     status: str | None = None
 
 
-class CVEducationBlock(BaseModel):
+class CVEducationBlock(CVBlockBase):
     """An education record (institution, degree, date, etc.)."""
 
     type: Literal["education"] = "education"
-    block_id: str = Field(default_factory=lambda: uuid4().hex[:8])
     institution: str | None = None
     degree: str | None = None
     field: str | None = None
@@ -108,11 +112,10 @@ class CVEducationBlock(BaseModel):
     details: list[str] = Field(default_factory=list)
 
 
-class CVUnknownBlock(BaseModel):
+class CVUnknownBlock(CVBlockBase):
     """Content the parser could not confidently classify."""
 
     type: Literal["unknown"] = "unknown"
-    block_id: str = Field(default_factory=lambda: uuid4().hex[:8])
     lines: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0, default=0.0)
 
@@ -167,6 +170,27 @@ class CVIdentity(BaseModel):
 
 class CVDocumentV2(BaseModel):
     schema_version: Literal[2] = 2
+    reconstruction_version: int = 2
+    source_hash: str | None = None
     identity: CVIdentity = Field(default_factory=CVIdentity)
     summary: CVParagraphBlock | None = Field(default=None)
     sections: list[CVSection] = Field(default_factory=list)
+    reconstruction_warnings: list[str] = Field(default_factory=list)
+
+
+class CVReconstructionDiagnostics(BaseModel):
+    """Diagnostics returned separately from the user-facing analysis."""
+
+    reconstruction_version: int = 2
+    warnings: list[str] = Field(default_factory=list)
+    block_confidence: dict[str, float] = Field(default_factory=dict)
+
+
+class CVBlockRewrite(BaseModel):
+    """Strict block-ID rewrite candidate returned by the LLM."""
+
+    block_id: str
+    text: str | None = None
+    bullets: list[str] | None = None
+    skills: list[str] | None = None
+    preserve: bool = False

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Minimal .env parser for Terraform external data source.
+"""Minimal .env parser for Terraform external data source.
 
 Terraform calls this script with an empty JSON object on stdin
 and expects a JSON object on stdout containing the .env keys/values.
@@ -12,6 +11,7 @@ But we read .env directly here so Terraform just passes {}.
 import json
 import sys
 from pathlib import Path
+
 
 def parse_env_file(path: Path) -> dict:
     """Parse a .env file into a dict, ignoring comments and blank lines."""
@@ -31,6 +31,7 @@ def parse_env_file(path: Path) -> dict:
         env[key] = value
     return env
 
+
 def main() -> None:
     env_path = Path(__file__).parent.parent / ".env"
     if not env_path.exists():
@@ -38,6 +39,7 @@ def main() -> None:
         sys.exit(1)
     result = parse_env_file(env_path)
     print(json.dumps(result))
+
 
 if __name__ == "__main__":
     main()

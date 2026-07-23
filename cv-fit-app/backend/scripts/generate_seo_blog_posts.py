@@ -1,5 +1,4 @@
-"""
-Generate Vietnamese SEO blog posts as MDX files for daucv.com.
+"""Generate Vietnamese SEO blog posts as MDX files for daucv.com.
 
 Cron-friendly usage:
     cd /path/to/cv-fit-app/backend
@@ -145,16 +144,16 @@ class ArticleSection(BaseModel):
         data = dict(value)
         title = first_value(data, ["title", "heading", "header"], "Nội dung cần lưu ý")
         paragraphs = coerce_str_list(
-            first_value(data, ["paragraphs", "content", "body", "description"], [])
+            first_value(data, ["paragraphs", "content", "body", "description"], []),
         )
         bullets = coerce_str_list(
-            first_value(data, ["bullets", "bullet_points", "items", "tips"], [])
+            first_value(data, ["bullets", "bullet_points", "items", "tips"], []),
         )
         if not paragraphs and bullets:
             paragraphs = [bullets.pop(0)]
         if not paragraphs:
             paragraphs = [
-                "Phần này tập trung vào các điểm thực tế giúp người đọc tối ưu CV hiệu quả hơn."
+                "Phần này tập trung vào các điểm thực tế giúp người đọc tối ưu CV hiệu quả hơn.",
             ]
 
         data["title"] = clip_text(title, "Nội dung cần lưu ý", 90)
@@ -175,7 +174,9 @@ class FeatureItem(BaseModel):
             return value
         data = dict(value)
         data["icon"] = clip_text(
-            first_value(data, ["icon"], "CheckCircle2"), "CheckCircle2", 40
+            first_value(data, ["icon"], "CheckCircle2"),
+            "CheckCircle2",
+            40,
         )
         data["title"] = clip_text(
             first_value(data, ["title", "heading"], "Điểm cần tối ưu"),
@@ -205,7 +206,9 @@ class StepItem(BaseModel):
             return value
         data = dict(value)
         data["title"] = clip_text(
-            first_value(data, ["title", "heading"], "Bước tối ưu"), "Bước tối ưu", 70
+            first_value(data, ["title", "heading"], "Bước tối ưu"),
+            "Bước tối ưu",
+            70,
         )
         data["description"] = clip_text(
             first_value(
@@ -247,7 +250,9 @@ class ArticleDraft(BaseModel):
         data = dict(value)
         title = clip_text(
             first_value(
-                data, ["title", "headline"], "Cách viết CV chuẩn ATS cho người tìm việc"
+                data,
+                ["title", "headline"],
+                "Cách viết CV chuẩn ATS cho người tìm việc",
             ),
             "Cách viết CV chuẩn ATS cho người tìm việc",
             90,
@@ -270,31 +275,31 @@ class ArticleDraft(BaseModel):
                 {
                     "title": "Vì sao CV chuẩn ATS quan trọng",
                     "paragraphs": [
-                        "CV chuẩn ATS giúp hệ thống tuyển dụng đọc đúng thông tin, từ đó tăng khả năng hồ sơ được chuyển đến nhà tuyển dụng thật."
+                        "CV chuẩn ATS giúp hệ thống tuyển dụng đọc đúng thông tin, từ đó tăng khả năng hồ sơ được chuyển đến nhà tuyển dụng thật.",
                     ],
                 },
                 {
                     "title": "Cách chọn từ khóa từ mô tả công việc",
                     "paragraphs": [
-                        "Hãy đọc kỹ JD, chọn các kỹ năng và yêu cầu thật sự khớp với kinh nghiệm của bạn, rồi đưa vào CV bằng ngôn ngữ tự nhiên."
+                        "Hãy đọc kỹ JD, chọn các kỹ năng và yêu cầu thật sự khớp với kinh nghiệm của bạn, rồi đưa vào CV bằng ngôn ngữ tự nhiên.",
                     ],
                 },
                 {
                     "title": "Những lỗi định dạng cần tránh",
                     "paragraphs": [
-                        "Tránh dùng quá nhiều bảng, icon, ảnh và bố cục nhiều cột vì các yếu tố này có thể khiến ATS đọc sai nội dung."
+                        "Tránh dùng quá nhiều bảng, icon, ảnh và bố cục nhiều cột vì các yếu tố này có thể khiến ATS đọc sai nội dung.",
                     ],
                 },
                 {
                     "title": "Cách kiểm tra CV trước khi gửi",
                     "paragraphs": [
-                        "Copy nội dung CV sang trình soạn thảo văn bản đơn giản để xem thứ tự thông tin có còn rõ ràng hay không."
+                        "Copy nội dung CV sang trình soạn thảo văn bản đơn giản để xem thứ tự thông tin có còn rõ ràng hay không.",
                     ],
                 },
             ][:4]
 
         intro = coerce_str_list(
-            first_value(data, ["intro", "introduction", "opening"], [])
+            first_value(data, ["intro", "introduction", "opening"], []),
         )
         if not intro:
             intro = [
@@ -307,7 +312,7 @@ class ArticleDraft(BaseModel):
             tags = [*tags, "CV", "ATS", "Tìm việc"][:3]
 
         takeaways = coerce_str_list(
-            first_value(data, ["takeaways", "key_takeaways", "learning_points"], [])
+            first_value(data, ["takeaways", "key_takeaways", "learning_points"], []),
         )
         if len(takeaways) < 3:
             takeaways = [
@@ -354,7 +359,7 @@ class ArticleDraft(BaseModel):
             ]
 
         checklist_items = coerce_str_list(
-            first_value(data, ["checklist_items", "checklist", "final_checklist"], [])
+            first_value(data, ["checklist_items", "checklist", "final_checklist"], []),
         )
         if len(checklist_items) < 4:
             checklist_items = [
@@ -372,7 +377,9 @@ class ArticleDraft(BaseModel):
             80,
         )
         data["category"] = clip_text(
-            first_value(data, ["category"], "CV & Resumes"), "CV & Resumes", 40
+            first_value(data, ["category"], "CV & Resumes"),
+            "CV & Resumes",
+            40,
         )
         data["tags"] = [clip_text(tag, tag, 30) for tag in tags[:6]]
         data["read_time"] = clip_text(
@@ -422,7 +429,7 @@ class ArticleDraft(BaseModel):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate Vietnamese SEO MDX blog posts."
+        description="Generate Vietnamese SEO MDX blog posts.",
     )
     parser.add_argument("--min", type=int, default=2, help="Minimum posts to generate.")
     parser.add_argument("--max", type=int, default=4, help="Maximum posts to generate.")
@@ -439,7 +446,8 @@ def parse_args() -> argparse.Namespace:
         help="Optional topic seed. Can be repeated.",
     )
     parser.add_argument(
-        "--date", help="Publish date in YYYY-MM-DD. Defaults to Asia/Ho_Chi_Minh today."
+        "--date",
+        help="Publish date in YYYY-MM-DD. Defaults to Asia/Ho_Chi_Minh today.",
     )
     parser.add_argument(
         "--allow-fallback",
@@ -465,7 +473,7 @@ def load_existing_posts() -> list[dict[str, str]]:
                 "title": str(frontmatter.get("title", path.stem)),
                 "description": str(frontmatter.get("description", "")),
                 "coverImage": str(frontmatter.get("coverImage", "")),
-            }
+            },
         )
     return posts
 
@@ -498,7 +506,8 @@ def unique_slug(title: str, existing_slugs: set[str]) -> str:
 
 
 def choose_cover_image(
-    existing_posts: list[dict[str, str]], used_this_run: set[str]
+    existing_posts: list[dict[str, str]],
+    used_this_run: set[str],
 ) -> str:
     used_images = {
         str(post.get("coverImage", "")).strip()
@@ -556,7 +565,7 @@ def render_feature_grid(article: ArticleDraft) -> str:
             f"icon: {json.dumps(feature.icon, ensure_ascii=False)}, "
             f"title: {json.dumps(feature.title, ensure_ascii=False)}, "
             f"description: {json.dumps(feature.description, ensure_ascii=False)}"
-            " }"
+            " }",
         )
     return (
         "<FeatureGrid \n"
@@ -573,7 +582,7 @@ def render_step_list(article: ArticleDraft) -> str:
             "    { "
             f"title: {json.dumps(step.title, ensure_ascii=False)}, "
             f"description: {json.dumps(step.description, ensure_ascii=False)}"
-            " }"
+            " }",
         )
     return (
         "<StepList \n"
@@ -609,7 +618,7 @@ def render_article(article: ArticleDraft, publish_date: str, cover_image: str) -
             "",
             render_feature_grid(article),
             "",
-        ]
+        ],
     )
 
     midpoint = max(1, len(article.sections) // 2)
@@ -637,7 +646,7 @@ def render_article(article: ArticleDraft, publish_date: str, cover_image: str) -
             '  image="/trophy.webp"',
             "/>",
             "",
-        ]
+        ],
     )
     return "\n".join(lines)
 
@@ -690,7 +699,7 @@ def validate_editorial_quality(article: ArticleDraft) -> None:
                 for paragraph in section.paragraphs
             ),
             *(bullet for section in article.sections for bullet in section.bullets),
-        ]
+        ],
     ).lower()
     lazy_hits = [phrase for phrase in LAZY_PHRASES if phrase in all_text]
     if len(lazy_hits) >= 3:
@@ -725,7 +734,9 @@ def validate_editorial_quality(article: ArticleDraft) -> None:
 
 
 def build_prompt(
-    existing_posts: list[dict[str, str]], topic_seed: str, publish_date: str
+    existing_posts: list[dict[str, str]],
+    topic_seed: str,
+    publish_date: str,
 ) -> tuple[str, str]:
     existing_summary = "\n".join(
         f"- {post['slug']}: {post['title']}" for post in existing_posts[-60:]
@@ -976,7 +987,7 @@ async def generate_one(
         return article
 
     raise RuntimeError(
-        f"All providers failed quality or schema checks. Last error: {last_error}"
+        f"All providers failed quality or schema checks. Last error: {last_error}",
     )
 
 
@@ -997,14 +1008,18 @@ async def main() -> int:
     existing_slugs = {post["slug"] for post in existing_posts}
     used_covers: set[str] = set()
     topic_pool = args.topic[:] or random.sample(
-        SEO_CLUSTERS, k=min(count, len(SEO_CLUSTERS))
+        SEO_CLUSTERS,
+        k=min(count, len(SEO_CLUSTERS)),
     )
 
     created: list[dict[str, str]] = []
     for index in range(count):
         topic_seed = topic_pool[index % len(topic_pool)]
         article = await generate_one(
-            existing_posts, topic_seed, publish_date, args.allow_fallback
+            existing_posts,
+            topic_seed,
+            publish_date,
+            args.allow_fallback,
         )
         slug = unique_slug(article.title, existing_slugs)
         cover_image = choose_cover_image(existing_posts, used_covers)
@@ -1028,8 +1043,10 @@ async def main() -> int:
 
     print(
         json.dumps(
-            {"count": len(created), "posts": created}, ensure_ascii=False, indent=2
-        )
+            {"count": len(created), "posts": created},
+            ensure_ascii=False,
+            indent=2,
+        ),
     )
     return 0
 

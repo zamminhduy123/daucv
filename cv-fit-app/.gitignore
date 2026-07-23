@@ -4,3 +4,10 @@ skills-lock.json
 
 # Playwright CLI debug captures
 frontend/.playwright-cli/
+
+# Local agent/test helpers (not part of the application)
+/backend/run_tests.sh
+/backend/tests/_run_phase*_tests.py
+
+# Prevent accidentally nesting a second copy of this application
+/cv-fit-app/

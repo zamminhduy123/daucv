@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import type { CVAnalysisResponse } from "@/types";
+import type { CVAnalysisResponse, LayoutLine } from "@/types";
 import { useAuth } from "./AuthContext";
 import { uploadUserCVAPI, updateActiveCVTextAPI, deactivateUserCVAPI } from "@/lib/api";
 
@@ -31,6 +31,7 @@ interface WorkspaceState {
   cvText: string;
   cvFileName: string;
   jdText: string;
+  layoutData: LayoutLine[] | null;
 }
 
 interface WorkspaceContextType extends WorkspaceState {
@@ -38,6 +39,7 @@ interface WorkspaceContextType extends WorkspaceState {
   setCvText: (text: string) => void;
   setCvFileName: (name: string) => void;
   setJdText: (text: string) => void;
+  setLayoutData: (data: LayoutLine[] | null) => void;
   updateWorkspace: (data: Partial<WorkspaceState>) => void;
   uploadFileCV: (text: string, filename: string) => Promise<void>;
   deleteActiveCV: () => Promise<void>;
@@ -63,7 +65,7 @@ const DEFAULT_CV_FILENAME = "CV của tôi";
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { activeCV, refreshProfile, status, userId } = useAuth();
-  const [state, setState] = useState<WorkspaceState>({ cvText: "", cvFileName: DEFAULT_CV_FILENAME, jdText: "" });
+  const [state, setState] = useState<WorkspaceState>({ cvText: "", cvFileName: DEFAULT_CV_FILENAME, jdText: "", layoutData: null });
   const [cache, setCache] = useState<WorkspaceCache>({ ...EMPTY_CACHE });
   const [isFeedbackOpen, setFeedbackOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -83,7 +85,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
 
     const rawState = sessionStorage.getItem(stateStorageKey);
-    let nextState: WorkspaceState = { cvText: "", cvFileName: DEFAULT_CV_FILENAME, jdText: "" };
+    let nextState: WorkspaceState = { cvText: "", cvFileName: DEFAULT_CV_FILENAME, jdText: "", layoutData: null };
     if (rawState) {
       try {
         nextState = JSON.parse(rawState);
@@ -196,12 +198,21 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   const setJdText = useCallback((jdText: string) => setState((s) => ({ ...s, jdText })), []);
 
+  const setLayoutData = useCallback((layoutData: LayoutLine[] | null) => {
+    setState((s) => ({ ...s, layoutData }));
+    setCache({ ...EMPTY_CACHE });
+  }, []);
+
   const clearCache = useCallback(() => setCache({ ...EMPTY_CACHE }), []);
 
   const updateWorkspace = useCallback((data: Partial<WorkspaceState>) => {
     setState((s) => {
       const next = { ...s, ...data };
-      if (next.cvText !== s.cvText || next.jdText !== s.jdText) {
+      if (
+        next.cvText !== s.cvText ||
+        next.jdText !== s.jdText ||
+        next.layoutData !== s.layoutData
+      ) {
         setCache({ ...EMPTY_CACHE });
       }
       return next;
@@ -231,7 +242,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    setState((s) => ({ ...s, cvText: "", cvFileName: DEFAULT_CV_FILENAME }));
+    setState((s) => ({
+      ...s,
+      cvText: "",
+      cvFileName: DEFAULT_CV_FILENAME,
+      layoutData: null,
+    }));
     setCache({ ...EMPTY_CACHE });
   }, [status, activeCV, refreshProfile]);
 
@@ -259,6 +275,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         setCvText,
         setCvFileName,
         setJdText,
+        setLayoutData,
         updateWorkspace,
         uploadFileCV,
         deleteActiveCV,

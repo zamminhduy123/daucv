@@ -1,8 +1,15 @@
 // ─── Re-export CVDocumentV2 types ────────────────────────────────────────────
-import type { CVDocumentV2 as _CVDocumentV2 } from "./cv-document-v2";
+import type {
+  LayoutLine as _LayoutLine,
+  CVDocumentV2 as _CVDocumentV2,
+} from "./cv-document-v2";
+
+// Re-export for consumers
+export type LayoutLine = _LayoutLine;
 
 export type {
   CVSectionType,
+  CVBlockMetadata,
   CVBlockType,
   CVBlock,
   CVEntryBlock,
@@ -28,6 +35,7 @@ export interface WorkspaceInputs {
   cvText: string;
   cvFile: File | null;
   jdFile: File | null;
+  layoutData: _LayoutLine[] | null;
 }
 
 // ─── AI Analysis Result ───────────────────────────────────────────────────────
@@ -65,6 +73,8 @@ export interface TailoredCVVersion {
   source_language?: "vi" | "en";
   // V2 typed document (nullable for legacy records)
   document_v2?: _CVDocumentV2 | null;
+  source_document_v2?: _CVDocumentV2 | null;
+  source_pdf_reference?: string | null;
   selected_design: CVDesign;
   // Schema versioning metadata
   document_schema_version?: number;
@@ -110,10 +120,10 @@ export interface ScoreBreakdown {
 }
 
 export interface CVAnalysisResponse {
-  source_language: "vi" | "en";
-  role_fit_score: number;           // Raw LLM assessment — what a human recruiter gives
-  match_score: number;              // "CV Match" — penalized by missing JD keywords
-  score_breakdown: ScoreBreakdown;
+  source_language?: "vi" | "en";
+  role_fit_score?: number;           // Raw LLM assessment — what a human recruiter gives
+  match_score?: number;              // "CV Match" — penalized by missing JD keywords
+  score_breakdown?: ScoreBreakdown;
   match_headline: string;
   match_summary: string;
 
@@ -134,8 +144,23 @@ export interface CVAnalysisResponse {
   evidence_analysis: EvidenceAnalysis[];
   tailored_cv: TailoredCV;
   document_v2?: _CVDocumentV2 | null;
+  source_document_v2?: _CVDocumentV2 | null;
+  reconstruction_diagnostics?: {
+    reconstruction_version: number;
+    warnings: string[];
+    block_confidence: Record<string, number>;
+  } | null;
   target_role?: string | null;
   company_name?: string | null;
+  tailoring_entitlement: string;
+}
+
+export interface CVAnalysisEnvelope {
+  analysis: Omit<CVAnalysisResponse, "tailored_cv" | "document_v2" | "source_document_v2" | "reconstruction_diagnostics" | "tailoring_entitlement">;
+  tailored_cv: _CVDocumentV2;
+  source_document_v2: _CVDocumentV2;
+  reconstruction_diagnostics: NonNullable<CVAnalysisResponse["reconstruction_diagnostics"]>;
+  legacy_tailored_cv: TailoredCV;
   tailoring_entitlement: string;
 }
 

@@ -56,6 +56,16 @@ CREATE TABLE IF NOT EXISTS public.tailored_cv_versions (
     tailored_cv JSONB NOT NULL,
     analysis_key TEXT NOT NULL,
     selected_design TEXT NOT NULL DEFAULT 'classic_ats' CHECK (selected_design IN ('classic_ats', 'modern_professional', 'compact_one_page')),
+    document_schema_version INTEGER DEFAULT 1,
+    reconstruction_version INTEGER DEFAULT 1,
+    source_hash TEXT,
+    jd_hash TEXT,
+    document_v2 JSONB DEFAULT 'null'::jsonb,
+    reconstruction_warnings TEXT[] DEFAULT ARRAY[]::TEXT[],
+    source_document_v2 JSONB DEFAULT 'null'::jsonb,
+    source_pdf_reference TEXT,
+    source_raw_text TEXT,
+    source_normalized_text TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

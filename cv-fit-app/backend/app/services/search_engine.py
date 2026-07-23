@@ -1,5 +1,4 @@
-"""
-Search engine adapter — queries Serper API or Google CSE for site:domain jobs.
+"""Search engine adapter — queries Serper API or Google CSE for site:domain jobs.
 
 Used as the fallback data source (after Playwright crawler exhausts
 its queries). When the crawler returns 0 results — e.g. due to
@@ -20,9 +19,9 @@ _DOMAIN_PATHS: dict[str, list[str | type]] = {
     "glints": ["/opportunities/jobs/"],
     "jobsgo": ["/viec-lam/"],
     "vieclam24h": ["/viec-lam-", "/tuyen-dung-"],
-    "vietnamworks": ["/viec-lam/", "/job/", re.compile(r"-\d+-jv$", re.I)],
+    "vietnamworks": ["/viec-lam/", "/job/", re.compile(r"-\d+-jv$", re.IGNORECASE)],
     "ybox": ["/tuyen-dung/"],
-    "careerviet": ["/tim-viec-lam/", re.compile(r"\.html$", re.I)],
+    "careerviet": ["/tim-viec-lam/", re.compile(r"\.html$", re.IGNORECASE)],
 }
 
 # Skill dictionary for extraction
@@ -160,7 +159,7 @@ def _infer_salary(text: str) -> str | None:
         r"(cạnh tranh)",
         r"(thỏa thuận|thông thương)",
     ]:
-        m = re.search(pat, text, re.I)
+        m = re.search(pat, text, re.IGNORECASE)
         if m:
             return m.group(1).strip()
     return None
@@ -179,7 +178,7 @@ def _extract_skills(text: str) -> list[str]:
     found = []
     for skill in _SKILLS:
         escaped = skill.replace(" ", r"\s+")
-        if re.search(escaped, t, re.I):
+        if re.search(escaped, t, re.IGNORECASE):
             found.append(skill.title())
     return found[:8]
 
@@ -190,7 +189,7 @@ def _parse_title_company(raw: str) -> tuple[str, str]:
     title = parts[0].strip()
     company = parts[1].strip() if len(parts) > 1 else "Không rõ công ty"
     # Clean Vietnamese prefixes
-    title = re.sub(r"^(tuyển dụng|tuyển)\s+", "", title, flags=re.I).strip()
+    title = re.sub(r"^(tuyển dụng|tuyển)\s+", "", title, flags=re.IGNORECASE).strip()
     title = title[0].upper() + title[1:] if title else title
     return title, company
 
@@ -227,7 +226,7 @@ async def search_via_engine(query: str, domain: str, limit: int = 4) -> list[dic
                         snippet = item.get("snippet", "")
                         if title and link:
                             hits.append(
-                                {"title": title, "link": link, "snippet": snippet}
+                                {"title": title, "link": link, "snippet": snippet},
                             )
             except Exception:
                 pass
@@ -247,7 +246,7 @@ async def search_via_engine(query: str, domain: str, limit: int = 4) -> list[dic
                         snippet = item.get("snippet", "")
                         if title and link:
                             hits.append(
-                                {"title": title, "link": link, "snippet": snippet}
+                                {"title": title, "link": link, "snippet": snippet},
                             )
             except Exception:
                 pass
@@ -300,14 +299,17 @@ async def search_via_engine(query: str, domain: str, limit: int = 4) -> list[dic
                 "posted_text": "Hôm nay",
                 "url": hit["link"],
                 "description_snippet": hit["snippet"],
-            }
+            },
         )
 
     return results
 
 
 async def search_via_engine_for_source(
-    source: str, query: str, domain: str, limit: int = 4
+    source: str,
+    query: str,
+    domain: str,
+    limit: int = 4,
 ) -> list[dict]:
     """Convenience wrapper: search for a specific source."""
     return await search_via_engine(query, domain, limit)

@@ -36,7 +36,7 @@ async def test_individual_providers():
                 temperature=0.0,
             )
             print(
-                f"✅ {provider.name} SUCCESS! Response: {result.data.model_dump_json()}"
+                f"✅ {provider.name} SUCCESS! Response: {result.data.model_dump_json()}",
             )
             print(f"📈 Tokens: {result.input_tokens} in / {result.output_tokens} out")
         except Exception as e:
@@ -92,7 +92,7 @@ async def test_real_fallback_with_bad_key():
             max_retries=1,
         )
         print(
-            f"\n✅ Real Fallback logic successfully bypassed the bad key! Result: {result}"
+            f"\n✅ Real Fallback logic successfully bypassed the bad key! Result: {result}",
         )
     except Exception as e:
         print(f"\n❌ Real Fallback logic failed: {e}")
@@ -119,7 +119,8 @@ async def test_fallback_mechanism():
         async def generate_structured(self, *args, **kwargs):
             return ProviderResult(
                 data=MockTestResponse(
-                    test_message="Recovered via mock fallback!", success=True
+                    test_message="Recovered via mock fallback!",
+                    success=True,
                 ),
                 input_tokens=10,
                 output_tokens=10,
@@ -146,7 +147,7 @@ async def test_fallback_mechanism():
             max_retries=1,
         )
         print(
-            f"\n✅ Fallback logic successfully bypassed errors and retrieved: {result}"
+            f"\n✅ Fallback logic successfully bypassed errors and retrieved: {result}",
         )
     except Exception as e:
         print(f"\n❌ Fallback logic failed unexpectedly: {e}")

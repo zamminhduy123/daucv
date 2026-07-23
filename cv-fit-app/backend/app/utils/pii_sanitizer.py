@@ -1,5 +1,4 @@
-"""
-PII Sanitizer — Mask personally identifiable information in log messages.
+"""PII Sanitizer — Mask personally identifiable information in log messages.
 
 Provides ``sanitize()`` which replaces common PII patterns in arbitrary strings
 with safe placeholders before the string is written to any log file.
@@ -37,7 +36,9 @@ _PHONE_INT = re.compile(r"\+\d{1,3}(?:[\s.-]\d{1,4}){2,6}\b")
 _EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
 
 # IPv4 address (not inside a larger token)
-_IPV4 = re.compile(r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b")
+_IPV4 = re.compile(
+    r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -48,8 +49,7 @@ _PLACEHOLDER_PII = "[REDACTED-PII]"
 
 
 def sanitize(value: Any) -> str:
-    """
-    Convert *value* to a string and mask all PII patterns.
+    """Convert *value* to a string and mask all PII patterns.
 
     Parameters
     ----------
@@ -67,6 +67,7 @@ def sanitize(value: Any) -> str:
     'Contact at [REDACTED-PII] for info'
     >>> sanitize("Phone: +84 90 123 4567")
     'Phone: [REDACTED-PII]'
+
     """
     text = str(value)
 

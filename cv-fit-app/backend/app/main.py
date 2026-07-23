@@ -1,5 +1,4 @@
-"""
-CVFit API — Application Factory
+"""CVFit API — Application Factory
 =================================
 Creates the FastAPI application, registers middleware, and includes all routers.
 This is the single source of truth for the ``app`` object.
@@ -16,34 +15,38 @@ except ImportError:
     billing = None
 
 
+async def _lifespan(app: FastAPI) -> None:
+    """Database lifecycle: connect at startup, disconnect at shutdown."""
+    import logging
+
+    try:
+        from app.core.db import Database
+
+        await Database.connect()
+        try:
+            from scripts.run_migrations import run_migrations
+
+            await run_migrations()
+        except Exception as mig_err:
+            logging.getLogger("app.main").warning(
+                f"Auto-migration skipped or failed: {mig_err}"
+            )
+    except Exception as e:
+        logging.getLogger("app.main").error(
+            f"Database connection failed at startup: {e}"
+        )
+    yield
+    try:
+        from app.core.db import Database
+
+        await Database.disconnect()
+    except Exception as e:
+        logging.getLogger("app.main").error(f"Database disconnect failed: {e}")
+
+
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
-
-    application = FastAPI(title="CVFit API", version="1.0.0")
-
-    @application.on_event("startup")
-    async def startup_event():
-        try:
-            from app.core.db import Database
-
-            await Database.connect()
-        except Exception as e:
-            import logging
-
-            logger = logging.getLogger("app.main")
-            logger.error(f"Database connection failed at startup: {e}")
-
-    @application.on_event("shutdown")
-    async def shutdown_event():
-        try:
-            from app.core.db import Database
-
-            await Database.disconnect()
-        except Exception as e:
-            import logging
-
-            logger = logging.getLogger("app.main")
-            logger.error(f"Database disconnect failed: {e}")
+    application = FastAPI(title="CVFit API", version="1.0.0", lifespan=_lifespan)
 
     # --- CORS (explicit origin allowlist -- dev and prod) -------------------
     # Never use allow_origins=["*"] with allow_credentials=True — violates CORS spec.

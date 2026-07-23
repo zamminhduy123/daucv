@@ -37,7 +37,15 @@ JOBS: list[JobProfile] = [
         city="TP. Hồ Chí Minh",
         level="Middle",
         years="2-4 năm",
-        stack=["ReactJS", "TypeScript", "Redux Toolkit", "Next.js", "REST API", "Tailwind CSS", "Jest"],
+        stack=[
+            "ReactJS",
+            "TypeScript",
+            "Redux Toolkit",
+            "Next.js",
+            "REST API",
+            "Tailwind CSS",
+            "Jest",
+        ],
         responsibilities=[
             "Phát triển các màn hình web cho luồng định danh eKYC, quản lý khoản vay và dashboard giao dịch.",
             "Tối ưu hiệu năng rendering, bundle size và Core Web Vitals cho ứng dụng có hơn 300.000 người dùng/tháng.",
@@ -91,7 +99,15 @@ JOBS: list[JobProfile] = [
         city="Hà Nội",
         level="Middle",
         years="2-4 năm",
-        stack=["Python", "PyTorch", "Transformers", "LangChain", "FastAPI", "Vector Database", "MLflow"],
+        stack=[
+            "Python",
+            "PyTorch",
+            "Transformers",
+            "LangChain",
+            "FastAPI",
+            "Vector Database",
+            "MLflow",
+        ],
         responsibilities=[
             "Xây dựng pipeline xử lý văn bản y tế tiếng Việt, trích xuất thực thể và phân loại hồ sơ.",
             "Fine-tune mô hình Transformer, đánh giá bằng precision, recall, F1-score và theo dõi drift.",
@@ -118,7 +134,14 @@ JOBS: list[JobProfile] = [
         city="Đà Nẵng",
         level="Junior/Middle",
         years="1-3 năm",
-        stack=["Test Case", "Regression Testing", "Jira", "Postman", "SQL cơ bản", "Agile/Scrum"],
+        stack=[
+            "Test Case",
+            "Regression Testing",
+            "Jira",
+            "Postman",
+            "SQL cơ bản",
+            "Agile/Scrum",
+        ],
         responsibilities=[
             "Phân tích requirement, viết test case, test scenario và chuẩn bị test data cho web/mobile app.",
             "Thực hiện functional testing, regression testing, smoke testing sau mỗi sprint.",
@@ -145,7 +168,15 @@ JOBS: list[JobProfile] = [
         city="Hà Nội",
         level="Senior",
         years="4-6 năm",
-        stack=["AWS", "Kubernetes", "Terraform", "Docker", "GitLab CI/CD", "Prometheus", "Grafana"],
+        stack=[
+            "AWS",
+            "Kubernetes",
+            "Terraform",
+            "Docker",
+            "GitLab CI/CD",
+            "Prometheus",
+            "Grafana",
+        ],
         responsibilities=[
             "Thiết kế và vận hành hạ tầng Kubernetes multi-environment cho các hệ thống SaaS.",
             "Tự động hóa provisioning bằng Terraform, chuẩn hóa CI/CD pipeline và deployment strategy.",
@@ -172,7 +203,15 @@ JOBS: list[JobProfile] = [
         city="TP. Hồ Chí Minh",
         level="Middle",
         years="2-4 năm",
-        stack=["Flutter", "Dart", "Bloc", "Firebase", "REST API", "App Store", "Google Play"],
+        stack=[
+            "Flutter",
+            "Dart",
+            "Bloc",
+            "Firebase",
+            "REST API",
+            "App Store",
+            "Google Play",
+        ],
         responsibilities=[
             "Phát triển ứng dụng mobile đa nền tảng cho đặt lịch khám, nhắc thuốc và ví sức khỏe.",
             "Tối ưu trải nghiệm người dùng, crash-free rate, performance và offline caching.",
@@ -253,7 +292,14 @@ JOBS: list[JobProfile] = [
         city="TP. Hồ Chí Minh",
         level="Middle",
         years="2-5 năm",
-        stack=["Figma", "Design System", "User Research", "Prototype", "Usability Testing", "Mobile UX"],
+        stack=[
+            "Figma",
+            "Design System",
+            "User Research",
+            "Prototype",
+            "Usability Testing",
+            "Mobile UX",
+        ],
         responsibilities=[
             "Thiết kế flow mobile/web cho đặt dịch vụ, quản lý booking và đánh giá nhà cung cấp.",
             "Thực hiện user research, usability testing và phân tích hành vi người dùng để cải thiện conversion.",
@@ -280,7 +326,15 @@ JOBS: list[JobProfile] = [
         city="Hà Nội",
         level="Junior/Middle",
         years="1-3 năm",
-        stack=["SIEM", "Splunk", "EDR", "MITRE ATT&CK", "Incident Response", "Linux", "Python"],
+        stack=[
+            "SIEM",
+            "Splunk",
+            "EDR",
+            "MITRE ATT&CK",
+            "Incident Response",
+            "Linux",
+            "Python",
+        ],
         responsibilities=[
             "Giám sát alert từ SIEM, EDR, firewall và phân loại mức độ rủi ro theo playbook.",
             "Điều tra incident, phân tích log, IOC, timeline tấn công và đề xuất biện pháp containment.",
@@ -307,7 +361,15 @@ JOBS: list[JobProfile] = [
         city="Đà Nẵng",
         level="Middle",
         years="2-5 năm",
-        stack=["Java", "Spring Boot", "Spring Security", "MySQL", "REST API", "JUnit", "Docker"],
+        stack=[
+            "Java",
+            "Spring Boot",
+            "Spring Security",
+            "MySQL",
+            "REST API",
+            "JUnit",
+            "Docker",
+        ],
         responsibilities=[
             "Phát triển REST API cho hệ thống ERP, quản lý người dùng, phân quyền và workflow phê duyệt.",
             "Thiết kế database schema, viết unit test, integration test và xử lý bug trong sprint.",
@@ -334,7 +396,15 @@ JOBS: list[JobProfile] = [
         city="TP. Hồ Chí Minh",
         level="Senior",
         years="4-7 năm",
-        stack=["Golang", "gRPC", "PostgreSQL", "Redis", "Kafka", "Kubernetes", "Prometheus"],
+        stack=[
+            "Golang",
+            "gRPC",
+            "PostgreSQL",
+            "Redis",
+            "Kafka",
+            "Kubernetes",
+            "Prometheus",
+        ],
         responsibilities=[
             "Xây dựng service thanh toán có độ sẵn sàng cao, xử lý settlement, refund và reconciliation.",
             "Thiết kế gRPC API, event schema, retry strategy và cơ chế idempotency cho giao dịch tài chính.",
@@ -361,7 +431,15 @@ JOBS: list[JobProfile] = [
         city="TP. Hồ Chí Minh",
         level="Middle",
         years="2-4 năm",
-        stack=["Playwright", "Cypress", "TypeScript", "Postman", "API Testing", "CI/CD", "Jira"],
+        stack=[
+            "Playwright",
+            "Cypress",
+            "TypeScript",
+            "Postman",
+            "API Testing",
+            "CI/CD",
+            "Jira",
+        ],
         responsibilities=[
             "Xây dựng automation test suite cho checkout, seller center và campaign promotion.",
             "Viết API test, E2E test, regression suite và tích hợp vào CI/CD pipeline.",
@@ -388,7 +466,15 @@ JOBS: list[JobProfile] = [
         city="TP. Hồ Chí Minh",
         level="Middle",
         years="2-5 năm",
-        stack=["Swift", "UIKit", "SwiftUI", "Combine", "REST API", "Unit Test", "App Store"],
+        stack=[
+            "Swift",
+            "UIKit",
+            "SwiftUI",
+            "Combine",
+            "REST API",
+            "Unit Test",
+            "App Store",
+        ],
         responsibilities=[
             "Phát triển tính năng tìm kiếm chuyến bay, đặt phòng và quản lý booking trên iOS.",
             "Tối ưu startup time, memory usage, crash-free users và trải nghiệm thanh toán.",
@@ -415,7 +501,15 @@ JOBS: list[JobProfile] = [
         city="Hà Nội",
         level="Middle",
         years="2-5 năm",
-        stack=["Kotlin", "Android SDK", "Jetpack Compose", "MVVM", "Coroutine", "Room", "Firebase"],
+        stack=[
+            "Kotlin",
+            "Android SDK",
+            "Jetpack Compose",
+            "MVVM",
+            "Coroutine",
+            "Room",
+            "Firebase",
+        ],
         responsibilities=[
             "Phát triển ứng dụng tài xế cho nhận chuyến, điều hướng, ví thu nhập và hỗ trợ khách hàng.",
             "Tối ưu realtime location, background service, offline mode và battery usage.",
@@ -442,7 +536,15 @@ JOBS: list[JobProfile] = [
         city="TP. Hồ Chí Minh",
         level="Middle/Senior",
         years="3-6 năm",
-        stack=["Next.js", "ReactJS", "Node.js", "TypeScript", "Prisma", "PostgreSQL", "AWS"],
+        stack=[
+            "Next.js",
+            "ReactJS",
+            "Node.js",
+            "TypeScript",
+            "Prisma",
+            "PostgreSQL",
+            "AWS",
+        ],
         responsibilities=[
             "Phát triển end-to-end các module CRM, quản lý lead, lịch hẹn và báo cáo doanh thu.",
             "Thiết kế API, database schema, phân quyền và tối ưu UI cho người dùng sale cường độ cao.",
@@ -469,7 +571,15 @@ JOBS: list[JobProfile] = [
         city="TP. Hồ Chí Minh",
         level="Junior/Middle",
         years="1-3 năm",
-        stack=["PHP", "WordPress", "WooCommerce", "MySQL", "HTML/CSS", "JavaScript", "SEO"],
+        stack=[
+            "PHP",
+            "WordPress",
+            "WooCommerce",
+            "MySQL",
+            "HTML/CSS",
+            "JavaScript",
+            "SEO",
+        ],
         responsibilities=[
             "Xây dựng website WordPress, landing page, WooCommerce store và plugin tùy chỉnh theo brief.",
             "Tối ưu tốc độ tải trang, SEO technical, responsive layout và bảo mật cơ bản.",
@@ -496,7 +606,15 @@ JOBS: list[JobProfile] = [
         city="Hà Nội",
         level="Middle",
         years="2-4 năm",
-        stack=["Unity", "C#", "Mobile Game", "Ads SDK", "Firebase", "Addressables", "Git"],
+        stack=[
+            "Unity",
+            "C#",
+            "Mobile Game",
+            "Ads SDK",
+            "Firebase",
+            "Addressables",
+            "Git",
+        ],
         responsibilities=[
             "Phát triển gameplay, UI, level logic và hệ thống reward cho mobile game casual.",
             "Tối ưu FPS, memory, build size và tích hợp Ads SDK, Firebase Analytics, remote config.",
@@ -523,7 +641,15 @@ JOBS: list[JobProfile] = [
         city="Hà Nội",
         level="Middle",
         years="3-5 năm",
-        stack=["ERP", "Odoo", "SAP Business One", "Business Process", "UAT", "SQL", "Training"],
+        stack=[
+            "ERP",
+            "Odoo",
+            "SAP Business One",
+            "Business Process",
+            "UAT",
+            "SQL",
+            "Training",
+        ],
         responsibilities=[
             "Khảo sát quy trình mua hàng, bán hàng, kho, kế toán và sản xuất tại khách hàng.",
             "Cấu hình ERP, viết tài liệu giải pháp, hỗ trợ migration dữ liệu và kiểm thử UAT.",
@@ -550,7 +676,14 @@ JOBS: list[JobProfile] = [
         city="TP. Hồ Chí Minh",
         level="Junior",
         years="1-2 năm",
-        stack=["Windows", "Microsoft 365", "LAN/Wi-Fi", "POS", "Helpdesk", "Asset Management"],
+        stack=[
+            "Windows",
+            "Microsoft 365",
+            "LAN/Wi-Fi",
+            "POS",
+            "Helpdesk",
+            "Asset Management",
+        ],
         responsibilities=[
             "Hỗ trợ người dùng nội bộ về máy tính, email, Microsoft 365, máy in và hệ thống POS.",
             "Quản lý ticket helpdesk, asset laptop, tài khoản người dùng và phân quyền cơ bản.",
@@ -574,26 +707,134 @@ JOBS: list[JobProfile] = [
 
 
 CANDIDATES: list[Candidate] = [
-    Candidate("Nguyen Minh Khoa", "khoa.nguyen@example.com", "0901 234 501", "TP. Hồ Chí Minh", "ĐH Bách Khoa TP.HCM"),
-    Candidate("Tran Thi Bao Ngoc", "ngoc.tran@example.com", "0901 234 502", "TP. Hồ Chí Minh", "ĐH Khoa học Tự nhiên TP.HCM"),
-    Candidate("Le Quang Huy", "huy.le@example.com", "0901 234 503", "Hà Nội", "ĐH Công nghệ - ĐHQGHN"),
-    Candidate("Pham Thu Ha", "ha.pham@example.com", "0901 234 504", "Đà Nẵng", "ĐH Duy Tân"),
-    Candidate("Hoang Anh Tuan", "tuan.hoang@example.com", "0901 234 505", "Hà Nội", "Học viện Công nghệ Bưu chính Viễn thông"),
-    Candidate("Vu Thanh Lam", "lam.vu@example.com", "0901 234 506", "TP. Hồ Chí Minh", "ĐH FPT"),
-    Candidate("Do My Linh", "linh.do@example.com", "0901 234 507", "TP. Hồ Chí Minh", "ĐH Kinh tế TP.HCM"),
-    Candidate("Bui Gia Bao", "bao.bui@example.com", "0901 234 508", "Hà Nội", "ĐH Thương mại"),
-    Candidate("Dang Nhat Nam", "nam.dang@example.com", "0901 234 509", "TP. Hồ Chí Minh", "ĐH Văn Lang"),
-    Candidate("Nguyen Thi Mai Anh", "maianh.nguyen@example.com", "0901 234 510", "Hà Nội", "Học viện Kỹ thuật Mật mã"),
-    Candidate("Tran Duc Anh", "ducanh.tran@example.com", "0901 234 511", "Đà Nẵng", "ĐH Bách Khoa Đà Nẵng"),
-    Candidate("Le Minh Tri", "tri.le@example.com", "0901 234 512", "TP. Hồ Chí Minh", "ĐH Công nghệ Thông tin - ĐHQG TP.HCM"),
-    Candidate("Pham Bao Chau", "chau.pham@example.com", "0901 234 513", "TP. Hồ Chí Minh", "ĐH Sư phạm Kỹ thuật TP.HCM"),
-    Candidate("Ho Thi Khanh Linh", "khanhlinh.ho@example.com", "0901 234 514", "TP. Hồ Chí Minh", "ĐH Hoa Sen"),
-    Candidate("Vo Quoc Viet", "viet.vo@example.com", "0901 234 515", "Hà Nội", "ĐH Công nghiệp Hà Nội"),
-    Candidate("Nguyen Van A", "nguyenvana1998@example.com", "0901 234 516", "TP. Hồ Chí Minh", "Cao đẳng nghề CNTT"),
-    Candidate("Tran Thi B", "tranthib.work@example.com", "0901 234 517", "TP. Hồ Chí Minh", "Trung tâm tin học ABC"),
-    Candidate("Le Van C", "levanc.cv@example.com", "0901 234 518", "Hà Nội", "ĐH Mở Hà Nội"),
-    Candidate("Pham Thi D", "phamthid@example.com", "0901 234 519", "Đà Nẵng", "Cao đẳng Kinh tế Kế hoạch"),
-    Candidate("Hoang Van E", "ehoang123@example.com", "0901 234 520", "TP. Hồ Chí Minh", "Tự học online"),
+    Candidate(
+        "Nguyen Minh Khoa",
+        "khoa.nguyen@example.com",
+        "0901 234 501",
+        "TP. Hồ Chí Minh",
+        "ĐH Bách Khoa TP.HCM",
+    ),
+    Candidate(
+        "Tran Thi Bao Ngoc",
+        "ngoc.tran@example.com",
+        "0901 234 502",
+        "TP. Hồ Chí Minh",
+        "ĐH Khoa học Tự nhiên TP.HCM",
+    ),
+    Candidate(
+        "Le Quang Huy",
+        "huy.le@example.com",
+        "0901 234 503",
+        "Hà Nội",
+        "ĐH Công nghệ - ĐHQGHN",
+    ),
+    Candidate(
+        "Pham Thu Ha", "ha.pham@example.com", "0901 234 504", "Đà Nẵng", "ĐH Duy Tân"
+    ),
+    Candidate(
+        "Hoang Anh Tuan",
+        "tuan.hoang@example.com",
+        "0901 234 505",
+        "Hà Nội",
+        "Học viện Công nghệ Bưu chính Viễn thông",
+    ),
+    Candidate(
+        "Vu Thanh Lam",
+        "lam.vu@example.com",
+        "0901 234 506",
+        "TP. Hồ Chí Minh",
+        "ĐH FPT",
+    ),
+    Candidate(
+        "Do My Linh",
+        "linh.do@example.com",
+        "0901 234 507",
+        "TP. Hồ Chí Minh",
+        "ĐH Kinh tế TP.HCM",
+    ),
+    Candidate(
+        "Bui Gia Bao", "bao.bui@example.com", "0901 234 508", "Hà Nội", "ĐH Thương mại"
+    ),
+    Candidate(
+        "Dang Nhat Nam",
+        "nam.dang@example.com",
+        "0901 234 509",
+        "TP. Hồ Chí Minh",
+        "ĐH Văn Lang",
+    ),
+    Candidate(
+        "Nguyen Thi Mai Anh",
+        "maianh.nguyen@example.com",
+        "0901 234 510",
+        "Hà Nội",
+        "Học viện Kỹ thuật Mật mã",
+    ),
+    Candidate(
+        "Tran Duc Anh",
+        "ducanh.tran@example.com",
+        "0901 234 511",
+        "Đà Nẵng",
+        "ĐH Bách Khoa Đà Nẵng",
+    ),
+    Candidate(
+        "Le Minh Tri",
+        "tri.le@example.com",
+        "0901 234 512",
+        "TP. Hồ Chí Minh",
+        "ĐH Công nghệ Thông tin - ĐHQG TP.HCM",
+    ),
+    Candidate(
+        "Pham Bao Chau",
+        "chau.pham@example.com",
+        "0901 234 513",
+        "TP. Hồ Chí Minh",
+        "ĐH Sư phạm Kỹ thuật TP.HCM",
+    ),
+    Candidate(
+        "Ho Thi Khanh Linh",
+        "khanhlinh.ho@example.com",
+        "0901 234 514",
+        "TP. Hồ Chí Minh",
+        "ĐH Hoa Sen",
+    ),
+    Candidate(
+        "Vo Quoc Viet",
+        "viet.vo@example.com",
+        "0901 234 515",
+        "Hà Nội",
+        "ĐH Công nghiệp Hà Nội",
+    ),
+    Candidate(
+        "Nguyen Van A",
+        "nguyenvana1998@example.com",
+        "0901 234 516",
+        "TP. Hồ Chí Minh",
+        "Cao đẳng nghề CNTT",
+    ),
+    Candidate(
+        "Tran Thi B",
+        "tranthib.work@example.com",
+        "0901 234 517",
+        "TP. Hồ Chí Minh",
+        "Trung tâm tin học ABC",
+    ),
+    Candidate(
+        "Le Van C", "levanc.cv@example.com", "0901 234 518", "Hà Nội", "ĐH Mở Hà Nội"
+    ),
+    Candidate(
+        "Pham Thi D",
+        "phamthid@example.com",
+        "0901 234 519",
+        "Đà Nẵng",
+        "Cao đẳng Kinh tế Kế hoạch",
+    ),
+    Candidate(
+        "Hoang Van E",
+        "ehoang123@example.com",
+        "0901 234 520",
+        "TP. Hồ Chí Minh",
+        "Tự học online",
+    ),
 ]
 
 
@@ -603,8 +844,9 @@ def bullet_list(items: list[str]) -> str:
 
 def render_jd(index: int, job: JobProfile) -> str:
     stack = ", ".join(job.stack)
-    return dedent(
-        f"""
+    return (
+        dedent(
+            f"""
         JOB DESCRIPTION #{index:02d} - {job.role}
 
         Công ty: {job.company}
@@ -629,15 +871,18 @@ def render_jd(index: int, job: JobProfile) -> str:
         - Vòng 1: Trao đổi với HR về kinh nghiệm, định hướng và mức lương kỳ vọng.
         - Vòng 2: Phỏng vấn kỹ thuật/tình huống với Engineering Manager hoặc Hiring Manager.
         - Vòng 3: Bài test ngắn hoặc trao đổi văn hóa đội nhóm nếu cần.
-        """
-    ).strip() + "\n"
+        """,
+        ).strip()
+        + "\n"
+    )
 
 
 def render_perfect_cv(index: int, candidate: Candidate, job: JobProfile) -> str:
     primary = job.stack[:4]
     secondary = job.stack[4:]
-    return dedent(
-        f"""
+    return (
+        dedent(
+            f"""
         CV #{index:02d} - PERFECT MATCH
 
         {candidate.name}
@@ -678,15 +923,18 @@ def render_perfect_cv(index: int, candidate: Candidate, job: JobProfile) -> str:
         CHỨNG CHỈ
         - Professional Scrum Master I
         - AWS Cloud Practitioner hoặc chứng chỉ kỹ thuật tương đương theo định hướng dự án
-        """
-    ).strip() + "\n"
+        """,
+        ).strip()
+        + "\n"
+    )
 
 
 def render_average_cv(index: int, candidate: Candidate, job: JobProfile) -> str:
-    listed_stack = job.stack[:3] + ["Git", "Agile"]
+    listed_stack = [*job.stack[:3], "Git", "Agile"]
     missing_keywords = job.stack[3:]
-    return dedent(
-        f"""
+    return (
+        dedent(
+            f"""
         CV #{index:02d} - AVERAGE MATCH
 
         {candidate.name}
@@ -726,8 +974,10 @@ def render_average_cv(index: int, candidate: Candidate, job: JobProfile) -> str:
 
         GHI CHÚ CHO EVAL
         CV này cố ý thiếu hoặc nhắc rất ít các từ khóa quan trọng sau của JD: {", ".join(missing_keywords)}. Mô tả công việc có kinh nghiệm thật nhưng thiếu số liệu định lượng và impact rõ ràng.
-        """
-    ).strip() + "\n"
+        """,
+        ).strip()
+        + "\n"
+    )
 
 
 def render_terrible_cv(index: int, candidate: Candidate, job: JobProfile) -> str:
@@ -739,8 +989,9 @@ def render_terrible_cv(index: int, candidate: Candidate, job: JobProfile) -> str
         "nhân viên tư vấn khóa học",
     ]
     unrelated = unrelated_jobs[(index - 16) % len(unrelated_jobs)]
-    return dedent(
-        f"""
+    return (
+        dedent(
+            f"""
         CV #{index:02d} - TERRIBLE MATCH / ATS FAIL
 
         ho va ten: {candidate.name}
@@ -774,8 +1025,10 @@ def render_terrible_cv(index: int, candidate: Candidate, job: JobProfile) -> str
         Em mong muon cong ty cho co hoi. Em se co gang hoc hoi tat ca cong nghe nhu {", ".join(job.stack)} sau khi vao lam. Mong HR xem xet vi em rat can viec.
 
         Ghi chu: CV nay co format kem, khong co metric, khong co thanh tich, nhieu filler, kinh nghiem khong lien quan va gan nhu khong dap ung JD.
-        """
-    ).strip() + "\n"
+        """,
+        ).strip()
+        + "\n"
+    )
 
 
 def quality_for_index(index: int) -> str:
@@ -806,12 +1059,20 @@ def generate_dataset(root: Path | None = None) -> None:
     jd_dir.mkdir(parents=True, exist_ok=True)
     cv_dir.mkdir(parents=True, exist_ok=True)
 
-    for index, (job, candidate) in enumerate(zip(JOBS, CANDIDATES, strict=True), start=1):
-        (jd_dir / f"jd_{index:02d}.txt").write_text(render_jd(index, job), encoding="utf-8")
-        (cv_dir / f"cv_{index:02d}.txt").write_text(render_cv(index, candidate, job), encoding="utf-8")
+    for index, (job, candidate) in enumerate(
+        zip(JOBS, CANDIDATES, strict=True), start=1
+    ):
+        (jd_dir / f"jd_{index:02d}.txt").write_text(
+            render_jd(index, job), encoding="utf-8"
+        )
+        (cv_dir / f"cv_{index:02d}.txt").write_text(
+            render_cv(index, candidate, job), encoding="utf-8"
+        )
 
     print(f"Generated {len(JOBS)} JDs and {len(CANDIDATES)} CVs in {base_dir}")
-    print("Quality distribution: cv_01-cv_05=perfect, cv_06-cv_15=average, cv_16-cv_20=terrible")
+    print(
+        "Quality distribution: cv_01-cv_05=perfect, cv_06-cv_15=average, cv_16-cv_20=terrible"
+    )
 
 
 if __name__ == "__main__":

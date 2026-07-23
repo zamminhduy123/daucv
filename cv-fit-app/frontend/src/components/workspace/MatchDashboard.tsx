@@ -64,7 +64,7 @@ const SUB_SCORES = [
   },
 ] as const;
 
-type AnalysisLanguage = CVAnalysisResponse["source_language"];
+type AnalysisLanguage = "vi" | "en";
 
 const ANALYSIS_COPY = {
   vi: {
@@ -131,13 +131,14 @@ function CircularScore({
   icon: React.ElementType;
   evaluationLabel: string;
 }) {
+  const safeScore = typeof score === "number" && !isNaN(score) ? Math.round(score) : 0;
   const radius = 57;
   const circumference = 2 * Math.PI * radius;
-  const strokeDash = (score / 100) * circumference;
+  const strokeDash = (safeScore / 100) * circumference;
 
   // Color tracks severity: green (good) → amber (ok) → red (bad)
   const strokeColor =
-    score >= 70 ? "#059669" : score >= 45 ? "#d97706" : "#dc2626";
+    safeScore >= 70 ? "#059669" : safeScore >= 45 ? "#d97706" : "#dc2626";
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -168,7 +169,7 @@ function CircularScore({
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-0">
           <div className="flex items-baseline gap-0.5">
-            <span className="text-4xl font-semibold text-[#1F2E2E] leading-none">{score}</span>
+            <span className="text-4xl font-semibold text-[#1F2E2E] leading-none">{safeScore}</span>
             <span className="text-lg font-bold text-[#1F2E2E] leading-none">%</span>
           </div>
           <span className="text-[10px] font-semibold text-gray-400 tracking-wide mt-0.5">
@@ -184,7 +185,7 @@ function CircularScore({
       )}
       {/* Bottom icon indicator */}
       <div className="flex items-center gap-1.5">
-        <Icon size={14} className={score >= 70 ? "text-green-600" : score >= 45 ? "text-yellow-600" : "text-red-600"} />
+        <Icon size={14} className={safeScore >= 70 ? "text-green-600" : safeScore >= 45 ? "text-yellow-600" : "text-red-600"} />
         <span className="text-xs font-semibold text-gray-500">
           {evaluationLabel}
         </span>
@@ -200,8 +201,11 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
   const isGeneral = !jdText?.trim();
 
   // Two scores: Role Fit (raw LLM) and CV Match (penalized)
-  const roleFitScore = result.role_fit_score ?? result.score_breakdown?.raw_score ?? result.match_score;
-  const matchScore = result.match_score;
+  const rawRoleFit = result.role_fit_score ?? result.score_breakdown?.raw_score ?? result.match_score;
+  const rawMatch = result.match_score ?? result.role_fit_score;
+
+  const roleFitScore = typeof rawRoleFit === "number" && !isNaN(rawRoleFit) ? Math.round(rawRoleFit) : 0;
+  const matchScore = typeof rawMatch === "number" && !isNaN(rawMatch) ? Math.round(rawMatch) : roleFitScore;
   const penaltyGap = roleFitScore - matchScore;
   const showPenaltyContext = !isGeneral && penaltyGap >= 8;
 
@@ -342,8 +346,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
           )}
 
           {/* Card B — Prioritized Keywords */}
-          {result.prioritized_keywords?.length > 0 && (
-            <motion.div
+          <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.35 }}
@@ -356,7 +359,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                 <h2 className="text-base font-bold text-[#2F4F4F]">{copy.keywords}</h2>
               </div>
               <div className="flex flex-wrap gap-2 mb-4 flex-1">
-                {result.prioritized_keywords.map(({ keyword, priority }, i) => {
+                {result.prioritized_keywords?.length > 0 ? result.prioritized_keywords.map(({ keyword, priority }, i) => {
                   const badgeStyle = PRIORITY_BADGE_STYLE[priority];
                   return (
                     <div
@@ -369,7 +372,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                       </span>
                     </div>
                   );
-                })}
+                }) : <span>Your CV matched all the prioritized keywords.</span>}
               </div>
               <div className="bg-yellow-50/50 border border-yellow-100 p-3 rounded-xl flex gap-2 mt-auto">
                 <AlertTriangle size={14} className="text-yellow-600 mt-0.5 flex-shrink-0" />
@@ -378,7 +381,6 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
                 </p>
               </div>
             </motion.div>
-          )}
         </div>
       )}
 
@@ -455,8 +457,13 @@ function _getPenaltyReason(
   language: AnalysisLanguage,
 ): string {
   const { score_breakdown } = result;
-  const criticalCount = score_breakdown.critical_missing_count;
-  const highCount = score_breakdown.high_missing_count;
+  if (!score_breakdown) {
+    return "";
+  }
+
+  const criticalCount = score_breakdown.critical_missing_count ?? 0;
+  const highCount = score_breakdown.high_missing_count ?? 0;
+  const totalPenalty = score_breakdown.total_penalty ?? 0;
 
   const parts: string[] = [];
   if (criticalCount) {
@@ -467,12 +474,13 @@ function _getPenaltyReason(
   }
 
   if (parts.length === 0) {
+    if (!totalPenalty) return "";
     return language === "vi"
-      ? `Bị trừ ${score_breakdown.total_penalty} điểm`
-      : `${score_breakdown.total_penalty}-point deduction`;
+      ? `Bị trừ ${totalPenalty} điểm`
+      : `${totalPenalty}-point deduction`;
   }
 
   return language === "vi"
-    ? `Bị trừ ${score_breakdown.total_penalty} điểm vì còn thiếu ${parts.join(", ")}`
-    : `${score_breakdown.total_penalty}-point deduction for ${parts.join(", ")}`;
+    ? `Bị trừ ${totalPenalty} điểm vì còn thiếu ${parts.join(", ")}`
+    : `${totalPenalty}-point deduction for ${parts.join(", ")}`;
 }

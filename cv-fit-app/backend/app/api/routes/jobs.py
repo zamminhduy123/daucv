@@ -1,5 +1,4 @@
-"""
-Job Finder routes — search Vietnamese job boards.
+"""Job Finder routes — search Vietnamese job boards.
 
 POST /api/jobs/search
     Accepts a CV text payload, extracts candidate profile (via LLM + rule-based
@@ -207,7 +206,7 @@ def _rule_based_parse(cv_text: str) -> CandidateProfileResponse:
             pattern = r"(?:\b|\s|^)" + escaped + r"(?:\b|\s|$|,)"
         else:
             pattern = r"\b" + escaped + r"\b"
-        if re.search(pattern, normalized, re.I):
+        if re.search(pattern, normalized, re.IGNORECASE):
             formatted = " ".join(w.capitalize() for w in skill.split(" "))
             skills.append(formatted)
 
@@ -218,13 +217,15 @@ def _rule_based_parse(cv_text: str) -> CandidateProfileResponse:
         for kw in keywords:
             escaped = kw.replace("-", r"\-")
             pattern = r"\b" + escaped + r"\b"
-            matches = re.findall(pattern, normalized, re.I)
+            matches = re.findall(pattern, normalized, re.IGNORECASE)
             score += len(matches)
         if score > 0:
             role_scores[role] = score
 
     target_roles = sorted(
-        role_scores.keys(), key=lambda r: role_scores[r], reverse=True
+        role_scores.keys(),
+        key=lambda r: role_scores[r],
+        reverse=True,
     )
     if not target_roles:
         target_roles = ["Software Engineer"]
@@ -235,9 +236,11 @@ def _rule_based_parse(cv_text: str) -> CandidateProfileResponse:
 
     # Extract years of experience
     eng_exp = re.search(
-        r"(\d+)\s*(?:year|yr)s?\s*(?:of\s*)?experience", normalized, re.I
+        r"(\d+)\s*(?:year|yr)s?\s*(?:of\s*)?experience",
+        normalized,
+        re.IGNORECASE,
     )
-    vi_exp = re.search(r"(\d+)\s*năm\s*kinh\s*nghiệm", normalized, re.I)
+    vi_exp = re.search(r"(\d+)\s*năm\s*kinh\s*nghiệm", normalized, re.IGNORECASE)
     matched = eng_exp or vi_exp
     if matched:
         years_of_experience = int(matched.group(1))
@@ -257,7 +260,7 @@ def _rule_based_parse(cv_text: str) -> CandidateProfileResponse:
             for kw in keywords:
                 escaped = kw.replace("-", r"\-")
                 pattern = r"\b" + escaped + r"\b"
-                if re.findall(pattern, normalized, re.I):
+                if re.findall(pattern, normalized, re.IGNORECASE):
                     score += 1
             if score > max_score and score > 0:
                 max_score = score
@@ -317,7 +320,7 @@ async def search_jobs_endpoint(
     try:
         prompt = build_job_parser_prompt(req.cv_text)
         response_text = await call_llm_with_fallback(
-            [Message(role="user", content=prompt)]
+            [Message(role="user", content=prompt)],
         )
 
         # Parse JSON from LLM response
@@ -327,7 +330,9 @@ async def search_jobs_endpoint(
         import re as _re
 
         json_match = _re.search(
-            r'\{[^{}]*"target_roles"[^{}]*\}', response_text, _re.DOTALL
+            r'\{[^{}]*"target_roles"[^{}]*\}',
+            response_text,
+            _re.DOTALL,
         )
         if json_match:
             raw = json.loads(json_match.group(0))

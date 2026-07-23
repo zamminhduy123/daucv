@@ -12,6 +12,7 @@ from app.schemas.tailored_cv import (
 from app.services import tailored_cv_service
 from app.services.tailored_cv_pdf import generate_tailored_cv_pdf
 from app.services.tailored_cv_service import (
+    CVPersistenceMigrationRequiredError,
     TailoredCVEntitlementError,
     TailoredCVEntitlementUsedError,
     TailoredCVNotFoundError,
@@ -38,7 +39,7 @@ async def list_tailored_cvs(
 ) -> TailoredCVVersionListResponse:
     try:
         return TailoredCVVersionListResponse(
-            versions=await tailored_cv_service.list_versions(_user_id(user))
+            versions=await tailored_cv_service.list_versions(_user_id(user)),
         )
     except UnsupportedCVSchemaVersionError as exc:
         raise _unsupported_schema(exc) from exc
@@ -46,7 +47,8 @@ async def list_tailored_cvs(
 
 @router.post("", response_model=TailoredCVVersionResponse)
 async def create_tailored_cv_version(
-    req: TailoredCVVersionCreate, user: dict = Depends(get_current_user)
+    req: TailoredCVVersionCreate,
+    user: dict = Depends(get_current_user),
 ) -> TailoredCVVersionResponse:
     try:
         return await tailored_cv_service.create_version(_user_id(user), req)
@@ -60,17 +62,29 @@ async def create_tailored_cv_version(
             status_code=409,
             detail="CV đã tối ưu của lượt phân tích này đã được tạo.",
         )
+    except CVPersistenceMigrationRequiredError:
+        raise HTTPException(
+            status_code=503,
+            detail="Hệ thống lưu CV đang được nâng cấp. Vui lòng thử lại sau.",
+        )
     except UnsupportedCVSchemaVersionError as exc:
         raise _unsupported_schema(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("/{version_id}/pdf")
 async def download_tailored_cv_pdf(
-    version_id: str, user: dict = Depends(get_current_user)
+    version_id: str,
+    user: dict = Depends(get_current_user),
 ) -> Response:
     try:
         version = await tailored_cv_service.get_version(
-            _version_id(version_id), _user_id(user)
+            _version_id(version_id),
+            _user_id(user),
         )
     except TailoredCVNotFoundError:
         raise HTTPException(
@@ -101,7 +115,9 @@ async def update_tailored_cv_design(
 ) -> TailoredCVVersionResponse:
     try:
         return await tailored_cv_service.update_design(
-            _version_id(version_id), _user_id(user), req.selected_design
+            _version_id(version_id),
+            _user_id(user),
+            req.selected_design,
         )
     except TailoredCVNotFoundError:
         raise HTTPException(
@@ -114,11 +130,13 @@ async def update_tailored_cv_design(
 
 @router.delete("/{version_id}")
 async def delete_tailored_cv_version(
-    version_id: str, user: dict = Depends(get_current_user)
+    version_id: str,
+    user: dict = Depends(get_current_user),
 ) -> dict:
     try:
         await tailored_cv_service.delete_version(
-            _version_id(version_id), _user_id(user)
+            _version_id(version_id),
+            _user_id(user),
         )
         return {"success": True}
     except TailoredCVNotFoundError:

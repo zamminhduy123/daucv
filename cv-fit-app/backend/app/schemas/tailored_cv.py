@@ -22,6 +22,7 @@ class TailoredCVVersionCreate(BaseModel):
     tailoring_entitlement: str = Field(..., min_length=65)
     # V2 fields (optional — backward compatible)
     document_v2: CVDocumentV2 | None = None
+    source_document_v2: CVDocumentV2 | None = None
 
 
 class TailoredCVVersionUpdate(BaseModel):
@@ -41,6 +42,8 @@ class TailoredCVVersionResponse(BaseModel):
     source_language: CVLanguage = "vi"
     # V2 typed document (nullable for legacy records)
     document_v2: CVDocumentV2 | None = None
+    source_document_v2: CVDocumentV2 | None = None
+    source_pdf_reference: str | None = None
     selected_design: CVDesign
     # Schema versioning metadata
     document_schema_version: int = 1

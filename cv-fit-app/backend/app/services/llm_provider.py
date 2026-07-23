@@ -1,10 +1,11 @@
-"""
-LLM Provider implementations with a consistent interface.
+"""LLM Provider implementations with a consistent interface.
 
 Each provider implements ``generate_structured`` which returns a ``ProviderResult``
 containing the parsed Pydantic model and usage metrics (tokens).
 """
 
+import json
+import logging
 import re
 from abc import ABC, abstractmethod
 from typing import Any, TypeVar
@@ -13,6 +14,8 @@ import httpx
 from google import genai
 from openai import AsyncOpenAI
 from pydantic import BaseModel
+
+_logger = logging.getLogger("app.services.llm_provider")
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -26,11 +29,46 @@ class ProviderResult(BaseModel):
     raw_response: str = ""
 
 
+def _extract_json_string(content: str) -> str:
+    content_str = content.strip()
+    json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", content_str)
+    if json_match:
+        content_str = json_match.group(1).strip()
+    else:
+        first_brace = content_str.find("{")
+        last_brace = content_str.rfind("}")
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            content_str = content_str[first_brace : last_brace + 1]
+
+    if content_str.startswith("{"):
+        try:
+            data = json.loads(content_str)
+            if isinstance(data, dict):
+                for key in ("./output.json", "output.json", "output"):
+                    if (
+                        key in data
+                        and isinstance(data[key], str)
+                        and data[key].strip().startswith("{")
+                    ):
+                        return data[key].strip()
+        except Exception:
+            pass
+
+    return content_str
+
+
 class BaseAIProvider(ABC):
-    def __init__(self, name: str, model: str, timeout: float | None = None):
+    def __init__(
+        self,
+        name: str,
+        model: str,
+        timeout: float | None = None,
+        max_output_tokens: int | None = None,
+    ):
         self.name = name
         self.model = model
         self.timeout = timeout
+        self.max_output_tokens = max_output_tokens
 
     @abstractmethod
     async def generate_structured(
@@ -44,9 +82,7 @@ class BaseAIProvider(ABC):
 
 
 class OpenAIProvider(BaseAIProvider):
-    """
-    Standard provider for any OpenAI-compatible API (Gemini-OpenAI, Groq, OpenRouter, vLLM).
-    """
+    """Standard provider for any OpenAI-compatible API (Gemini-OpenAI, Groq, OpenRouter, vLLM, NVIDIA)."""
 
     def __init__(
         self,
@@ -55,9 +91,12 @@ class OpenAIProvider(BaseAIProvider):
         api_key: str,
         base_url: str,
         timeout: float | None = None,
+        max_output_tokens: int | None = None,
+        extra_body: dict[str, Any] | None = None,
     ):
-        super().__init__(name, model, timeout)
-        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        super().__init__(name, model, timeout, max_output_tokens)
+        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url, max_retries=1)
+        self.extra_body = extra_body
 
     async def generate_structured(
         self,
@@ -72,22 +111,65 @@ class OpenAIProvider(BaseAIProvider):
         else:
             messages.append({"role": "user", "content": user_content})
 
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            response_format={"type": "json_object"},
-            temperature=temperature,
-            timeout=self.timeout,
+        kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "response_format": {"type": "json_object"},
+            "temperature": temperature,
+            "timeout": self.timeout,
+            "max_tokens": self.max_output_tokens,
+        }
+        if self.extra_body:
+            kwargs["extra_body"] = self.extra_body
+
+        print(f"Sending request to {self.name}")
+        response = await self.client.chat.completions.create(**kwargs)
+
+        choice = response.choices[0]
+        finish_reason = getattr(choice, "finish_reason", "unknown")
+        raw_msg = choice.message
+        content = (
+            raw_msg.content
+            or getattr(raw_msg, "reasoning_content", None)
+            or getattr(raw_msg, "reasoning", None)
+            or ""
+        )
+        if not content.strip():
+            raise ValueError(f"Provider {self.name} returned empty content.")
+
+        json_str = _extract_json_string(content)
+
+        _logger.info(
+            "Provider %s responded. finish_reason=%s, raw_len=%d, extracted_len=%d",
+            self.name,
+            finish_reason,
+            len(content),
+            len(json_str),
         )
 
-        content = response.choices[0].message.content or "{}"
-        parsed = response_model.model_validate_json(content)
+        try:
+            parsed = response_model.model_validate_json(json_str)
+        except Exception as err:
+            _logger.error(
+                "Provider %s JSON validation error: %s | finish_reason: %s | Extracted snippet: %r | Raw snippet: %r",
+                self.name,
+                err,
+                finish_reason,
+                json_str[:300],
+                content[:300],
+            )
+            raise
 
         input_tokens = 0
         output_tokens = 0
         if response.usage:
             input_tokens = response.usage.prompt_tokens
             output_tokens = response.usage.completion_tokens
+
+            print(
+                f"Tokens used by {self.name}: Input: {input_tokens}, Output: {output_tokens}"
+            )
+        print("Receive results", parsed)
 
         return ProviderResult(
             data=parsed,
@@ -98,12 +180,14 @@ class OpenAIProvider(BaseAIProvider):
 
 
 class GeminiNativeProvider(BaseAIProvider):
-    """
-    Uses Google's native Generative AI SDK (google-genai).
-    """
+    """Uses Google's native Generative AI SDK (google-genai)."""
 
     def __init__(
-        self, name: str, model: str, api_key: str, timeout: float | None = None
+        self,
+        name: str,
+        model: str,
+        api_key: str,
+        timeout: float | None = None,
     ):
         super().__init__(name, model, timeout)
         self.client = genai.Client(api_key=api_key)
@@ -142,12 +226,14 @@ class GeminiNativeProvider(BaseAIProvider):
 
 
 class OllamaProvider(BaseAIProvider):
-    """
-    Direct HTTP implementation for Ollama local servers.
-    """
+    """Direct HTTP implementation for Ollama local servers."""
 
     def __init__(
-        self, name: str, model: str, endpoint: str, timeout: float | None = None
+        self,
+        name: str,
+        model: str,
+        endpoint: str,
+        timeout: float | None = None,
     ):
         super().__init__(name, model, timeout)
         self.endpoint = endpoint
@@ -162,7 +248,7 @@ class OllamaProvider(BaseAIProvider):
         async with httpx.AsyncClient() as http_client:
             if isinstance(user_content, list):
                 content_str = "\n".join(
-                    [f"{m.get('role')}: {m.get('content')}" for m in user_content]
+                    [f"{m.get('role')}: {m.get('content')}" for m in user_content],
                 )
             else:
                 content_str = user_content
@@ -195,9 +281,7 @@ class OllamaProvider(BaseAIProvider):
 
 
 class QwenCustomProvider(BaseAIProvider):
-    """
-    Custom provider for Qwen or local endpoints with specific JSON extraction needs.
-    """
+    """Custom provider for Qwen or local endpoints with specific JSON extraction needs."""
 
     def __init__(
         self,
@@ -206,8 +290,9 @@ class QwenCustomProvider(BaseAIProvider):
         api_key: str,
         endpoint: str,
         timeout: float | None = None,
+        max_output_tokens: int | None = None,
     ):
-        super().__init__(name, model, timeout)
+        super().__init__(name, model, timeout, max_output_tokens)
         self.api_key = api_key
         self.endpoint = endpoint
 
@@ -225,6 +310,8 @@ class QwenCustomProvider(BaseAIProvider):
             else:
                 messages.append({"role": "user", "content": user_content})
 
+            print(f"Sending request to Qwen provider: {messages}")
+
             timeout_val = self.timeout if self.timeout is not None else 300.0
             res = await http_client.post(
                 self.endpoint,
@@ -233,21 +320,44 @@ class QwenCustomProvider(BaseAIProvider):
                     "model": self.model,
                     "messages": messages,
                     "temperature": temperature,
-                    "response_format": {"type": "json_object"},
+                    "response_format": {
+                        "type": "json_object",
+                        "schema": response_model.model_json_schema(),
+                    },
+                    "chat_template_kwargs": {"enable_thinking": False},
+                    "max_tokens": self.max_output_tokens,
                 },
                 timeout=timeout_val,
             )
             res.raise_for_status()
             data = res.json()
-            content = data["choices"][0]["message"]["content"]
+            choice = data["choices"][0]
+            msg = choice["message"]
+            finish_reason = choice.get("finish_reason", "unknown")
+            content = msg.get("content") or msg.get("reasoning_content") or "{}"
 
-            # Extraction helper
-            json_str = content
-            json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", content)
-            if json_match:
-                json_str = json_match.group(1)
+            json_str = _extract_json_string(content)
 
-            parsed = response_model.model_validate_json(json_str)
+            _logger.info(
+                "Provider %s responded. finish_reason=%s, raw_len=%d, extracted_len=%d",
+                self.name,
+                finish_reason,
+                len(content),
+                len(json_str),
+            )
+
+            try:
+                parsed = response_model.model_validate_json(json_str)
+            except Exception as err:
+                _logger.error(
+                    "Provider %s JSON validation error: %s | finish_reason: %s | Extracted snippet: %r | Raw snippet: %r",
+                    self.name,
+                    err,
+                    finish_reason,
+                    json_str[:300],
+                    content[:300],
+                )
+                raise
 
             usage = data.get("usage", {})
             return ProviderResult(

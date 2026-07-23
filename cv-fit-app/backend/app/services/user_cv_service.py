@@ -34,7 +34,8 @@ async def get_profile_with_stats(user: dict) -> UserProfileResponse:
 
     # Calculate total CVs count
     count_row = await Database.fetch_one(
-        "SELECT COUNT(*) as total FROM public.user_cvs WHERE user_id = $1", user_id
+        "SELECT COUNT(*) as total FROM public.user_cvs WHERE user_id = $1",
+        user_id,
     )
     total_cvs = count_row["total"] if count_row else 0
 
@@ -65,7 +66,8 @@ async def create_cv(user_id: UUID, cv_text: str, cv_filename: str) -> CVResponse
     async with Database.pool.acquire() as conn, conn.transaction():
         # Lock the user's row to prevent concurrent race conditions
         user = await conn.fetchrow(
-            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE", user_id
+            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE",
+            user_id,
         )
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
@@ -88,7 +90,9 @@ async def create_cv(user_id: UUID, cv_text: str, cv_filename: str) -> CVResponse
 
 
 async def update_active_cv_text(
-    user_id: UUID, cv_text: str, cv_filename: str
+    user_id: UUID,
+    cv_text: str,
+    cv_filename: str,
 ) -> CVResponse:
     if not Database.pool:
         await Database.connect()
@@ -96,7 +100,8 @@ async def update_active_cv_text(
     async with Database.pool.acquire() as conn, conn.transaction():
         # Lock user row to serialize updates
         user = await conn.fetchrow(
-            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE", user_id
+            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE",
+            user_id,
         )
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
@@ -142,10 +147,13 @@ async def deactivate_cv(cv_id: UUID, user_id: UUID) -> bool:
 
 
 async def submit_user_feedback(
-    user_id: UUID, name: str | None, avatar: str | None, rating: int, content: str
+    user_id: UUID,
+    name: str | None,
+    avatar: str | None,
+    rating: int,
+    content: str,
 ) -> tuple[int, int]:
-    """
-    Submits user feedback and rewards +5 credits on the first submission.
+    """Submits user feedback and rewards +5 credits on the first submission.
     Returns (credits_rewarded, new_credits_balance).
     """
     if not Database.pool:
@@ -154,14 +162,16 @@ async def submit_user_feedback(
     async with Database.pool.acquire() as conn, conn.transaction():
         # Get user info and lock to serialize
         user = await conn.fetchrow(
-            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE", user_id
+            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE",
+            user_id,
         )
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
 
         # Check if user has already submitted feedback before
         existing_feedback = await conn.fetchrow(
-            "SELECT id FROM public.feedbacks WHERE user_id = $1 LIMIT 1", user_id
+            "SELECT id FROM public.feedbacks WHERE user_id = $1 LIMIT 1",
+            user_id,
         )
 
         credits_rewarded = 0

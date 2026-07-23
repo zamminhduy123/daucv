@@ -1,16 +1,11 @@
+"""General-purpose helper functions.
+
+The core extraction function now uses the layout-aware pipeline
+(see ``app.services.layout_extraction``) which captures spatial
+metadata, normalises extraction noise, detects reading order,
+and identifies physical line continuations.
 """
-General-purpose helper functions.
-"""
 
-import io
+from app.services.layout_extraction import extract_text_from_pdf
 
-import pdfplumber
-
-
-def extract_text_from_pdf(file_bytes: bytes) -> str:
-    """Extract plain text from a PDF file."""
-    text = ""
-    with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-        for page in pdf.pages:
-            text += (page.extract_text() or "") + "\n"
-    return text.strip()
+__all__ = ["extract_text_from_pdf"]

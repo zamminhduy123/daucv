@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Daily Top-up Script for DauCV.
+"""Daily Top-up Script for DauCV.
 
 This script updates all users by adding 5 credits and records a corresponding transaction
 in the credit_transactions table. It can be run as a daily cron job.
@@ -27,8 +26,7 @@ from app.core.db import Database  # noqa: E402
 
 
 async def run_daily_top_up() -> int:
-    """
-    Transactionally adds 5 credits to all users and inserts a ledger entry.
+    """Transactionally adds 5 credits to all users and inserts a ledger entry.
     Returns the number of users topped up.
     """
     logger.info("Connecting to the database...")
@@ -48,7 +46,7 @@ async def run_daily_top_up() -> int:
 
             # 1. Update credits for all users
             await conn.execute(
-                "UPDATE public.users SET credits = credits + 5, updated_at = now()"
+                "UPDATE public.users SET credits = credits + 5, updated_at = now()",
             )
 
             # 2. Insert transaction ledger entries for all users
@@ -56,7 +54,7 @@ async def run_daily_top_up() -> int:
                 """
                 INSERT INTO public.credit_transactions (user_id, amount, type, description)
                 SELECT id, 5, 'daily_bonus', 'Tặng 5 credits hàng ngày.' FROM public.users
-                """
+                """,
             )
 
             logger.info(f"Successfully credited +5 to all {users_count} users.")

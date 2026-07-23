@@ -1,6 +1,4 @@
-"""
-Admin-only routes — LLMOps metrics and observability.
-"""
+"""Admin-only routes — LLMOps metrics and observability."""
 
 import json
 
@@ -13,8 +11,7 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 @router.get("/metrics")
 async def admin_metrics():
-    """
-    Aggregate LLM request metrics from all daily JSONL log files.
+    """Aggregate LLM request metrics from all daily JSONL log files.
 
     Returns success rates, per-provider latency, fallback frequency,
     JSON parse failure rates, and total token usage.
@@ -94,7 +91,8 @@ async def admin_metrics():
 
     json_failure_rate_by_provider = {
         prov: round(
-            (provider_json_failures.get(prov, 0) / provider_json_total[prov]) * 100, 2
+            (provider_json_failures.get(prov, 0) / provider_json_total[prov]) * 100,
+            2,
         )
         for prov in provider_json_total
     }

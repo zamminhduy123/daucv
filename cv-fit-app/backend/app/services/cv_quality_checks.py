@@ -1,5 +1,4 @@
-"""
-CV Analysis — Deterministic Quality Checks
+"""CV Analysis — Deterministic Quality Checks
 ============================================
 Post-hoc evaluation harness that runs entirely on the LLM's structured output
 (no additional API calls). Catches score inconsistencies, hallucinated keywords,
@@ -102,6 +101,7 @@ def _tokens(text: str) -> set[str]:
 
 
 _SECTION_HEADINGS = {
+    # English headings
     "professional summary",
     "summary",
     "technical skills",
@@ -117,18 +117,94 @@ _SECTION_HEADINGS = {
     "awards",
     "volunteering",
     "activities",
+    "professional experience",
+    "employment history",
+    "work history",
+    "career history",
+    "personal projects",
+    "academic projects",
+    "key skills",
+    "core competencies",
+    "certificates",
+    "professional certifications",
+    "additional information",
+    "interests",
+    "hobbies",
+    "profile",
+    "about me",
+    "contact",
+    "contact information",
+    # Vietnamese headings (normalized/without accents)
     "tom tat",
     "gioi thieu",
     "muc tieu nghe nghiep",
     "kinh nghiem",
     "kinh nghiem lam viec",
+    "kinh nghiem du an",
+    "qua trinh lam viec",
+    "lich su lam viec",
     "ky nang",
+    "ky nang chuyen mon",
+    "ky nang mem",
+    "cong nghe su dung",
+    "cong nghe",
     "hoc van",
+    "trinh do hoc van",
+    "bang cap",
+    "qua trinh hoc tap",
+    "du an",
+    "du an ca nhan",
+    "cac du an",
+    "chung chi",
+    "chung chi nghe nghiep",
+    "chung nhan",
+    "ngon ngu",
+    "ngoai ngu",
+    "giai thuong",
+    "thanh tuu",
+    "hoat dong",
+    "hoat dong xa hoi",
+    "hoat dong tinh nguyen",
+    "lien he",
+    "thong tin ca nhan",
+    "thong tin lien he",
+    "so luoc",
+}
+
+_SECTION_KEYWORDS = {
+    "summary",
+    "profile",
+    "experience",
+    "education",
+    "skill",
+    "project",
+    "public",
+    "certif",
+    "language",
+    "award",
+    "volunteer",
+    "activit",
+    "interest",
+    "hobby",
+    "contact",
+    "tom tat",
+    "gioi thieu",
+    "muc tieu",
+    "kinh nghiem",
+    "hoc van",
+    "ky nang",
     "du an",
     "chung chi",
+    "chung nhan",
     "ngon ngu",
     "giai thuong",
     "hoat dong",
+    "lien he",
+    "bang cap",
+    "cong nghe",
+    "so luoc",
+    "commerce",
+    "recommendation",
 }
 
 
@@ -137,36 +213,186 @@ def _normalize_heading(value: str) -> str:
     return "".join(char for char in decomposed if not unicodedata.combining(char))
 
 
-def _is_section_heading(value: str) -> bool:
-    normalized = _normalize_heading(value)
-    words = normalized.split()
-    return normalized in _SECTION_HEADINGS or (
-        value.rstrip(":").isupper() and 1 <= len(words) <= 6
-    )
-
-
 def _is_contact_line(value: str) -> bool:
     lowered = value.lower()
-    return (
-        "@" in value
-        or any(token in lowered for token in ("linkedin", "github", "http", "www."))
-        or any(
-            token in lowered
-            for token in (
-                "city",
-                "vietnam",
-                "việt nam",
-                "hồ chí minh",
-                "ha noi",
-                "hà nội",
-            )
-        )
-        or bool(re.search(r"(?:\+?\d[\d\s().-]{7,}\d)", value))
+
+    if "@" in value:
+        return True
+
+    url_tokens = (
+        "linkedin",
+        "github",
+        "http",
+        "www.",
+        "skype",
+        "facebook",
+        "gitlab",
+        "behance",
+        "portfolio",
     )
+    if any(token in lowered for token in url_tokens):
+        return True
+
+    location_tokens = (
+        "city",
+        "vietnam",
+        "viet nam",
+        "viêt nam",
+        "việt nam",
+        "ho chi minh",
+        "hồ chí minh",
+        "hcm",
+        "ha noi",
+        "hà nội",
+        "hn",
+        "da nang",
+        "đà nẵng",
+        "hai phong",
+        "hải phòng",
+        "can tho",
+        "cần thơ",
+        "binh duong",
+        "bình dương",
+        "dong nai",
+        "đồng nai",
+        "district",
+        "quận",
+        "huyện",
+        "phường",
+        "địa chỉ",
+        "address",
+    )
+    if any(token in lowered for token in location_tokens):
+        return True
+
+    phone_tokens = ("tel", "phone", "sđt", "di động", "mobile", "lh")
+    if any(token in lowered for token in phone_tokens):
+        return True
+    return bool(re.search(r"(?:\+?\d[\d\s().-]{7,}\d)", value))
+
+
+def _is_section_heading(value: str) -> bool:
+    cleaned_val = value.strip().rstrip(":")
+    if not cleaned_val:
+        return False
+
+    if re.search(r"[.!?;]$", cleaned_val):
+        return False
+
+    normalized = _normalize_heading(cleaned_val)
+    words = normalized.split()
+    if not words or len(words) > 6:
+        return False
+
+    if normalized in _SECTION_HEADINGS:
+        return True
+
+    if re.search(r"\d", cleaned_val) or _is_contact_line(cleaned_val):
+        return False
+
+    if any(kw in normalized for kw in _SECTION_KEYWORDS):
+        return True
+
+    return bool(
+        cleaned_val.isupper() and re.match(r"^[a-zA-ZÀ-ỹ\s&|·/•○\-–]+$", cleaned_val),
+    )
+
+
+def _is_job_metadata_line(line: str) -> bool:
+    lowered = line.lower()
+
+    date_pattern = r"\b(19|20)\d{2}\b|\b(present|hiện tại|nay)\b"
+    if re.search(date_pattern, lowered):
+        return True
+
+    # Wrapped PDF text normally continues with a lowercase word. Do not let
+    # fragments such as "managerial interview scenarios" become a new entry
+    # merely because they contain a role keyword.
+    stripped = line.strip()
+    if stripped and stripped[0].islower():
+        return False
+
+    def contains_term(term: str) -> bool:
+        return bool(re.search(rf"(?<!\w){re.escape(term)}(?!\w)", lowered))
+
+    company_keywords = {
+        "company",
+        "công ty",
+        "tập đoàn",
+        "corporation",
+        "corp",
+        "gmbh",
+        "ltd",
+        "co.",
+        "jsc",
+        "tnhh",
+        "university",
+        "đại học",
+        "trường",
+    }
+    if any(contains_term(kw) for kw in company_keywords):
+        return True
+
+    role_keywords = {
+        "engineer",
+        "developer",
+        "designer",
+        "manager",
+        "lead",
+        "analyst",
+        "consultant",
+        "kỹ sư",
+        "lập trình viên",
+        "chuyên viên",
+        "quản lý",
+        "intern",
+        "fresher",
+        "junior",
+        "senior",
+        "specialist",
+    }
+    if any(contains_term(kw) for kw in role_keywords):
+        return True
+
+    words = line.split()
+    return bool(
+        len(words) <= 5
+        and line
+        and line[0].isupper()
+        and not re.search(r"[.!?;:]$", line),
+    )
+
+
+def _is_headline_line(line: str) -> bool:
+    normalized = _normalize_heading(line)
+    role_keywords = {
+        "engineer",
+        "developer",
+        "designer",
+        "manager",
+        "analyst",
+        "consultant",
+        "ky su",
+        "lap trinh vien",
+        "chuyen vien",
+        "quan ly",
+    }
+    return any(keyword in normalized for keyword in role_keywords)
+
+
+def _should_append_to_bullet(prev_item: str, current_line: str) -> bool:
+    if not prev_item.startswith("• "):
+        return False
+    if re.search(r"[.!?;:]$", prev_item.strip()):
+        return False
+    if bool(re.match(r"^[•●▪◦]\s*", current_line)):
+        return False
+    return not _is_job_metadata_line(current_line)
 
 
 def build_source_preserving_tailored_cv(
-    response: CVAnalysisLLMResponse, cv_text: str
+    response: CVAnalysisLLMResponse,
+    cv_text: str,
 ) -> TailoredCV:
     """Build a Tailored CV without allowing the LLM to drop source content.
 
@@ -191,13 +417,36 @@ def build_source_preserving_tailored_cv_from_parts(
 ) -> TailoredCV:
     """Rebuild a complete Tailored CV at the persistence seam as a final guard."""
     rewritten = cv_text
+
+    def rewrite_is_grounded(original: str, replacement: str) -> bool:
+        original_tokens = {
+            token
+            for token in re.findall(r"[^\W\d_][\w+#.-]*", original.lower())
+            if len(token) > 2
+        }
+        replacement_tokens = {
+            token
+            for token in re.findall(r"[^\W\d_][\w+#.-]*", replacement.lower())
+            if len(token) > 2
+        }
+        original_numbers = set(re.findall(r"\d+(?:[.,]\d+)?%?", original))
+        replacement_numbers = set(re.findall(r"\d+(?:[.,]\d+)?%?", replacement))
+        return replacement_tokens.issubset(
+            original_tokens,
+        ) and replacement_numbers.issubset(original_numbers)
+
     for edit in suggested_edits:
         original = edit.original_text.strip()
-        if edit.rewrite_risk == "safe" and original and edit.improved_safe.strip():
+        replacement = edit.improved_safe.strip()
+        if (
+            edit.rewrite_risk == "safe"
+            and original
+            and replacement
+            and rewrite_is_grounded(original, replacement)
+        ):
             whitespace_tolerant = r"\s+".join(
                 re.escape(token) for token in original.split()
             )
-            replacement = edit.improved_safe.strip()
             rewritten = re.sub(
                 whitespace_tolerant,
                 lambda _, value=replacement: value,
@@ -205,24 +454,27 @@ def build_source_preserving_tailored_cv_from_parts(
                 count=1,
             )
 
-    lines = [re.sub(r"\s+", " ", line).strip() for line in rewritten.splitlines()]
-    lines = [line for line in lines if line]
-    name = lines[0] if lines else ""
+    raw_lines = [line.strip() for line in rewritten.splitlines() if line.strip()]
+    lines = [re.sub(r"\s+", " ", line) for line in raw_lines]
+    name = raw_lines[0] if raw_lines else ""
     first_heading = next(
         (
             index
-            for index, line in enumerate(lines[1:], start=1)
+            for index, line in enumerate(raw_lines[1:], start=1)
             if _is_section_heading(line)
         ),
-        len(lines),
+        len(raw_lines),
     )
-    contact_lines = [
-        part
-        for line in lines[1:first_heading]
-        if _is_contact_line(line)
-        for part in (part.strip() for part in re.split(r"\s*[|·]\s*", line))
-        if part
-    ]
+    preamble = raw_lines[1:first_heading]
+    source_headline = next(
+        (
+            line
+            for line in preamble
+            if not _is_contact_line(line) and _is_headline_line(line)
+        ),
+        "",
+    )
+    contact_lines = [line for line in preamble if line != source_headline]
     cursor = first_heading
 
     sections: list[TailoredCVSection] = []
@@ -238,11 +490,7 @@ def build_source_preserving_tailored_cv_from_parts(
             cleaned = re.sub(r"^[•●▪◦]\s*", "", line)
             if is_bullet:
                 items.append(f"• {cleaned}")
-            elif (
-                items
-                and items[-1].startswith("• ")
-                and not re.search(r"[.!?;:]$", items[-1])
-            ):
+            elif items and _should_append_to_bullet(items[-1], line):
                 # PDF text extraction wraps long bullets onto physical lines.
                 items[-1] = f"{items[-1]} {cleaned}"
             else:
@@ -270,7 +518,7 @@ def build_source_preserving_tailored_cv_from_parts(
 
     source_cv = TailoredCV(
         name=name,
-        headline=headline,
+        headline=source_headline,
         contact_lines=contact_lines,
         summary=summary,
         sections=remaining,
@@ -278,21 +526,52 @@ def build_source_preserving_tailored_cv_from_parts(
     if candidate_cv is None:
         return source_cv
 
-    source_numbers = set(re.findall(r"\d+(?:[.,]\d+)?%?", cv_text))
+    trusted_tokens = {
+        token
+        for token in re.findall(r"[^\W\d_][\w+#.-]*", rewritten.lower())
+        if len(token) > 2
+    }
+    trusted_numbers = set(re.findall(r"\d+(?:[.,]\d+)?%?", rewritten))
 
-    def is_grounded(text: str) -> bool:
-        return set(re.findall(r"\d+(?:[.,]\d+)?%?", text)).issubset(source_numbers)
+    def is_grounded(value: str) -> bool:
+        candidate_tokens = {
+            token
+            for token in re.findall(r"[^\W\d_][\w+#.-]*", value.lower())
+            if len(token) > 2
+        }
+        candidate_numbers = set(re.findall(r"\d+(?:[.,]\d+)?%?", value))
+        return candidate_tokens.issubset(trusted_tokens) and candidate_numbers.issubset(
+            trusted_numbers,
+        )
+
+    candidate_headline = candidate_cv.headline.strip()
+    merged_headline = (
+        candidate_headline
+        if candidate_headline and is_grounded(candidate_headline)
+        else source_cv.headline
+    )
+    candidate_summary = candidate_cv.summary.strip()
+    merged_summary = (
+        candidate_summary
+        if candidate_summary and is_grounded(candidate_summary)
+        else source_cv.summary
+    )
 
     candidate_by_title = {
         _normalize_heading(section.title): section for section in candidate_cv.sections
     }
     merged_sections: list[TailoredCVSection] = []
     for source_section in source_cv.sections:
-        candidate_section = candidate_by_title.get(
-            _normalize_heading(source_section.title)
-        )
+        norm_title = _normalize_heading(source_section.title)
+        candidate_section = candidate_by_title.get(norm_title)
+
+        # Accept candidate rewrite only when it preserves at least as many
+        # items as the original parsed section.  This prevents the LLM from
+        # silently condensing a section (e.g. dropping bullet-point details
+        # under project titles).
         if (
             candidate_section
+            and candidate_section.items
             and len(candidate_section.items) >= len(source_section.items)
             and all(is_grounded(item) for item in candidate_section.items)
         ):
@@ -300,21 +579,17 @@ def build_source_preserving_tailored_cv_from_parts(
                 TailoredCVSection(
                     title=source_section.title,
                     items=candidate_section.items,
-                )
+                ),
             )
         else:
             merged_sections.append(source_section)
 
-    candidate_summary = candidate_cv.summary.strip()
-    return source_cv.model_copy(
-        update={
-            "summary": (
-                candidate_summary
-                if candidate_summary and is_grounded(candidate_summary)
-                else source_cv.summary
-            ),
-            "sections": merged_sections,
-        }
+    return TailoredCV(
+        name=source_cv.name,
+        headline=merged_headline,
+        contact_lines=source_cv.contact_lines,
+        summary=merged_summary,
+        sections=merged_sections,
     )
 
 
@@ -324,8 +599,7 @@ def build_source_preserving_tailored_cv_from_parts(
 
 
 def check_score_consistency(response: CVAnalysisResponse) -> list[str]:
-    """
-    Detect contradictions between ``match_score`` and the six sub-scores or
+    """Detect contradictions between ``match_score`` and the six sub-scores or
     the ``prioritized_keywords`` urgency level.
     """
     warnings: list[str] = []
@@ -341,19 +615,19 @@ def check_score_consistency(response: CVAnalysisResponse) -> list[str]:
     if response.match_score >= 85 and critical_missing_count >= 1:
         warnings.append(
             f"High score despite missing critical JD requirement: "
-            f"match_score={response.match_score}, critical_missing_count={critical_missing_count}."
+            f"match_score={response.match_score}, critical_missing_count={critical_missing_count}.",
         )
 
     if response.match_score >= 85 and missing_penalty >= 20:
         warnings.append(
             f"High score despite high weighted missing-requirement penalty: "
-            f"match_score={response.match_score}, missing_penalty={missing_penalty}."
+            f"match_score={response.match_score}, missing_penalty={missing_penalty}.",
         )
 
     if response.keyword_coverage >= 80 and high_missing_count >= 3:
         warnings.append(
             f"Keyword coverage score too high for high-priority gaps: "
-            f"keyword_coverage={response.keyword_coverage}, high_missing_count={high_missing_count}."
+            f"keyword_coverage={response.keyword_coverage}, high_missing_count={high_missing_count}.",
         )
 
     return warnings
@@ -363,8 +637,7 @@ def build_scored_analysis(
     response: CVAnalysisLLMResponse,
     source_language: CVLanguage = "vi",
 ) -> CVAnalysisResponse:
-    """
-    Calculate scores from sub-scores and deterministic penalties.
+    """Calculate scores from sub-scores and deterministic penalties.
 
     Two scores are produced:
       - role_fit_score  ("Role Fit")  = raw LLM sub-score average — what a human gives
@@ -376,7 +649,7 @@ def build_scored_analysis(
         + SCORE_WEIGHTS["keyword_coverage"] * response.keyword_coverage
         + SCORE_WEIGHTS["impact_evidence"] * response.impact_evidence
         + SCORE_WEIGHTS["ats_readiness"] * response.ats_readiness
-        + SCORE_WEIGHTS["tone_quality"] * response.tone_quality
+        + SCORE_WEIGHTS["tone_quality"] * response.tone_quality,
     )
 
     critical_missing_count = sum(
@@ -386,7 +659,7 @@ def build_scored_analysis(
         1 for item in response.prioritized_keywords if item.priority == "High"
     )
     weighted_missing_requirement_score = round(
-        sum(PRIORITY_WEIGHTS[item.priority] for item in response.prioritized_keywords)
+        sum(PRIORITY_WEIGHTS[item.priority] for item in response.prioritized_keywords),
     )
     unsupported_claim_count = sum(
         1
@@ -532,7 +805,7 @@ def _summarize_penalty_reason(
             reasons.append(f"{high_count} High-priority requirement(s) are missing")
         if unsupported_count:
             reasons.append(
-                f"{unsupported_count} suggestion(s) require candidate confirmation"
+                f"{unsupported_count} suggestion(s) require candidate confirmation",
             )
         return ", ".join(reasons) if reasons else "the CV evidence is not clear enough"
 
@@ -555,8 +828,7 @@ def classify_keyword_grounding(
     response: CVAnalysisLLMResponse,
     jd_text: str,
 ) -> dict[str, list[str]]:
-    """
-    Classify keyword issues more carefully than "not in JD = hallucination".
+    """Classify keyword issues more carefully than "not in JD = hallucination".
 
     - Exact JD terms are accepted.
     - Terms with lexical overlap are treated as soft inferences.
@@ -592,15 +864,15 @@ def classify_keyword_grounding(
 
         if overlap:
             result["soft_inferences"].append(
-                f"{keyword}: not an exact JD phrase, but semantically connected via {sorted(overlap)}."
+                f"{keyword}: not an exact JD phrase, but semantically connected via {sorted(overlap)}.",
             )
         elif priority in {"Medium", "Low"}:
             result["useful_adjacent_recommendations"].append(
-                f"{keyword}: not in the JD, but acceptable as an adjacent recommendation if labeled as optional/true."
+                f"{keyword}: not in the JD, but acceptable as an adjacent recommendation if labeled as optional/true.",
             )
         else:
             result["hard_hallucinations"].append(
-                f"{keyword}: presented as a missing JD requirement but no exact or semantic JD grounding was found."
+                f"{keyword}: presented as a missing JD requirement but no exact or semantic JD grounding was found.",
             )
 
     return result
@@ -631,8 +903,7 @@ def classify_rewrite_grounding(
     response: CVAnalysisLLMResponse,
     cv_text: str,
 ) -> dict[str, list[str]]:
-    """
-    Extract numbers / percentages / multipliers from each
+    """Extract numbers / percentages / multipliers from each
     ``suggested_edits[].improved_safe`` and classify unsupported claims.
     Placeholder metrics in ``improved_with_placeholders`` are expected and safe
     when they remain bracketed.
@@ -651,7 +922,7 @@ def classify_rewrite_grounding(
 
         for metric in sorted(novel_metrics):
             unsupported_factual_claims.append(
-                f'{edit.section}: metric "{metric}" appears in improved_safe but is not found in the original CV.'
+                f'{edit.section}: metric "{metric}" appears in improved_safe but is not found in the original CV.',
             )
 
         placeholders = re.findall(r"\[[^\]]+\]", edit.improved_with_placeholders)
@@ -698,8 +969,7 @@ def run_deterministic_eval(
     cv_text: str,
     jd_text: str,
 ) -> dict:
-    """
-    Execute all deterministic quality checks on an LLM analysis response.
+    """Execute all deterministic quality checks on an LLM analysis response.
 
     Returns a rich EvalResult. It still exposes ``warnings`` for existing eval
     scripts, but separates hard issues from allowed controlled inference.
@@ -724,29 +994,29 @@ def run_deterministic_eval(
 
     explicit_keyword_total = len(response.missing_keywords) or 1
     explicit_jd_keyword_accuracy = _clamp_score(
-        100 - round(100 * len(hard_hallucinations) / explicit_keyword_total)
+        100 - round(100 * len(hard_hallucinations) / explicit_keyword_total),
     )
     semantic_keyword_usefulness = _clamp_score(
-        100 - 5 * len(hard_hallucinations) + 2 * len(soft_inferences)
+        100 - 5 * len(hard_hallucinations) + 2 * len(soft_inferences),
     )
     truthfulness = _clamp_score(
-        100 - 30 * len(hard_hallucinations) - 25 * len(unsupported_factual_claims)
+        100 - 30 * len(hard_hallucinations) - 25 * len(unsupported_factual_claims),
     )
     placeholder_handling = _clamp_score(
-        100 if placeholder_metrics else 80 - 10 * len(unsupported_factual_claims)
+        100 if placeholder_metrics else 80 - 10 * len(unsupported_factual_claims),
     )
     rewrite_safety = _clamp_score(
         100
         - 25 * len(unsupported_factual_claims)
         - 10
-        * sum(1 for edit in response.suggested_edits if edit.rewrite_risk == "risky")
+        * sum(1 for edit in response.suggested_edits if edit.rewrite_risk == "risky"),
     )
     score_consistency = _clamp_score(100 - 20 * len(score_warnings))
     cv_grounding = _clamp_score(
-        100 - 25 * len(unsupported_factual_claims) - 15 * len(hard_hallucinations)
+        100 - 25 * len(unsupported_factual_claims) - 15 * len(hard_hallucinations),
     )
     actionability = _clamp_score(
-        70 + 5 * len(response.suggested_edits) + 3 * len(needs_user_confirmation)
+        70 + 5 * len(response.suggested_edits) + 3 * len(needs_user_confirmation),
     )
     overall = _clamp_score(
         round(
@@ -757,8 +1027,8 @@ def run_deterministic_eval(
             + 0.18 * truthfulness
             + 0.10 * placeholder_handling
             + 0.12 * rewrite_safety
-            + 0.08 * actionability
-        )
+            + 0.08 * actionability,
+        ),
     )
 
     return EvalResult(

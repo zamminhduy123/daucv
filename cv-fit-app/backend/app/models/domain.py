@@ -1,6 +1,4 @@
-"""
-Shared / domain-level Pydantic models used across multiple features.
-"""
+"""Shared / domain-level Pydantic models used across multiple features."""
 
 from typing import Literal
 

@@ -1,6 +1,4 @@
-"""
-Pydantic request models — inbound payloads from API clients.
-"""
+"""Pydantic request models — inbound payloads from API clients."""
 
 from pydantic import AliasChoices, BaseModel, Field
 
@@ -11,9 +9,31 @@ from app.models.domain import Message
 # ---------------------------------------------------------------------------
 
 
+class LayoutLine(BaseModel):
+    """Layout metadata for a single extracted line (Phase 3)."""
+
+    text: str
+    page: int
+    x: float
+    y: float
+    width: float
+    height: float
+    font_size: float | None = None
+    font_weight: float | None = None
+    bullet_marker: str | None = None
+    normalized_text: str = ""
+    column_id: str | None = None
+    joined_to_prev: bool = False
+    is_page_break_marker: bool = False
+    is_layout_artifact: bool = False
+    page_height: float | None = None
+    source_line_id: str | None = None
+
+
 class AnalyzeCVRequest(BaseModel):
     cv_text: str
     jd_text: str | None = ""
+    layout_data: list[LayoutLine] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -78,10 +98,12 @@ class JobSearchRequest(BaseModel):
 
     cv_text: str = Field(validation_alias=AliasChoices("cvText", "cv_text"))
     target_role: str | None = Field(
-        default=None, validation_alias=AliasChoices("targetRole", "target_role")
+        default=None,
+        validation_alias=AliasChoices("targetRole", "target_role"),
     )
     location: str | None = None
     date_range: str | None = Field(
-        default=None, validation_alias=AliasChoices("dateRange", "date_range")
+        default=None,
+        validation_alias=AliasChoices("dateRange", "date_range"),
     )
     sources: list[str] | None = None

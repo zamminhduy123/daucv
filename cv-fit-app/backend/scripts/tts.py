@@ -1,5 +1,6 @@
-from vieneu import Vieneu
 import os
+
+from vieneu import Vieneu
 
 tts = Vieneu()
 os.makedirs("voice_tests", exist_ok=True)

@@ -1,12 +1,13 @@
-"""
-User-facing API routes — CV analysis, interview, TTS, and writing assistant.
+"""User-facing API routes — CV analysis, interview, TTS, and writing assistant.
 
 Route handlers are kept thin: validate input → build prompt → call service → return.
 """
 
+import asyncio
 import json
 import tempfile
 from contextlib import suppress
+from dataclasses import asdict
 from uuid import UUID
 
 import edge_tts
@@ -21,7 +22,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 
-from app.core.config import PDF_MAX_SIZE
+from app.core.config import CV_ANALYSIS_REQUEST_TIMEOUT, PDF_MAX_SIZE
 from app.dependencies import get_current_user, refund_credits, reserve_credits
 from app.models.domain import MatchResult
 from app.models.requests import (
@@ -34,7 +35,8 @@ from app.models.requests import (
 )
 from app.models.responses import (
     CandidateProfileResponse,
-    CVAnalysisResponse,
+    CVAnalysisEnvelope,
+    CVAnalysisPayload,
     FinalInterviewReport,
     InterviewTurnResponse,
     WriterResponse,
@@ -58,6 +60,10 @@ from app.schemas.user import (
 )
 from app.services import cv_analysis_service, user_cv_service
 from app.services.ai_service import call_llm_with_fallback
+from app.services.layout_extraction import (
+    extract_text_from_layout,
+    layout_extract_pdf,
+)
 from app.services.tailored_cv_metadata import issue_tailoring_entitlement
 from app.utils.helpers import extract_text_from_pdf
 
@@ -67,7 +73,10 @@ router = APIRouter(prefix="/api", tags=["user"])
 async def _refund_reserved_credit(user_id: str, tx_type: str, description: str) -> None:
     with suppress(Exception):
         await refund_credits(
-            user_id=user_id, amount=1, tx_type=tx_type, description=description
+            user_id=user_id,
+            amount=1,
+            tx_type=tx_type,
+            description=description,
         )
 
 
@@ -83,8 +92,7 @@ async def upload_and_match(
     jd_text: str = Form(""),
     user: dict = Depends(get_current_user),
 ):
-    """
-    Parse the uploaded CV PDF, compare with the JD, and return:
+    """Parse the uploaded CV PDF, compare with the JD, and return:
     - match_score  (0–100)
     - missing_skills  (list of strings)
     - tailored_cv  (rewritten resume JSON)
@@ -106,7 +114,8 @@ async def upload_and_match(
 
     if not cv_text:
         raise HTTPException(
-            status_code=422, detail="PDF appears to be empty or image-only."
+            status_code=422,
+            detail="PDF appears to be empty or image-only.",
         )
 
     system_prompt = build_upload_and_match_prompt()
@@ -158,8 +167,12 @@ async def extract_pdf(file: UploadFile = File(...)):
         )
     try:
         file_bytes = await file.read()
-        text = extract_text_from_pdf(file_bytes)
-        return {"text": text}
+        lines = layout_extract_pdf(file_bytes)
+        text = extract_text_from_layout(lines)
+        return {
+            "text": text,
+            "layout_data": [asdict(line) for line in lines],
+        }
     except Exception as e:
         return {"error": str(e)}
 
@@ -169,14 +182,13 @@ async def extract_pdf(file: UploadFile = File(...)):
 # ---------------------------------------------------------------------------
 
 
-@router.post("/analyze-cv", response_model=CVAnalysisResponse)
+@router.post("/analyze-cv", response_model=CVAnalysisEnvelope)
 async def analyze_cv(
     req: AnalyzeCVRequest,
     background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
 ):
-    """
-    Accept raw CV text and a Job Description.
+    """Accept raw CV text and a Job Description.
     Return a structured analysis.
     """
     extracted_text = req.cv_text.strip()
@@ -199,15 +211,48 @@ async def analyze_cv(
     )
 
     try:
-        scored = await cv_analysis_service.analyze_cv(
-            cv_text=extracted_text,
-            jd_text=jd_text,
-            background_tasks=background_tasks,
+        async with asyncio.timeout(CV_ANALYSIS_REQUEST_TIMEOUT):
+            scored = await cv_analysis_service.analyze_cv(
+                cv_text=extracted_text,
+                jd_text=jd_text,
+                background_tasks=background_tasks,
+                layout_data=req.layout_data,
+            )
+        entitlement = issue_tailoring_entitlement(
+            to_uuid(user["id"]),
+            extracted_text,
+            jd_text,
         )
-        scored.tailoring_entitlement = issue_tailoring_entitlement(
-            to_uuid(user["id"]), extracted_text, jd_text
+        if (
+            scored.document_v2 is None
+            or scored.source_document_v2 is None
+            or scored.reconstruction_diagnostics is None
+        ):
+            raise RuntimeError("Typed CV reconstruction did not complete")
+        analysis = scored.model_dump(
+            exclude={
+                "tailored_cv",
+                "document_v2",
+                "source_document_v2",
+                "reconstruction_diagnostics",
+                "tailoring_entitlement",
+                "block_rewrites",
+            },
         )
-        return scored
+        return CVAnalysisEnvelope(
+            analysis=CVAnalysisPayload(**analysis),
+            tailored_cv=scored.document_v2,
+            source_document_v2=scored.source_document_v2,
+            reconstruction_diagnostics=scored.reconstruction_diagnostics,
+            legacy_tailored_cv=scored.tailored_cv,
+            tailoring_entitlement=entitlement,
+        )
+    except TimeoutError:
+        await _refund_reserved_credit(user["id"], tx_type, refund_description)
+        raise HTTPException(
+            status_code=504,
+            detail="CV analysis timed out. Please try again.",
+        ) from None
     except HTTPException:
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise
@@ -230,9 +275,7 @@ async def parse_profile(
     background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
 ):
-    """
-    Parse candidate CV to get structured profile + search queries using LLM.
-    """
+    """Parse candidate CV to get structured profile + search queries using LLM."""
     cv_text = req.cv_text.strip()
     if not cv_text:
         raise HTTPException(
@@ -284,12 +327,12 @@ async def interview_chat(
     background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
 ):
-    """
-    Stateless mock interview turn processor mapping an InterviewChatRequest to an InterviewTurnResponse.
+    """Stateless mock interview turn processor mapping an InterviewChatRequest to an InterviewTurnResponse.
     Supports bounded interviews with question progress tracking.
     """
     active_persona = PERSONA_INSTRUCTIONS.get(
-        req.interview_type, PERSONA_INSTRUCTIONS["general"]
+        req.interview_type,
+        PERSONA_INSTRUCTIONS["general"],
     )
 
     # --- Dynamic question strategy based on progress ---
@@ -297,29 +340,28 @@ async def interview_chat(
         question_strategy = "Ask an introductory/ice-breaker question to warm up the candidate. Keep it light but professional."
     elif req.current_question == req.total_questions:
         question_strategy = "This is the FINAL question. Ask a wrap-up or high-level culture-fit question (e.g., career goals, team values, why this company)."
+    elif req.interview_type == "hr":
+        question_strategy = (
+            "Ask a behavioral question to explore the candidate's responsibilities in past projects, "
+            "teamwork, conflict resolution, or soft skills. Keep it relevant to their role but do not ask "
+            "for low-level technical/coding implementation details or specific code techniques."
+        )
+    elif req.interview_type == "manager":
+        question_strategy = (
+            "Deep dive into project ownership, handling pressure/conflicts, business impact, "
+            "and leadership/collaboration."
+        )
+    elif req.interview_type == "technical":
+        question_strategy = (
+            "Deep dive into a specific technical or situational requirement from the JD. "
+            "Challenge the candidate on tools, frameworks, and system design."
+        )
     else:
-        if req.interview_type == "hr":
-            question_strategy = (
-                "Ask a behavioral question to explore the candidate's responsibilities in past projects, "
-                "teamwork, conflict resolution, or soft skills. Keep it relevant to their role but do not ask "
-                "for low-level technical/coding implementation details or specific code techniques."
-            )
-        elif req.interview_type == "manager":
-            question_strategy = (
-                "Deep dive into project ownership, handling pressure/conflicts, business impact, "
-                "and leadership/collaboration."
-            )
-        elif req.interview_type == "technical":
-            question_strategy = (
-                "Deep dive into a specific technical or situational requirement from the JD. "
-                "Challenge the candidate on tools, frameworks, and system design."
-            )
-        else:
-            # general or fallback
-            question_strategy = (
-                "Ask a balanced question covering a mix of professional experience, high-level technical alignment, "
-                "or situational soft skills."
-            )
+        # general or fallback
+        question_strategy = (
+            "Ask a balanced question covering a mix of professional experience, high-level technical alignment, "
+            "or situational soft skills."
+        )
 
     if req.jd_text.strip():
         jd_context = (
@@ -343,7 +385,7 @@ async def interview_chat(
             {
                 "role": "assistant" if msg.role == "assistant" else "user",
                 "content": msg.content,
-            }
+            },
         )
 
     if not contents:
@@ -354,7 +396,7 @@ async def interview_chat(
             {
                 "role": "user",
                 "content": "Xin chào, tôi đã sẵn sàng tham gia buổi phỏng vấn.",
-            }
+            },
         ]
 
     if req.current_question == 1:
@@ -400,15 +442,16 @@ async def interview_chat(
 
 @router.post("/interview/finish", response_model=FinalInterviewReport)
 async def interview_finish(
-    req: InterviewFinishRequest, background_tasks: BackgroundTasks
+    req: InterviewFinishRequest,
+    background_tasks: BackgroundTasks,
 ):
-    """
-    Takes the completed chat history and generates a comprehensive
+    """Takes the completed chat history and generates a comprehensive
     Final Assessment report with per-turn analysis.
     """
     if not req.chat_history:
         raise HTTPException(
-            status_code=422, detail="Chat history is empty. Cannot generate report."
+            status_code=422,
+            detail="Chat history is empty. Cannot generate report.",
         )
 
     round_label = ROUND_LABELS.get(req.interview_type, ROUND_LABELS["general"])
@@ -430,7 +473,7 @@ async def interview_finish(
             {
                 "role": "assistant" if msg.role == "assistant" else "user",
                 "content": msg.content,
-            }
+            },
         )
 
     try:
@@ -447,7 +490,8 @@ async def interview_finish(
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=502, detail=f"Final assessment generation failed: {e}"
+            status_code=502,
+            detail=f"Final assessment generation failed: {e}",
         )
 
 
@@ -480,8 +524,7 @@ async def generate_tts(req: TTSRequest):
 
 @router.post("/writer/generate", response_model=WriterResponse)
 async def writer_generate(req: WriterRequest, background_tasks: BackgroundTasks):
-    """
-    Generate an application email, cover letter, LinkedIn message, Zalo message,
+    """Generate an application email, cover letter, LinkedIn message, Zalo message,
     or custom writing based on the user's CV and JD.
     """
     if not req.cv_text.strip():
@@ -543,25 +586,32 @@ async def list_user_cvs(user: dict = Depends(get_current_user)) -> CVListRespons
 
 @router.post("/user/cv", response_model=CVResponse)
 async def upload_user_cv(
-    req: UpdateCVRequest, user: dict = Depends(get_current_user)
+    req: UpdateCVRequest,
+    user: dict = Depends(get_current_user),
 ) -> CVResponse:
     return await user_cv_service.create_cv(
-        to_uuid(user["id"]), req.cv_text, req.cv_filename
+        to_uuid(user["id"]),
+        req.cv_text,
+        req.cv_filename,
     )
 
 
 @router.put("/user/cv/active", response_model=CVResponse)
 async def update_active_cv(
-    req: UpdateCVRequest, user: dict = Depends(get_current_user)
+    req: UpdateCVRequest,
+    user: dict = Depends(get_current_user),
 ) -> CVResponse:
     return await user_cv_service.update_active_cv_text(
-        to_uuid(user["id"]), req.cv_text, req.cv_filename
+        to_uuid(user["id"]),
+        req.cv_text,
+        req.cv_filename,
     )
 
 
 @router.delete("/user/cv/{cv_id}")
 async def deactivate_user_cv(
-    cv_id: str, user: dict = Depends(get_current_user)
+    cv_id: str,
+    user: dict = Depends(get_current_user),
 ) -> dict:
     try:
         cv_uuid = UUID(cv_id)
@@ -574,7 +624,8 @@ async def deactivate_user_cv(
 
 @router.post("/user/feedback", response_model=FeedbackResponse)
 async def submit_feedback(
-    req: FeedbackSubmit, user: dict = Depends(get_current_user)
+    req: FeedbackSubmit,
+    user: dict = Depends(get_current_user),
 ) -> FeedbackResponse:
     credits_rewarded, new_credits = await user_cv_service.submit_user_feedback(
         user_id=to_uuid(user["id"]),
@@ -600,6 +651,6 @@ async def list_feedbacks() -> list:
     from app.core.db import Database
 
     rows = await Database.fetch_all(
-        "SELECT id, name, avatar, rating, content, created_at FROM public.feedbacks WHERE is_public = TRUE ORDER BY created_at DESC"
+        "SELECT id, name, avatar, rating, content, created_at FROM public.feedbacks WHERE is_public = TRUE ORDER BY created_at DESC",
     )
     return [dict(r) for r in rows]

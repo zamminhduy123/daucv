@@ -24,7 +24,8 @@ async def get_current_user(authorization: str = Header(None)) -> dict:
     email = payload.get("email")
     if not email:
         raise HTTPException(
-            status_code=401, detail="Unauthorized: Token missing email."
+            status_code=401,
+            detail="Unauthorized: Token missing email.",
         )
 
     # Fetch user from Database
@@ -50,7 +51,8 @@ async def get_current_user(authorization: str = Header(None)) -> dict:
             )
         except Exception as e:
             raise HTTPException(
-                status_code=500, detail=f"Database synchronization error: {e}"
+                status_code=500,
+                detail=f"Database synchronization error: {e}",
             )
 
         if not user:
@@ -75,8 +77,7 @@ def verify_credits(required_credits: int = 1):
 
 
 async def deduct_credits(user_id, amount: int, tx_type: str, description: str) -> int:
-    """
-    Transactionally deducts credits from a user profile and logs a transaction ledger record.
+    """Transactionally deducts credits from a user profile and logs a transaction ledger record.
     Returns the new credit balance.
     """
     if amount >= 0:
@@ -88,7 +89,8 @@ async def deduct_credits(user_id, amount: int, tx_type: str, description: str) -
     async with Database.pool.acquire() as conn, conn.transaction():
         # Select user for update to lock the row and prevent race conditions
         user = await conn.fetchrow(
-            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE", user_id
+            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE",
+            user_id,
         )
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
@@ -122,8 +124,7 @@ async def deduct_credits(user_id, amount: int, tx_type: str, description: str) -
 
 
 async def reserve_credits(user_id, amount: int, tx_type: str, description: str) -> int:
-    """
-    Reserve credits before expensive work starts.
+    """Reserve credits before expensive work starts.
 
     The reservation is a normal negative ledger entry so concurrent requests
     cannot all pass the same stale balance check.
@@ -139,8 +140,7 @@ async def reserve_credits(user_id, amount: int, tx_type: str, description: str) 
 
 
 async def add_credits(user_id, amount: int, tx_type: str, description: str) -> int:
-    """
-    Transactionally adds credits to a user profile and logs a transaction ledger record.
+    """Transactionally adds credits to a user profile and logs a transaction ledger record.
     Returns the new credit balance.
     """
     if amount <= 0:
@@ -151,7 +151,8 @@ async def add_credits(user_id, amount: int, tx_type: str, description: str) -> i
 
     async with Database.pool.acquire() as conn, conn.transaction():
         user = await conn.fetchrow(
-            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE", user_id
+            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE",
+            user_id,
         )
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
@@ -178,9 +179,7 @@ async def add_credits(user_id, amount: int, tx_type: str, description: str) -> i
 
 
 async def refund_credits(user_id, amount: int, tx_type: str, description: str) -> int:
-    """
-    Return a previously reserved credit after an operation fails.
-    """
+    """Return a previously reserved credit after an operation fails."""
     if amount <= 0:
         raise ValueError("Refund amount must be positive.")
     return await add_credits(

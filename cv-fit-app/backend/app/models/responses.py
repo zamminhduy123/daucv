@@ -1,12 +1,14 @@
-"""
-Pydantic response models — outbound payloads returned to API clients.
-"""
+"""Pydantic response models — outbound payloads returned to API clients."""
 
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models.cv_document_v2 import CVDocumentV2
+from app.models.cv_document_v2 import (
+    CVBlockRewrite,
+    CVDocumentV2,
+    CVReconstructionDiagnostics,
+)
 from app.models.domain import (
     AIFeedbackSummary,
     EvidenceAnalysis,
@@ -61,7 +63,13 @@ class ScoreBreakdown(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class CVAnalysisLLMResponse(BaseModel):
+class CVAnalysisGenerationResponse(BaseModel):
+    """Only fields that the LLM must generate for a CV analysis.
+
+    Tailored CV documents are deliberately absent because the application
+    reconstructs them from the source CV after validating these suggestions.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     match_headline: str
@@ -75,18 +83,26 @@ class CVAnalysisLLMResponse(BaseModel):
     tone_quality: int = Field(ge=0, le=100)
     ats_readiness: int = Field(ge=0, le=100)
 
-    missing_keywords: Annotated[list[str], Field(max_length=6)]
-    suggested_edits: Annotated[list[SuggestedEdit], Field(min_length=2, max_length=5)]
+    missing_keywords: Annotated[list[str], Field(max_length=6, default_factory=list)]
+    suggested_edits: Annotated[
+        list[SuggestedEdit],
+        Field(min_length=2, max_length=5, default_factory=list),
+    ]
 
     # Widgets data
-    cv_strengths: Annotated[list[str], Field(min_length=2, max_length=5)]
-    prioritized_keywords: Annotated[list[PrioritizedKeyword], Field(max_length=6)]
-    evidence_analysis: Annotated[
-        list[EvidenceAnalysis], Field(min_length=1, max_length=6)
+    cv_strengths: Annotated[
+        list[str],
+        Field(min_length=2, max_length=5, default_factory=list),
     ]
-    tailored_cv: TailoredCV
-    # V2 typed document (nullable — backfilled by the pipeline, not the LLM)
-    document_v2: CVDocumentV2 | None = None
+    prioritized_keywords: Annotated[
+        list[PrioritizedKeyword],
+        Field(max_length=6, default_factory=list),
+    ]
+    evidence_analysis: Annotated[
+        list[EvidenceAnalysis],
+        Field(min_length=1, max_length=6, default_factory=list),
+    ]
+    block_rewrites: list[CVBlockRewrite]
     target_role: str | None = None
     company_name: str | None = None
 
@@ -106,8 +122,13 @@ class CVAnalysisLLMResponse(BaseModel):
             ("evidence_analysis", 6),
         ):
             value = normalized.get(field_name)
-            if isinstance(value, list):
+            if value is None:
+                normalized[field_name] = []
+            elif isinstance(value, list):
                 normalized[field_name] = value[:max_items]
+
+        if normalized.get("block_rewrites") is None:
+            normalized["block_rewrites"] = []
 
         if not normalized.get("suggested_edits"):
             normalized["suggested_edits"] = [
@@ -117,7 +138,7 @@ class CVAnalysisLLMResponse(BaseModel):
                     "improved_safe": "Clarify this section with role-relevant, truthful details from your experience.",
                     "improved_with_placeholders": "Clarify this section with [specific responsibility], [tool], and [measurable outcome if true].",
                     "metric_questions": [
-                        "What measurable result can you truthfully add?"
+                        "What measurable result can you truthfully add?",
                     ],
                     "unsupported_assumptions": [],
                     "rewrite_risk": "needs_user_input",
@@ -129,7 +150,7 @@ class CVAnalysisLLMResponse(BaseModel):
                     "improved_safe": "Use stronger action verbs while keeping every claim grounded in the original CV.",
                     "improved_with_placeholders": "Used [action verb] to deliver [scope] for [team/user/workflow], improving [metric if true].",
                     "metric_questions": [
-                        "Which scope, audience, or metric can you confirm?"
+                        "Which scope, audience, or metric can you confirm?",
                     ],
                     "unsupported_assumptions": [],
                     "rewrite_risk": "needs_user_input",
@@ -147,12 +168,12 @@ class CVAnalysisLLMResponse(BaseModel):
                     "improved_safe": "Add one more concise, JD-relevant bullet using only confirmed experience.",
                     "improved_with_placeholders": "Added [JD-relevant skill] in [project/context], achieving [outcome if true].",
                     "metric_questions": [
-                        "What confirmed outcome can support this bullet?"
+                        "What confirmed outcome can support this bullet?",
                     ],
                     "unsupported_assumptions": [],
                     "rewrite_risk": "needs_user_input",
                     "reason": "The model returned only one edit, so this fallback keeps the response usable.",
-                }
+                },
             )
 
         if not normalized.get("cv_strengths"):
@@ -165,7 +186,7 @@ class CVAnalysisLLMResponse(BaseModel):
             and len(normalized["cv_strengths"]) == 1
         ):
             normalized["cv_strengths"].append(
-                "Additional strengths require recruiter review."
+                "Additional strengths require recruiter review.",
             )
 
         if not normalized.get("evidence_analysis"):
@@ -174,25 +195,84 @@ class CVAnalysisLLMResponse(BaseModel):
                     "claim": "Role fit evidence",
                     "evidence_strength": "Weak",
                     "comment": "The model did not return detailed evidence analysis; review the CV manually.",
-                }
+                },
             ]
 
-        if not normalized.get("tailored_cv"):
-            normalized["tailored_cv"] = {"name": "", "sections": []}
-
         return normalized
+
+
+class CVAnalysisLLMResponse(CVAnalysisGenerationResponse):
+    """Generated analysis enriched with application-derived CV documents."""
+
+    block_rewrites: list[CVBlockRewrite] = Field(default_factory=list)
+    tailored_cv: TailoredCV = Field(default_factory=TailoredCV)
+    document_v2: CVDocumentV2 | None = None
 
 
 class CVAnalysisResponse(CVAnalysisLLMResponse):
     source_language: Literal["vi", "en"] = "vi"
     tailoring_entitlement: str = ""
     role_fit_score: int = Field(
-        ge=0, le=100
+        ge=0,
+        le=100,
     )  # Raw LLM assessment — what a human would score
     match_score: int = Field(
-        ge=0, le=100
+        ge=0,
+        le=100,
     )  # "CV Match" — penalized by missing JD keywords
     score_breakdown: ScoreBreakdown
+    reconstruction_diagnostics: CVReconstructionDiagnostics | None = None
+    source_document_v2: CVDocumentV2 | None = None
+
+
+class CVAnalysisPayload(BaseModel):
+    """Typed analysis payload — the subset of CVAnalysisLLMResponse returned
+    inside CVAnalysisEnvelope.  Keeps the OpenAPI schema descriptive and
+    prevents accidental drift to ``dict[str, Any]``.
+    """
+
+    source_language: Literal["vi", "en"] = "vi"
+    role_fit_score: int = Field(default=0, ge=0, le=100)
+    match_score: int = Field(default=0, ge=0, le=100)
+    score_breakdown: ScoreBreakdown | None = None
+
+    match_headline: str
+    match_summary: str
+
+    # 6 sub-scores
+    technical_match: int = Field(ge=0, le=100)
+    experience_relevance: int = Field(ge=0, le=100)
+    keyword_coverage: int = Field(ge=0, le=100)
+    impact_evidence: int = Field(ge=0, le=100)
+    tone_quality: int = Field(ge=0, le=100)
+    ats_readiness: int = Field(ge=0, le=100)
+
+    # Diagnostic lists
+    missing_keywords: Annotated[list[str], Field(max_length=6)]
+    suggested_edits: Annotated[list[SuggestedEdit], Field(min_length=2, max_length=5)]
+
+    # Widget data
+    cv_strengths: Annotated[list[str], Field(min_length=2, max_length=5)]
+    prioritized_keywords: Annotated[list[PrioritizedKeyword], Field(max_length=6)]
+    evidence_analysis: Annotated[
+        list[EvidenceAnalysis],
+        Field(min_length=1, max_length=6),
+    ]
+
+    # Context (may be null if LLM did not extract them)
+    target_role: str | None = None
+    company_name: str | None = None
+
+
+class CVAnalysisEnvelope(BaseModel):
+    """Versioned API shape separating diagnostics from typed CV content."""
+
+    analysis: CVAnalysisPayload
+    tailored_cv: CVDocumentV2
+    source_document_v2: CVDocumentV2
+    reconstruction_diagnostics: CVReconstructionDiagnostics
+    legacy_tailored_cv: TailoredCV
+    tailoring_entitlement: str
 
 
 # ---------------------------------------------------------------------------

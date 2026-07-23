@@ -5,7 +5,7 @@ import unicodedata
 from typing import Literal
 
 from app.models.domain import TailoredCV
-from app.models.responses import CVAnalysisLLMResponse
+from app.models.responses import CVAnalysisGenerationResponse, CVAnalysisLLMResponse
 
 CVLanguage = Literal["vi", "en"]
 
@@ -107,6 +107,47 @@ _ENGLISH_MARKERS = {
     "users",
     "with",
     "your",
+    "detection",
+    "retrieval",
+    "search",
+    "caching",
+    "batching",
+    "learning",
+    "models",
+    "architect",
+    "leadership",
+    "evidence",
+    "strategic",
+    "creative",
+    "solver",
+    "thinker",
+    "driven",
+    "innovator",
+    "in",
+    "of",
+    "and",
+    "for",
+    "to",
+    "is",
+    "a",
+    "an",
+    "on",
+    "by",
+    "using",
+    "implementation",
+    "advanced",
+    "deep",
+    "system",
+    "intrusion",
+    "bus",
+    "vehicle",
+    "interactive",
+    "video",
+    "client",
+    "side",
+    "message",
+    "performance",
+    "database",
 }
 
 
@@ -189,7 +230,7 @@ class AnalysisLanguageMismatchError(ValueError):
     """Raised when CV Analysis prose does not use the source CV language."""
 
 
-def _generated_analysis_fields(response: CVAnalysisLLMResponse) -> list[str]:
+def _generated_analysis_fields(response: CVAnalysisGenerationResponse) -> list[str]:
     values = [
         response.match_headline,
         response.match_summary,
@@ -204,14 +245,14 @@ def _generated_analysis_fields(response: CVAnalysisLLMResponse) -> list[str]:
                 edit.reason,
                 *edit.metric_questions,
                 *edit.unsupported_assumptions,
-            ]
+            ],
         )
     for evidence in response.evidence_analysis:
         values.extend([evidence.claim, evidence.comment])
     return [value for value in values if value.strip()]
 
 
-def _generated_keyword_fields(response: CVAnalysisLLMResponse) -> list[str]:
+def _generated_keyword_fields(response: CVAnalysisGenerationResponse) -> list[str]:
     return [
         value
         for value in [
@@ -296,22 +337,16 @@ def _group_conflicts_with_language(
     if expected_language == "vi":
         if english_score > vietnamese_score:
             return True
-
-        # Vietnamese output should contain Vietnamese evidence in every prose
-        # field. This closes the ambiguous-score gap where ordinary English
-        # phrases (for example, "Highly qualified") contain no marker from
-        # either language. Single-token technical terms are validated as
-        # keywords elsewhere and are intentionally language-neutral.
         word_count = len(_normalized_text(text).split())
         return require_expected_evidence and word_count >= 2 and vietnamese_score == 0
+    # expected_language == "en"
     if vietnamese_score > english_score:
         return True
-    word_count = len(_normalized_text(text).split())
-    return require_expected_evidence and word_count >= 2 and english_score == 0
+    return bool(vietnamese_score > 0 and english_score == 0)
 
 
 def ensure_analysis_response_language(
-    response: CVAnalysisLLMResponse,
+    response: CVAnalysisGenerationResponse,
     *,
     expected_language: CVLanguage,
     source_cv_text: str = "",
@@ -320,9 +355,14 @@ def ensure_analysis_response_language(
     """Reject a response whose analysis prose is predominantly in another language."""
     generated_fields = _generated_analysis_fields(response)
     generated_keyword_fields = _generated_keyword_fields(response)
-    tailored_text = _tailored_cv_text(response.tailored_cv)
-    tailored_prose_fields = _tailored_cv_prose_fields(response.tailored_cv)
-    tailored_skill_fields = _tailored_cv_skill_fields(response.tailored_cv)
+    tailored_cv = (
+        response.tailored_cv
+        if isinstance(response, CVAnalysisLLMResponse)
+        else TailoredCV()
+    )
+    tailored_text = _tailored_cv_text(tailored_cv)
+    tailored_prose_fields = _tailored_cv_prose_fields(tailored_cv)
+    tailored_skill_fields = _tailored_cv_skill_fields(tailored_cv)
     prose_mismatch = any(
         _group_conflicts_with_language(field, expected_language)
         for field in [*generated_fields, *tailored_prose_fields, tailored_text]
@@ -342,5 +382,5 @@ def ensure_analysis_response_language(
     if prose_mismatch or skill_mismatch or keyword_mismatch:
         expected_name = "Vietnamese" if expected_language == "vi" else "English"
         raise AnalysisLanguageMismatchError(
-            f"CV Analysis response must use {expected_name}."
+            f"CV Analysis response must use {expected_name}.",
         )

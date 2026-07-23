@@ -5,7 +5,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, TextIO
 
-
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 BACKEND_DIR = ROOT_DIR / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
@@ -47,7 +46,7 @@ def backend_modules() -> dict[str, Any]:
         raise RuntimeError(
             "Missing backend Python dependency. Run this with "
             "`backend/venv/bin/python run_evals.py` or install "
-            "`backend/requirements.txt` into your active environment."
+            "`backend/requirements.txt` into your active environment.",
         ) from exc
 
     return {
@@ -63,7 +62,7 @@ async def analyze_case(case_id: int, output: TextIO = sys.stdout) -> None:
     modules = backend_modules()
     cv_text, jd_text = read_pair(case_id)
     system_prompt = modules["build_cv_analysis_prompt"](
-        modules["CV_ANALYSIS_CONTEXT_WITH_JD"]
+        modules["CV_ANALYSIS_CONTEXT_WITH_JD"],
     )
     user_content = f"CV của ứng viên:\n{cv_text}\n\nMô tả Công việc (JD):\n{jd_text}"
 
@@ -104,14 +103,13 @@ async def analyze_case(case_id: int, output: TextIO = sys.stdout) -> None:
 
     for warning in warnings:
         print(f"- {warning}", file=output)
-    
-    output.flush()
 
+    output.flush()
 
 
 async def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Run a few golden CV/JD fixtures through the LLM and print deterministic eval warnings."
+        description="Run a few golden CV/JD fixtures through the LLM and print deterministic eval warnings.",
     )
     parser.add_argument(
         "--cases",
@@ -133,18 +131,18 @@ async def main() -> None:
     args = parser.parse_args()
 
     case_list = list(range(1, 21)) if args.all else args.cases
-    
+
     out_file = None
     if args.output:
         out_path = Path(args.output)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_file = open(out_path, "w", encoding="utf-8")
-        
+        out_file = open(out_path, "w", encoding="utf-8")  # noqa: SIM115
+
         # Write header
         print(f"Evaluation Run: {datetime.now().isoformat()}", file=out_file)
         print(f"Cases: {case_list}", file=out_file)
         print("=" * 60, file=out_file)
-    
+
     output_handle = out_file or sys.stdout
 
     try:

@@ -1,6 +1,4 @@
-"""
-Health-check routes.
-"""
+"""Health-check routes."""
 
 from fastapi import APIRouter
 

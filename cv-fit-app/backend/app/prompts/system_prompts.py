@@ -1,5 +1,4 @@
-"""
-System prompts for all LLM-powered features.
+"""System prompts for all LLM-powered features.
 
 Each function builds a complete system prompt string. Keeping prompts here
 makes them easy to version, A/B test, and review in code review.
@@ -40,18 +39,62 @@ def build_cv_analysis_prompt(
     source_language: CVLanguage | None = None,
 ) -> str:
     if source_language == "en":
-        language_instruction = (
+        context_instr = (
+            "Task: Analyze the candidate's CV based on the provided Job Description (JD) and return structured analysis results."
+            if "Phân tích CV" in context_instruction
+            else "Task: The user did not provide a JD. Perform a General CV ATS Audit. Assess CV readability, impact metrics, action verbs, and ATS readiness based on general industry standards."
+        )
+        return (
+            "You are a Senior Tech Recruiter and expert CV reviewer. You are direct, candid, and always constructive.\n\n"
+            f"{context_instr}\n\n"
+            "CRITICAL LANGUAGE RULE:\n"
             "DETECTED SOURCE CV LANGUAGE: ENGLISH.\n"
             "Every user-facing text field must be written in English, including "
             "headlines, summaries, strengths, keyword explanations, evidence comments, "
-            "suggested edits, reasons, questions, and Tailored CV content."
+            "suggested edits, reasons, and questions. Do NOT use Vietnamese.\n\n"
+            "JSON structure to return (ALL scores must be integers from 0 to 100):\n"
+            '- match_headline: Concise result headline in English (e.g., "Strong Fit — High likelihood of interview." or "Needs Improvement — Does not closely align with JD.").\n'
+            "- match_summary: 2-3 sentences explaining the overall score and key areas to improve in English.\n"
+            "- technical_match (0-100): Alignment of technical/hard skills between CV and JD.\n"
+            "- experience_relevance (0-100): Relevance of work experience to the role.\n"
+            "- keyword_coverage (0-100): Ratio of critical JD keywords found in CV.\n"
+            "- impact_evidence (0-100): Level of quantified results (metrics, numbers) in achievements.\n"
+            "- tone_quality (0-100): Professionalism, clarity, and tone of the CV.\n"
+            "- ats_readiness (0-100): ATS format readiness (no complex tables, clean headers, standard fonts).\n"
+            "- missing_keywords: List of up to 5 important keywords from JD that are MISSING in CV.\n"
+            "- suggested_edits: 3 to 5 specific rewrite suggestions for the WEAKEST bullet points.\n"
+            "  For each edit:\n"
+            '  + section: Section name in English (e.g., "Work Experience", "Projects")\n'
+            "  + original_text: EXACT original quote to be improved\n"
+            "  + improved_safe: Safe rewritten version in English using only information present in CV/JD. Do NOT add unverified numbers, %, revenue, or metrics.\n"
+            "  + improved_with_placeholders: Coaching version in English with clear brackets for numbers or context needing user confirmation, e.g. [X ms], [N users].\n"
+            "  + metric_questions: 2-4 specific questions in English asking the user for actual metrics.\n"
+            "  + unsupported_assumptions: List of metrics/assumptions not claimed as fact. Use [] if none.\n"
+            '  + rewrite_risk: MUST be one of ["safe", "needs_user_input", "risky"].\n'
+            "  + reason: Short explanation in English why this change is needed.\n\n"
+            "ANTI-HALLUCINATION RULES FOR SUGGESTED EDITS:\n"
+            "- NEVER fabricate numbers or metrics to make bullets sound more impressive.\n"
+            "- If guiding the user to add metrics, place them in improved_with_placeholders and ask in metric_questions.\n\n"
+            '- cv_strengths: Array of 3-4 key strengths of the current CV in English (e.g., "Strong production engineering experience").\n'
+            "- prioritized_keywords: Key terms to add, each with:\n"
+            "  + keyword: Keyword name\n"
+            '  + priority: MUST be one of ["Critical", "High", "Medium", "Low"].\n'
+            "- evidence_analysis: Array of 4-5 key competency claims, each with:\n"
+            "  + claim: Skill/competency evaluated in English\n"
+            '  + evidence_strength: MUST be one of ["Strong", "Medium", "Weak", "Missing"].\n'
+            "  + comment: Short comment in English explaining the rating.\n\n"
+            "- block_rewrites: Array of block rewrite suggestions ONLY for blocks that actually need changes. Do NOT include unchanged blocks. Return exact same block_id. Only use text for paragraph/summary, bullets for entry, or skills for skill_group.\n\n"
+            "- target_role: Target job title extracted from JD in English, or null.\n"
+            "- company_name: Company name extracted from JD in English, or null.\n\n"
+            "Be candid, constructive, and output ONLY valid JSON."
         )
-    elif source_language == "vi":
+
+    if source_language == "vi":
         language_instruction = (
             "NGÔN NGỮ CV NGUỒN ĐÃ XÁC ĐỊNH: TIẾNG VIỆT.\n"
             "Mọi trường văn bản hiển thị cho người dùng phải viết bằng tiếng Việt, "
             "bao gồm tiêu đề, tóm tắt, điểm mạnh, giải thích từ khóa, nhận xét bằng chứng, "
-            "đề xuất chỉnh sửa, lý do, câu hỏi và nội dung CV đã tối ưu."
+            "đề xuất chỉnh sửa, lý do và câu hỏi."
         )
     else:
         language_instruction = (
@@ -104,7 +147,12 @@ def build_cv_analysis_prompt(
         '    * "Weak": Nhắc đến mơ hồ, không có bằng chứng thực tế.\n'
         '    * "Missing": Hoàn toàn không tìm thấy bằng chứng nào trong CV.\n'
         '  + comment: Nhận xét ngắn gọn giải thích đánh giá (VD: "Supported by 8M+ MAU metrics", "No leadership evidence found")\n\n'
-        "- tailored_cv: CV hoàn chỉnh, sẵn sàng xuất PDF, chỉ dùng thông tin trong CV gốc. Gồm name, headline, contact_lines, summary và sections. sections là mảng {title, items[]}; giữ nguyên ngôn ngữ và tên của mọi phần nhận diện được (kinh nghiệm, dự án, học vấn, kỹ năng, chứng chỉ, ngôn ngữ, giải thưởng, hoạt động). Mỗi Source Section phải xuất hiện đúng một lần và có ít nhất số item như phần tương ứng trong CV gốc; giữ nguyên tên công ty, chức danh, ngày tháng, URL và mọi số liệu có thật. Mỗi item là đoạn/bullet ngắn, viết lại để phù hợp JD khi có thể dùng ngay mà không tạo claim mới. BỎ mọi phần cần metric/fact chưa xác minh; không dùng placeholder, không thêm ảnh.\n\n"
+        "- block_rewrites: Mảng đề xuất chỉnh sửa cho TỪNG block trong TYPED SOURCE DOCUMENT. "
+        "Trả lại đúng cùng block_id cho mọi block. Chỉ được dùng text cho paragraph/summary, "
+        "bullets cho entry (giữ nguyên số bullet), hoặc skills cho skill_group (chỉ đổi thứ tự). "
+        "Không đổi identity, tên công ty/trường, ngày, loại block; không thêm số liệu hoặc công nghệ "
+        "không có trong CV nguồn. Với block không cần đổi hoặc không thuộc loại được phép sửa, "
+        "trả preserve=true và không gửi text/bullets/skills.\n\n"
         "- target_role: Tên vị trí tuyển dụng (job title) trích xuất hoặc suy luận từ Job Description (JD). Ví dụ: 'Software Engineer' hoặc 'Lập trình viên React'. Trả về null nếu không có hoặc không xác định được.\n"
         "- company_name: Tên công ty tuyển dụng trích xuất hoặc suy luận từ Job Description (JD). Ví dụ: 'Google' hoặc 'Tập đoàn Vingroup'. Trả về null nếu không có hoặc không xác định được.\n\n"
         "Hãy trung thực, mang tính xây dựng và cung cấp kết quả ở định dạng JSON hợp lệ duy nhất."

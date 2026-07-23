@@ -1,5 +1,4 @@
-"""
-V1 → V2 Compatibility Adapter
+"""V1 → V2 Compatibility Adapter
 
 Converts the legacy ``TailoredCV`` model (``sections[].items: string[]``)
 into a ``CVDocumentV2`` without inventing facts.  The adapter is deterministic:
@@ -232,7 +231,7 @@ def _is_entry_headline(item: str) -> bool:
     # Dash-separated project/company or project/technology patterns
     # A line with an en-dash/em-dash or slash that has capitalised parts on both sides
     return bool(
-        re.search(r"[—–]\s*[A-Z]", stripped) or re.search(r" /\s*[A-Z]", stripped)
+        re.search(r"[—–]\s*[A-Z]", stripped) or re.search(r" /\s*[A-Z]", stripped),
     )
 
 
@@ -378,7 +377,7 @@ def v1_to_v2(cv: TailoredCV) -> CVDocumentV2:
             continue
         blocks = _section_to_blocks(section)
         sections.append(
-            CVSection(type=section_type, title=section.title, blocks=blocks)
+            CVSection(type=section_type, title=section.title, blocks=blocks),
         )
 
     # --- Fallback: derive from legacy fields --------------------------------
@@ -398,7 +397,7 @@ def v1_to_v2(cv: TailoredCV) -> CVDocumentV2:
                     type="skills",
                     title="Skills",
                     blocks=[CVSkillGroupBlock(skills=cv.skills)],
-                )
+                ),
             )
         if cv.education and cv.education.strip():
             sections.append(
@@ -407,7 +406,7 @@ def v1_to_v2(cv: TailoredCV) -> CVDocumentV2:
                     type="education",
                     title="Education",
                     blocks=[CVEducationBlock(details=[cv.education.strip()])],
-                )
+                ),
             )
 
     for section_index, section in enumerate(sections):
@@ -518,7 +517,7 @@ def _parse_education_section(items: list[str]) -> list[CVBlockType]:
                 CVEducationBlock(
                     institution=current_institution,
                     details=current_details,
-                )
+                ),
             )
         current_institution = None
         current_details = []
@@ -559,7 +558,7 @@ def _parse_general_section(items: list[str], is_summary: bool) -> list[CVBlockTy
                     CVEntryBlock(
                         title=" ".join(extra),
                         bullets=[_clean_bullet(b) for b in bullets],
-                    )
+                    ),
                 )
             current_entry = [cleaned]
         elif is_bullet_char:
@@ -568,13 +567,12 @@ def _parse_general_section(items: list[str], is_summary: bool) -> list[CVBlockTy
                 current_entry.append(item)
             else:
                 blocks.append(CVBulletBlock(text=_clean_bullet(item)))
+        # Non-bullet, non-headline: belongs to current entry if we have one
+        elif current_entry:
+            current_entry.append(cleaned)
         else:
-            # Non-bullet, non-headline: belongs to current entry if we have one
-            if current_entry:
-                current_entry.append(cleaned)
-            else:
-                # Orphan content → paragraph
-                blocks.append(CVParagraphBlock(text=cleaned))
+            # Orphan content → paragraph
+            blocks.append(CVParagraphBlock(text=cleaned))
 
     # Flush last entry
     if current_entry:
@@ -583,7 +581,7 @@ def _parse_general_section(items: list[str], is_summary: bool) -> list[CVBlockTy
             CVEntryBlock(
                 title=" ".join(extra),
                 bullets=[_clean_bullet(b) for b in bullets],
-            )
+            ),
         )
 
     return blocks if blocks else [CVParagraphBlock(text=" ".join(items))]
@@ -603,13 +601,12 @@ def _split_bullets(lines: list[str]) -> tuple[list[str], list[str]]:
         elif _is_entry_headline(cleaned) and headline:
             # Second headline → previous headline was part of title
             headline.append(cleaned)
+        elif not headline and not bullets:
+            headline.append(cleaned)
+        elif bullets:
+            bullets.append(cleaned)
         else:
-            if not headline and not bullets:
-                headline.append(cleaned)
-            elif bullets:
-                bullets.append(cleaned)
-            else:
-                headline.append(cleaned)
+            headline.append(cleaned)
     return bullets, headline
 
 
@@ -637,7 +634,7 @@ def _experience_to_blocks(experiences: list) -> list[CVBlockType]:
                 bullets=[
                     _clean_bullet(b) if isinstance(b, str) else str(b) for b in bullets
                 ],
-            )
+            ),
         )
     return blocks
 

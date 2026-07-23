@@ -3,9 +3,9 @@
 import { useRef, useState } from "react";
 import { Upload, FileText, X, CheckCircle, AlertTriangle, Sparkles, Mic, Loader2, PenTool, Briefcase } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { WorkspaceInputs } from "@/types";
+import type { LayoutLine, WorkspaceInputs } from "@/types";
 import { wordCount } from "@/lib/utils";
-import { extractPdfAPI } from "@/lib/api";
+import { extractPdfAPI, type PdfExtractResult } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -96,9 +96,9 @@ export default function InputSection({
     if (ref.current) ref.current.value = "";
   };
 
-  const updatePdfTarget = (target: "cv" | "jd", file: File | null, text?: string) => {
+  const updatePdfTarget = (target: "cv" | "jd", file: File | null, text?: string, layoutData?: LayoutLine[] | null) => {
     if (target === "cv") {
-      onChange({ cvFile: file, ...(text !== undefined ? { cvText: text } : {}) });
+      onChange({ cvFile: file, ...(text !== undefined ? { cvText: text } : {}), ...(layoutData !== undefined ? { layoutData } : {}) });
     } else {
       onChange({ jdFile: file, ...(text !== undefined ? { jdText: text } : {}) });
     }
@@ -127,14 +127,14 @@ export default function InputSection({
     setExtracting(target, true);
 
     try {
-      const result = await extractPdfAPI(file);
+      const result = await extractPdfAPI(file) as PdfExtractResult;
       if (result.error) {
         setExtractError(target, `${label}: Đã có lỗi xảy ra khi trích xuất, vui lòng thử lại.`);
         console.error(result.error);
         updatePdfTarget(target, null, "");
         clearPdfInputValue(target);
       } else {
-        updatePdfTarget(target, file, result.text || "");
+        updatePdfTarget(target, file, result.text || "", result.layout_data);
       }
     } catch (err: unknown) {
       updatePdfTarget(target, null, "");
@@ -154,7 +154,7 @@ export default function InputSection({
   };
 
   const clearFile = (target: "cv" | "jd") => {
-    updatePdfTarget(target, null, "");
+    updatePdfTarget(target, null, "", null);
     setExtractError(target, "");
     clearPdfInputValue(target);
   };
@@ -277,7 +277,7 @@ export default function InputSection({
           />
           <textarea
             value={inputs.cvText}
-            onChange={(e) => onChange({ cvText: e.target.value })}
+            onChange={(e) => onChange({ cvText: e.target.value, layoutData: null })}
             placeholder={"// Dán nội dung CV của bạn vào đây...\n\nHọ tên: Nguyễn Văn A\nKinh nghiệm: 3 năm tại...\nKỹ năng: React, TypeScript..."}
             className="flex-1 w-full min-h-[200px] resize-none outline-none bg-transparent text-[#2F4F4F] leading-relaxed text-sm"
             style={{ padding: "0.75rem 1rem", fontFamily: "'Inter', 'Courier New', monospace" }}

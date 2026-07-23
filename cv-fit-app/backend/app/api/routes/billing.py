@@ -34,9 +34,9 @@ try:
     from app.core.config import ALLOW_MOCK_BILLING, NEXTAUTH_SECRET
 except (ImportError, AttributeError):
     ALLOW_MOCK_BILLING = os.getenv("ALLOW_MOCK_BILLING", "true").lower() == "true"
-    NEXTAUTH_SECRET = os.getenv(
-        "NEXTAUTH_SECRET", "super-secret-nextauth-key-change-in-prod"
-    )
+    NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET", "")
+    if not NEXTAUTH_SECRET:
+        raise ValueError("CRITICAL: NEXTAUTH_SECRET is required.")
 
 try:
     from app.schemas.billing import (
@@ -73,7 +73,10 @@ PACKAGES = {
 
 @router.post("/buy-credits", response_model=BuyCreditsResponse)
 async def buy_credits(req: BuyCreditsRequest, user: dict = Depends(get_current_user)):
-    if not ALLOW_MOCK_BILLING:
+    if (
+        not ALLOW_MOCK_BILLING
+        or os.getenv("ENV", "development").lower() == "production"
+    ):
         raise HTTPException(
             status_code=403,
             detail="Cổng thanh toán thử nghiệm không được bật ở môi trường này.",
@@ -96,9 +99,13 @@ async def buy_credits(req: BuyCreditsRequest, user: dict = Depends(get_current_u
 
 @router.post("/mock-confirm", response_model=MockPaymentConfirmResponse)
 async def mock_confirm(
-    req: MockPaymentConfirmRequest, user: dict = Depends(get_current_user)
+    req: MockPaymentConfirmRequest,
+    user: dict = Depends(get_current_user),
 ):
-    if not ALLOW_MOCK_BILLING:
+    if (
+        not ALLOW_MOCK_BILLING
+        or os.getenv("ENV", "development").lower() == "production"
+    ):
         raise HTTPException(
             status_code=403,
             detail="Cổng thanh toán thử nghiệm không được bật ở môi trường này.",
@@ -125,7 +132,7 @@ async def mock_confirm(
         )
 
         logger.info(
-            f"User {user['email']} successfully purchased {package['credits']} credits. New balance: {new_balance}"
+            f"User {user['email']} successfully purchased {package['credits']} credits. New balance: {new_balance}",
         )
 
         return MockPaymentConfirmResponse(success=True, new_credits=new_balance)
@@ -150,12 +157,10 @@ except ImportError:
         @classmethod
         async def fetch_one(cls, query: str, *args):
             logger.info(f"MOCK Database.fetch_one: {query}")
-            return None
 
         @classmethod
         async def execute(cls, query: str, *args):
             logger.info(f"MOCK Database.execute: {query}")
-            return None
 
 
 @router.post("/test-request")
@@ -165,7 +170,10 @@ async def test_request(
     email: str = "ntminhduy123@gmail.com",
     name: str = "Duy Nguyen (D)",
 ):
-    if not ALLOW_MOCK_BILLING:
+    if (
+        not ALLOW_MOCK_BILLING
+        or os.getenv("ENV", "development").lower() == "production"
+    ):
         raise HTTPException(
             status_code=403,
             detail="Cổng thanh toán thử nghiệm không được bật ở môi trường này.",
@@ -182,7 +190,8 @@ async def test_request(
 
 @router.post("/request-manual-payment")
 async def request_manual_payment(
-    req: BuyCreditsRequest, user: dict = Depends(get_current_user)
+    req: BuyCreditsRequest,
+    user: dict = Depends(get_current_user),
 ):
     package_id = req.package_id
     if package_id not in PACKAGES:
@@ -194,7 +203,9 @@ async def request_manual_payment(
     # Generate a secure HMAC signature for the approval link using the shared secret
     message = f"{user['id']}:{package_id}:{timestamp}"
     sig = hmac.new(
-        NEXTAUTH_SECRET.encode("utf-8"), message.encode("utf-8"), hashlib.sha256
+        NEXTAUTH_SECRET.encode("utf-8"),
+        message.encode("utf-8"),
+        hashlib.sha256,
     ).hexdigest()
 
     # Construct approval URL
@@ -246,7 +257,7 @@ async def request_manual_payment(
         logger.info(
             f"\n================ TELEGRAM MOCK ALERTS ================\n"
             f"{message_text}\n"
-            f"======================================================"
+            f"======================================================",
         )
 
     # Configure VietQR Bank Transfer Details
@@ -276,7 +287,10 @@ async def request_manual_payment(
 
 @router.get("/approve-manual-payment", response_class=HTMLResponse)
 async def approve_manual_payment(
-    user_id: str, package_id: str, timestamp: int, sig: str
+    user_id: str,
+    package_id: str,
+    timestamp: int,
+    sig: str,
 ):
     if package_id not in PACKAGES:
         raise HTTPException(status_code=400, detail="Gói credit không hợp lệ.")
@@ -292,7 +306,9 @@ async def approve_manual_payment(
     # Verify signature
     message = f"{user_id}:{package_id}:{timestamp}"
     expected_sig = hmac.new(
-        NEXTAUTH_SECRET.encode("utf-8"), message.encode("utf-8"), hashlib.sha256
+        NEXTAUTH_SECRET.encode("utf-8"),
+        message.encode("utf-8"),
+        hashlib.sha256,
     ).hexdigest()
 
     if not hmac.compare_digest(expected_sig, sig):
@@ -323,7 +339,7 @@ async def approve_manual_payment(
             description=f"Duyệt nạp tiền thủ công. Gói {package['name']} nạp {package['credits']} credits. Ref: {unique_marker}",
         )
         logger.info(
-            f"Manually approved {package['credits']} credits for user {user_id}. New balance: {new_balance}"
+            f"Manually approved {package['credits']} credits for user {user_id}. New balance: {new_balance}",
         )
         return HTMLResponse(
             content=f"""
@@ -335,7 +351,7 @@ async def approve_manual_payment(
                     <p>Số dư hiện tại: <b>{new_balance} credits</b>.</p>
                 </body>
             </html>
-            """
+            """,
         )
     except Exception as e:
         logger.error(f"Error processing manual credit addition: {e}")

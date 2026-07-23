@@ -1,5 +1,4 @@
-"""
-AI Service — LLM Waterfall Router with observability instrumentation.
+"""AI Service — LLM Waterfall Router with observability instrumentation.
 
 Provides ``call_llm_with_fallback`` which tries multiple LLM providers in
 sequence, logs every attempt via the JSONL logger, and returns a validated
@@ -34,8 +33,7 @@ async def call_llm_with_fallback(
     max_retries: int = 1,
     result_validator: Callable[[Any], None] | None = None,
 ) -> Any:
-    """
-    Tries multiple providers in a waterfall logic.
+    """Tries multiple providers in a waterfall logic.
     If a provider fails, switches to the next one.
 
     Instruments every attempt with latency / token / success metrics and
@@ -68,13 +66,15 @@ async def call_llm_with_fallback(
 
             try:
                 # --- Delegate to the provider class ---
+
+                print(f"Calling provider: {provider.name}")
                 result = await provider.generate_structured(
                     system_prompt=system_prompt,
                     user_content=user_input,
                     response_model=response_model,
                     temperature=0.7,
                 )
-
+                print(f"Received response from provider: {provider.name}")
                 input_tokens = result.input_tokens
                 output_tokens = result.output_tokens
                 json_valid = True  # If it didn't raise ValidationError, it's valid

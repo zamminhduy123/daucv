@@ -58,7 +58,7 @@ async def test_qwen():
         print(f"Error type: {type(e).__name__}")
         print(f"Details: {e!s}")
         print(
-            "\n💡 Tip: Make sure your Qwen server is running and the QWEN_ENDPOINT in your .env is correct."
+            "\n💡 Tip: Make sure your Qwen server is running and the QWEN_ENDPOINT in your .env is correct.",
         )
 
 

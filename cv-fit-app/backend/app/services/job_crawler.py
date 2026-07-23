@@ -1,5 +1,4 @@
-"""
-Job crawler service — Playwright-based scraping for Vietnamese job boards.
+"""Job crawler service — Playwright-based scraping for Vietnamese job boards.
 
 Crawlers are organized by source. Each returns a list of JobResult dicts.
 Sources that are known to work without Playwright (CareerViet, Ybox) use
@@ -182,9 +181,9 @@ _JOB_URL_PATTERNS: dict[str, list[str]] = {
     "glints": ["/opportunities/jobs/"],
     "jobsgo": ["/viec-lam/"],
     "vieclam24h": ["/viec-lam-", "/tuyen-dung-"],
-    "vietnamworks": ["/viec-lam/", "/job/", re.compile(r"-\d+-jv$", re.I)],
+    "vietnamworks": ["/viec-lam/", "/job/", re.compile(r"-\d+-jv$", re.IGNORECASE)],
     "ybox": ["/tuyen-dung/"],
-    "careerviet": ["/tim-viec-lam/", re.compile(r"\.html$", re.I)],
+    "careerviet": ["/tim-viec-lam/", re.compile(r"\.html$", re.IGNORECASE)],
 }
 
 
@@ -419,7 +418,8 @@ def _extract_company_logo(card: Any, base_url: str) -> str | None:
         for image in images:
             for attribute in ("src", "data-src", "data-original", "data-lazy-src"):
                 logo_url = _safe_company_logo_url(
-                    image.get_attribute(attribute, timeout=3000), base_url
+                    image.get_attribute(attribute, timeout=3000),
+                    base_url,
                 )
                 if logo_url:
                     return logo_url
@@ -461,7 +461,7 @@ def _infer_salary(text: str) -> str | None:
         r"(thỏa thuận|thông thương)",
     ]
     for pat in patterns:
-        m = re.search(pat, text, re.I)
+        m = re.search(pat, text, re.IGNORECASE)
         if m:
             return m.group(1).strip()
     return None
@@ -482,7 +482,7 @@ def _extract_skills(text: str) -> list[str]:
     found = []
     for skill in _SKILLS_LIST:
         escaped = skill.replace(" ", r"\s+")
-        if re.search(escaped, t, re.I):
+        if re.search(escaped, t, re.IGNORECASE):
             found.append(skill.title())
     return found[:8]  # Limit extracted skills
 
@@ -502,7 +502,7 @@ async def _crawl_itviec(page: Page, query: str, location: str) -> list[dict]:
 
     jobs = []
     cards = page.query_selector_all(
-        "div.it-job-card, [class*='it-job-card'], article.job-card, [class*='job-card']"
+        "div.it-job-card, [class*='it-job-card'], article.job-card, [class*='job-card']",
     )
     if not cards:
         # Fallback: try any anchor with href containing /it-jobs/
@@ -538,20 +538,20 @@ async def _crawl_itviec(page: Page, query: str, location: str) -> list[dict]:
                         if href.startswith("http")
                         else f"https://itviec.com{href}",
                         "description_snippet": None,
-                    }
+                    },
                 )
         return jobs
 
     for card in cards[:10]:
         try:
             title_el = card.query_selector(
-                "h2 a, h3 a, [class*='title'] a, a[class*='title']"
+                "h2 a, h3 a, [class*='title'] a, a[class*='title']",
             )
             company_el = card.query_selector(
-                "span[class*='company'], p[class*='company'], [class*='company-name']"
+                "span[class*='company'], p[class*='company'], [class*='company-name']",
             )
             location_el = card.query_selector(
-                "span[class*='location'], [class*='location'], [class*='city']"
+                "span[class*='location'], [class*='location'], [class*='city']",
             )
             salary_el = card.query_selector("span[class*='salary'], [class*='salary']")
             link_el = card.query_selector("a[href]")
@@ -592,7 +592,7 @@ async def _crawl_itviec(page: Page, query: str, location: str) -> list[dict]:
                         "description_snippet": _clean_text(full_text[:300])
                         if full_text
                         else None,
-                    }
+                    },
                 )
         except Exception:
             continue
@@ -612,7 +612,7 @@ async def _crawl_topcv(page: Page, query: str, location: str) -> list[dict]:
     # TopCV uses various card patterns
     cards = page.query_selector_all(
         "div.job-item, div.job-card, li.job-item, [class*='job-item'], [class*='job-card'], "
-        "div.row.jobs-list, div.item-vacancy"
+        "div.row.jobs-list, div.item-vacancy",
     )
     if not cards:
         return []
@@ -620,13 +620,13 @@ async def _crawl_topcv(page: Page, query: str, location: str) -> list[dict]:
     for card in cards[:10]:
         try:
             title_el = card.query_selector(
-                "h3 a, h4 a, .job-title a, a.job-title, [class*='title'] a"
+                "h3 a, h4 a, .job-title a, a.job-title, [class*='title'] a",
             )
             company_el = card.query_selector(
-                ".company-name, .company, a[class*='company']"
+                ".company-name, .company, a[class*='company']",
             )
             location_el = card.query_selector(
-                ".location, .address, .place, [class*='location']"
+                ".location, .address, .place, [class*='location']",
             )
             salary_el = card.query_selector(".salary, [class*='salary']")
             link_el = card.query_selector("a[href]")
@@ -666,7 +666,7 @@ async def _crawl_topcv(page: Page, query: str, location: str) -> list[dict]:
                         "description_snippet": _clean_text(full_text[:300])
                         if full_text
                         else None,
-                    }
+                    },
                 )
         except Exception:
             continue
@@ -687,7 +687,7 @@ async def _crawl_glints(page: Page, query: str, location: str) -> list[dict]:
     cards = page.query_selector_all(
         ".opportunity-card, [class*='opportunity-card'], "
         ".opportunity-item, [class*='opportunity-item'], "
-        ".job-list li, .result-item"
+        ".job-list li, .result-item",
     )
     if not cards:
         # Fallback: try any anchor with /opportunities/jobs/
@@ -711,17 +711,17 @@ async def _crawl_glints(page: Page, query: str, location: str) -> list[dict]:
                         if href.startswith("http")
                         else f"https://glints.com{href}",
                         "description_snippet": None,
-                    }
+                    },
                 )
         return jobs
 
     for card in cards[:10]:
         try:
             title_el = card.query_selector(
-                ".opportunity-name h3 a, h2 a, .title a, a[class*='title']"
+                ".opportunity-name h3 a, h2 a, .title a, a[class*='title']",
             )
             company_el = card.query_selector(
-                ".company-name, .company, .employer, [class*='company']"
+                ".company-name, .company, .employer, [class*='company']",
             )
             location_el = card.query_selector(".location, .place, [class*='location']")
             salary_el = card.query_selector(".salary, .compensation, [class*='salary']")
@@ -762,7 +762,7 @@ async def _crawl_glints(page: Page, query: str, location: str) -> list[dict]:
                         "description_snippet": _clean_text(full_text[:300])
                         if full_text
                         else None,
-                    }
+                    },
                 )
         except Exception:
             continue
@@ -781,7 +781,7 @@ async def _crawl_jobsgo(page: Page, query: str, location: str) -> list[dict]:
     jobs = []
     cards = page.query_selector_all(
         ".job-item, .job-card, [class*='job-item'], [class*='job-card'], "
-        "li.vacancy-item, .vacancy-list li"
+        "li.vacancy-item, .vacancy-list li",
     )
     if not cards:
         return []
@@ -789,13 +789,13 @@ async def _crawl_jobsgo(page: Page, query: str, location: str) -> list[dict]:
     for card in cards[:10]:
         try:
             title_el = card.query_selector(
-                "h3 a, h4 a, .job-title a, a[class*='title']"
+                "h3 a, h4 a, .job-title a, a[class*='title']",
             )
             company_el = card.query_selector(
-                ".company-name, .company, [class*='company']"
+                ".company-name, .company, [class*='company']",
             )
             location_el = card.query_selector(
-                ".location, .address, [class*='location']"
+                ".location, .address, [class*='location']",
             )
             salary_el = card.query_selector(".salary, [class*='salary']")
             link_el = card.query_selector("a[href]")
@@ -835,7 +835,7 @@ async def _crawl_jobsgo(page: Page, query: str, location: str) -> list[dict]:
                         "description_snippet": _clean_text(full_text[:300])
                         if full_text
                         else None,
-                    }
+                    },
                 )
         except Exception:
             continue
@@ -854,7 +854,7 @@ async def _crawl_vieclam24h(page: Page, query: str, location: str) -> list[dict]
     jobs = []
     cards = page.query_selector_all(
         ".job-item, .job-card, [class*='job-item'], [class*='job-card'], "
-        "li.result-item, .list-job li, .search-result-item"
+        "li.result-item, .list-job li, .search-result-item",
     )
     if not cards:
         return []
@@ -863,10 +863,10 @@ async def _crawl_vieclam24h(page: Page, query: str, location: str) -> list[dict]
         try:
             title_el = card.query_selector("h3 a, h4 a, .title a, a[class*='title']")
             company_el = card.query_selector(
-                ".company-name, .company, [class*='company']"
+                ".company-name, .company, [class*='company']",
             )
             location_el = card.query_selector(
-                ".location, .address, [class*='location']"
+                ".location, .address, [class*='location']",
             )
             salary_el = card.query_selector(".salary, [class*='salary']")
             link_el = card.query_selector("a[href]")
@@ -906,7 +906,7 @@ async def _crawl_vieclam24h(page: Page, query: str, location: str) -> list[dict]
                         "description_snippet": _clean_text(full_text[:300])
                         if full_text
                         else None,
-                    }
+                    },
                 )
         except Exception:
             continue
@@ -924,7 +924,7 @@ async def _crawl_vietnamworks(page: Page, query: str, location: str) -> list[dic
     jobs = []
     cards = page.query_selector_all(
         ".job-item, .job-card, [class*='job-item'], [class*='job-card'], "
-        "li.result-item, .search-result li, .job-result"
+        "li.result-item, .search-result li, .job-result",
     )
     if not cards:
         # Fallback: look for links matching VietnamWorks job pattern
@@ -948,7 +948,7 @@ async def _crawl_vietnamworks(page: Page, query: str, location: str) -> list[dic
                         if href.startswith("http")
                         else f"https://www.vietnamworks.com{href}",
                         "description_snippet": None,
-                    }
+                    },
                 )
         return jobs
 
@@ -956,10 +956,10 @@ async def _crawl_vietnamworks(page: Page, query: str, location: str) -> list[dic
         try:
             title_el = card.query_selector("h3 a, h4 a, .title a, a[class*='title']")
             company_el = card.query_selector(
-                ".company-name, .company, [class*='company']"
+                ".company-name, .company, [class*='company']",
             )
             location_el = card.query_selector(
-                ".location, .address, [class*='location']"
+                ".location, .address, [class*='location']",
             )
             salary_el = card.query_selector(".salary, [class*='salary']")
             link_el = card.query_selector("a[href]")
@@ -971,7 +971,8 @@ async def _crawl_vietnamworks(page: Page, query: str, location: str) -> list[dic
                 else "Không rõ công ty"
             )
             company_logo_url = _extract_company_logo(
-                card, "https://www.vietnamworks.com"
+                card,
+                "https://www.vietnamworks.com",
             )
             location = (
                 location_el.inner_text(timeout=3000).strip() if location_el else None
@@ -1001,7 +1002,7 @@ async def _crawl_vietnamworks(page: Page, query: str, location: str) -> list[dic
                         "description_snippet": _clean_text(full_text[:300])
                         if full_text
                         else None,
-                    }
+                    },
                 )
         except Exception:
             continue
@@ -1033,7 +1034,8 @@ async def _crawl_careerviet(query: str, location: str) -> list[dict]:
         # CareerViet renders jobs as <a> links with href /vi/tim-viec-lam/<id>.html
         # Text is inside <div class="title"> wrapping the <a>
         link_pattern = re.compile(
-            r'<a[^>]*href="(/vi/tim-viec-lam/[^\"]+\.html)"[^>]*>(.*?)</a>', re.DOTALL
+            r'<a[^>]*href="(/vi/tim-viec-lam/[^\"]+\.html)"[^>]*>(.*?)</a>',
+            re.DOTALL,
         )
         for match in link_pattern.finditer(html):
             href, text = match.groups()
@@ -1052,7 +1054,7 @@ async def _crawl_careerviet(query: str, location: str) -> list[dict]:
                         "posted_text": "Hôm nay",
                         "url": f"https://careerviet.vn{href}",
                         "description_snippet": None,
-                    }
+                    },
                 )
 
         return jobs[:10]
@@ -1120,7 +1122,8 @@ async def _crawl_ybox(query: str, location: str) -> list[dict]:
 
                 publisher = post.get("publisher", {})
                 company = publisher.get(
-                    "fullName", publisher.get("username", "Không rõ công ty")
+                    "fullName",
+                    publisher.get("username", "Không rõ công ty"),
                 )
                 raw_logo = (
                     publisher.get("logo")
@@ -1160,7 +1163,7 @@ async def _crawl_ybox(query: str, location: str) -> list[dict]:
                         "description_snippet": _clean_text(summary[:300])
                         if summary
                         else None,
-                    }
+                    },
                 )
             except Exception:
                 continue
@@ -1188,7 +1191,10 @@ _HTTP_CRAWLERS = {
 
 
 async def crawl_source(
-    source: str, query: str, location: str, page: Page | None
+    source: str,
+    query: str,
+    location: str,
+    page: Page | None,
 ) -> tuple[list[dict], str | None]:
     """Run a single source crawler. Returns (jobs, error)."""
     try:
@@ -1198,12 +1204,11 @@ async def crawl_source(
             fn = _ASYNC_CRAWLERS[source]
             jobs = await asyncio.wait_for(fn(page, query, location), timeout=20)
             return jobs, None
-        elif source in _HTTP_CRAWLERS:
+        if source in _HTTP_CRAWLERS:
             fn = _HTTP_CRAWLERS[source]
             jobs = await asyncio.wait_for(fn(query, location), timeout=15)
             return jobs, None
-        else:
-            return [], f"Unknown source: {source}"
+        return [], f"Unknown source: {source}"
     except asyncio.TimeoutError:
         return [], "timeout"
     except Exception as e:
@@ -1440,13 +1445,12 @@ def calculate_match(
         job_tokens = job_title.replace("/", " ").replace("-", " ").split()
         matched = sum(1 for w in role_tokens if w in job_tokens)
         score = round((matched / max(len(role_tokens), 1)) * 25)
-        if score > best_title:
-            best_title = score
+        best_title = max(best_title, score)
 
     title_score = best_title
     if title_score >= 25:
         match_reasons.append(
-            "Tiêu đề công việc trùng khớp với định hướng vai trò của bạn."
+            "Tiêu đề công việc trùng khớp với định hướng vai trò của bạn.",
         )
 
     # 2. Skill overlap (35%)
@@ -1469,7 +1473,7 @@ def calculate_match(
         match_count = sum(
             1
             for cs in cand_skills
-            if re.search(r"\b" + re.escape(cs) + r"\b", job_desc, re.I)
+            if re.search(r"\b" + re.escape(cs) + r"\b", job_desc, re.IGNORECASE)
         )
         if match_count >= 3:
             skill_score = 35
@@ -1493,7 +1497,7 @@ def calculate_match(
     elif cand_rank == job_rank:
         seniority_score = 15
         match_reasons.append(
-            "Cấp bậc công việc phù hợp với cấp độ kinh nghiệm của bạn."
+            "Cấp bậc công việc phù hợp với cấp độ kinh nghiệm của bạn.",
         )
     elif job_rank > cand_rank:
         diff = job_rank - cand_rank
@@ -1501,18 +1505,18 @@ def calculate_match(
             seniority_score = 0
             seniority_penalty = 30
             match_reasons.append(
-                "Yêu cầu kinh nghiệm cao hơn đáng kể so với hồ sơ của bạn."
+                "Yêu cầu kinh nghiệm cao hơn đáng kể so với hồ sơ của bạn.",
             )
         else:
             seniority_score = 8
             seniority_penalty = 10
             match_reasons.append(
-                "Yêu cầu kinh nghiệm hơi cao hơn so với hồ sơ của bạn (Stretch)."
+                "Yêu cầu kinh nghiệm hơi cao hơn so với hồ sơ của bạn (Stretch).",
             )
     else:
         seniority_score = 10
         match_reasons.append(
-            "Bạn có thể có năng lực cao hơn so với cấp bậc yêu cầu của công việc."
+            "Bạn có thể có năng lực cao hơn so với cấp bậc yêu cầu của công việc.",
         )
 
     # 4. Location (10%)
@@ -1526,7 +1530,7 @@ def calculate_match(
     elif cand_loc in job_loc or job_loc in cand_loc:
         location_score = 10
         match_reasons.append(
-            f"Địa điểm làm việc thuận tiện ({job.get('location', '')})."
+            f"Địa điểm làm việc thuận tiện ({job.get('location', '')}).",
         )
     elif "remote" in job_loc or "toàn quốc" in job_loc or "online" in job_loc:
         location_score = 8
@@ -1593,10 +1597,7 @@ def _skills_overlap(cand: str, job: str) -> bool:
         ("machine learning", "ai"),
         ("deep learning", "ai"),
     ]
-    for a, b in pairs:
-        if {cand, job} == {a, b}:
-            return True
-    return False
+    return any({cand, job} == {a, b} for a, b in pairs)
 
 
 # ===================================================================
@@ -1638,7 +1639,10 @@ async def search_jobs(
 
     # Generate queries from profile
     gen_queries = generate_search_queries(
-        target_roles, skills, location, target_role_override
+        target_roles,
+        skills,
+        location,
+        target_role_override,
     )
     final_queries = queries if queries else gen_queries[:4]
 
@@ -1646,7 +1650,9 @@ async def search_jobs(
     all_jobs: list[dict] = []
 
     async def run_source(
-        src: str, page: Page | None, browser_error: str | None = None
+        src: str,
+        page: Page | None,
+        browser_error: str | None = None,
     ) -> None:
         """Run crawler first (free, no API credit), search engine as fallback.
 
@@ -1708,7 +1714,10 @@ async def search_jobs(
         if not jobs and status != "timeout":
             try:
                 se_jobs = await search_via_engine_for_source(
-                    src, primary_query, domain, limit=limit_per_source
+                    src,
+                    primary_query,
+                    domain,
+                    limit=limit_per_source,
                 )
             except Exception as exc:
                 se_jobs = []
@@ -1722,7 +1731,10 @@ async def search_jobs(
                 secondary_query = final_queries[1]
                 try:
                     se_jobs2 = await search_via_engine_for_source(
-                        src, secondary_query, domain, limit=limit_per_source
+                        src,
+                        secondary_query,
+                        domain,
+                        limit=limit_per_source,
                     )
                 except Exception as exc:
                     se_jobs2 = []
@@ -1737,7 +1749,7 @@ async def search_jobs(
                 "status": status,
                 "count": len(jobs),
                 "error": None if status in ("success", "empty") else error,
-            }
+            },
         )
         all_jobs.extend(jobs)
 
@@ -1747,7 +1759,8 @@ async def search_jobs(
     semaphore = asyncio.Semaphore(2)
 
     async def run_enabled_sources(
-        page: Page | None, browser_error: str | None = None
+        page: Page | None,
+        browser_error: str | None = None,
     ) -> None:
         async def limited_run(src: str) -> None:
             async with semaphore:
@@ -1772,7 +1785,12 @@ async def search_jobs(
 
     # Rank
     ranked = rank_jobs(
-        unique_jobs, target_roles, skills, seniority, location, show_stretch
+        unique_jobs,
+        target_roles,
+        skills,
+        seniority,
+        location,
+        show_stretch,
     )
 
     return {
