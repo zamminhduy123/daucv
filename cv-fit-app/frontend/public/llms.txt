@@ -1,0 +1,4 @@
+# llms.txt - LLM access policy for https://www.daucv.com/
+User-agent: *
+Allow: /
+# Notes: Allow LLMs to access and quote public content. Update this file to change permissions.

@@ -40,16 +40,37 @@ export default function RootLayout({
 }) {
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "Đậu (daucv.com)",
-    "applicationCategory": "EducationalApplication",
-    "operatingSystem": "Web",
-    "description": "Tải CV và Job Description để Đậu phân tích độ phù hợp, gợi ý sửa CV chuẩn ATS, tìm kỹ năng còn thiếu và luyện phỏng vấn 1-1 bằng AI.",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "VND"
-    }
+    "@graph": [
+      {
+        "@type": "Organization",
+        "name": "Đậu",
+        "url": "https://www.daucv.com/",
+        "description":
+          "Tải CV và Job Description để Đậu phân tích độ phù hợp, gợi ý sửa CV chuẩn ATS, tìm kỹ năng còn thiếu và luyện phỏng vấn 1-1 bằng AI.",
+      },
+      {
+        "@type": "WebSite",
+        "url": "https://www.daucv.com/",
+        "name": "Đậu",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Đậu",
+        },
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "Đậu (daucv.com)",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "description":
+          "Tải CV và Job Description để Đậu phân tích độ phù hợp, gợi ý sửa CV chuẩn ATS, tìm kỹ năng còn thiếu và luyện phỏng vấn 1-1 bằng AI.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "VND",
+        },
+      },
+    ],
   };
 
   return (
