@@ -11,6 +11,7 @@ import {
 import { LandingNavbar } from "@/components/shared/TopNavbar";
 import Footer from "@/components/landing/Footer";
 import { BlogTOC } from "@/components/shared/BlogTOC";
+import { SITE_URL } from '@/lib/site';
 import { 
   BlogMeta, BlogHero, TakeawaysBox, FeatureGrid, 
   StepList, ChecklistSection, BlogCTA, CommentsSection, BlogContentLayout 
@@ -37,12 +38,12 @@ export async function generateMetadata(props: { params: Params }): Promise<Metad
       description: post.description,
       keywords: post.tags,
       alternates: {
-        canonical: `https://daucv.com/blog/${params.slug}`,
+        canonical: `${SITE_URL}/blog/${params.slug}`,
       },
       openGraph: {
         title: post.title,
         description: post.description,
-        url: `https://daucv.com/blog/${params.slug}`,
+        url: `${SITE_URL}/blog/${params.slug}`,
         type: 'article',
         publishedTime: post.date,
         tags: post.tags,
@@ -176,12 +177,12 @@ export default async function BlogPostPage(props: { params: Params }) {
         "name": "Đậu CV",
         "logo": {
           "@type": "ImageObject",
-          "url": "https://daucv.com/main-icon.webp"
+          "url": `${SITE_URL}/main-icon.webp`
         }
       },
       "mainEntityOfPage": {
         "@type": "WebPage",
-        "@id": `https://daucv.com/blog/${post.slug}`
+        "@id": `${SITE_URL}/blog/${post.slug}`
       }
     };
 

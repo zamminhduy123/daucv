@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { SITE_URL } from '@/lib/site';
 import TemplateView from '@/components/landing/TemplateView';
 
 import type { TemplateData } from '@/components/landing/TemplateView';
@@ -173,7 +174,7 @@ export async function generateMetadata({ params }: { params: Promise<{ 'nganh-ng
       title: `Cách viết CV ngành ${nganhNghe || ''} chuẩn ATS | Đậu (daucv.com)`,
       description: `Hướng dẫn cách viết CV ngành ${nganhNghe || ''} chuyên nghiệp để vượt qua vòng lọc hồ sơ ATS. AI của Đậu giúp bạn tối ưu CV chuẩn nhất.`,
       alternates: {
-        canonical: `https://daucv.com/mau-cv/${nganhNghe}`,
+        canonical: `${SITE_URL}/mau-cv/${nganhNghe}`,
       },
     };
   }
@@ -183,7 +184,7 @@ export async function generateMetadata({ params }: { params: Promise<{ 'nganh-ng
     description: `Tải xuống ${data.title} và xem hướng dẫn chi tiết cách viết CV chuyên nghiệp để vượt qua vòng lọc hồ sơ ATS. Công cụ AI sửa CV hoàn toàn tự động.`,
     keywords: data.keywords.join(", "),
     alternates: {
-      canonical: `https://daucv.com/mau-cv/${nganhNghe}`,
+      canonical: `${SITE_URL}/mau-cv/${nganhNghe}`,
     },
   };
 }

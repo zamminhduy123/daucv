@@ -1,10 +1,13 @@
 import { MetadataRoute } from 'next';
 import { getAllPosts } from '@/lib/mdx';
+import { REDIRECTED_BLOG_SLUGS, SITE_URL } from '@/lib/site';
 import { nganhNgheList } from './mau-cv/[nganh-nghe]/page';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://daucv.com';
-  const posts = getAllPosts();
+  const posts = getAllPosts().filter(
+    (post) => !REDIRECTED_BLOG_SLUGS.has(post.slug),
+  );
+  const baseUrl = SITE_URL;
   const industries = Object.keys(nganhNgheList);
 
   // Collect all unique tags across posts

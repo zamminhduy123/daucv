@@ -6,12 +6,13 @@ import Footer from "@/components/landing/Footer";
 import Image from 'next/image';
 import { BlogCTA } from '@/components/blog';
 import BlogListClient from '@/components/blog/BlogListClient';
+import { SITE_URL } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Blog | Đậu CV',
   description: 'Khám phá các bài viết chia sẻ kinh nghiệm viết CV chuẩn ATS và kỹ năng phỏng vấn.',
   alternates: {
-    canonical: 'https://daucv.com/blog',
+    canonical: `${SITE_URL}/blog`,
   },
 };
 

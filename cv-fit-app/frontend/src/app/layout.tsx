@@ -3,8 +3,10 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import Script from "next/script";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { SITE_URL } from '@/lib/site';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Đậu - AI sửa CV chuẩn ATS & luyện phỏng vấn theo JD",
   description:
     "Tải CV và Job Description để Đậu phân tích độ phù hợp, gợi ý sửa CV chuẩn ATS, tìm kỹ năng còn thiếu và luyện phỏng vấn 1-1 bằng AI.",
@@ -12,13 +14,13 @@ export const metadata: Metadata = {
     icon: "/icon.ico",
   },
   alternates: {
-    canonical: "https://daucv.com",
+    canonical: SITE_URL,
   },
   openGraph: {
     title: "Đậu - AI sửa CV chuẩn ATS & luyện phỏng vấn theo JD",
     description:
       "Phân tích CV theo Job Description, kiểm tra độ phù hợp, gợi ý sửa CV chuẩn ATS và luyện phỏng vấn 1-1 bằng AI.",
-    url: "https://daucv.com",
+    url: SITE_URL,
     siteName: "Đậu",
     type: "website",
     locale: "vi_VN",
@@ -44,13 +46,13 @@ export default function RootLayout({
       {
         "@type": "Organization",
         "name": "Đậu",
-        "url": "https://www.daucv.com/",
+        "url": `${SITE_URL}/`,
         "description":
           "Tải CV và Job Description để Đậu phân tích độ phù hợp, gợi ý sửa CV chuẩn ATS, tìm kỹ năng còn thiếu và luyện phỏng vấn 1-1 bằng AI.",
       },
       {
         "@type": "WebSite",
-        "url": "https://www.daucv.com/",
+        "url": `${SITE_URL}/`,
         "name": "Đậu",
         "publisher": {
           "@type": "Organization",

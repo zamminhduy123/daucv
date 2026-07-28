@@ -6,6 +6,7 @@ import { ArrowLeft, Tag, FileText, BookOpen } from 'lucide-react';
 import { LandingNavbar } from "@/components/shared/TopNavbar";
 import Footer from "@/components/landing/Footer";
 import { BlogCTA, BlogCard } from '@/components/blog';
+import { SITE_URL } from '@/lib/site';
 
 type Params = Promise<{ tag: string }>;
 
@@ -22,8 +23,9 @@ export async function generateStaticParams() {
 
 export async function generateMetadata(props: { params: Params }): Promise<Metadata> {
   const params = await props.params;
+  const tag = decodeURIComponent(params.tag);
   const posts = getAllPosts();
-  const tagPosts = posts.filter((post) => post.tags?.includes(params.tag));
+  const tagPosts = posts.filter((post) => post.tags?.includes(tag));
 
   if (tagPosts.length === 0) {
     return {
@@ -32,18 +34,19 @@ export async function generateMetadata(props: { params: Params }): Promise<Metad
   }
 
   return {
-    title: `${params.tag} - Bài viết | Đậu Blog`,
-    description: `${tagPosts.length} bài viết về ${params.tag} trên Đậu Blog.`,
+    title: `${tag} - Bài viết | Đậu Blog`,
+    description: `${tagPosts.length} bài viết về ${tag} trên Đậu Blog.`,
     alternates: {
-      canonical: `https://daucv.com/blog/tag/${params.tag}`,
+      canonical: `${SITE_URL}/blog/tag/${encodeURIComponent(tag)}`,
     },
   };
 }
 
 export default async function TagPage(props: { params: Params }) {
   const params = await props.params;
+  const tag = decodeURIComponent(params.tag);
   const posts = getAllPosts();
-  const tagPosts = posts.filter((post) => post.tags?.includes(params.tag));
+  const tagPosts = posts.filter((post) => post.tags?.includes(tag));
 
   if (tagPosts.length === 0) {
     notFound();
@@ -68,7 +71,7 @@ export default async function TagPage(props: { params: Params }) {
           <div className="flex items-center gap-3 mb-4">
             <Tag className="w-6 h-6 text-[var(--primary)]" />
             <h1 className="text-3xl md:text-4xl font-extrabold text-[#2F4F4F] font-heading">
-              {params.tag}
+              {tag}
             </h1>
           </div>
 
@@ -80,7 +83,7 @@ export default async function TagPage(props: { params: Params }) {
         {/* Blog Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
           {tagPosts.map((post) => (
-            <BlogCard key={post.slug} post={post} tag={params.tag} />
+            <BlogCard key={post.slug} post={post} tag={tag} />
           ))}
         </div>
 

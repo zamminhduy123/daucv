@@ -1,4 +1,5 @@
 import { MetadataRoute } from 'next';
+import { SITE_URL } from '@/lib/site';
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -7,6 +8,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/api/', '/app/'],
     },
-    sitemap: 'https://daucv.com/sitemap.xml', // Update this when you have your production domain
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }
