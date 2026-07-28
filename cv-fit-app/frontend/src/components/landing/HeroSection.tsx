@@ -17,7 +17,7 @@ const containerVariants = {
 export default function HeroSection() {
   return (
     <section
-      className="relative overflow-hidden pt-20 pb-24 lg:pt-16 lg:pb-24 bg-none lg:bg-[url('/bg.webp')] bg-cover bg-center bg-no-repeat"
+      className="relative overflow-hidden pt-20 pb-24 lg:pt-16 lg:pb-24 bg-none lg:bg-[url('/bg2.webp')] bg-[50%_auto] bg-right bg-no-repeat"
     >
       <motion.div
         className="max-w-7xl mx-auto px-6 relative z-10 flex flex-col items-center lg:items-start"

@@ -263,7 +263,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
         {/* RIGHT — Headline + 6 sub-score cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 flex-1 text-justify">
           {/* Summary + penalty context */}
-          <div className="flex flex-col gap-2 items-start mt-4">
+          <div className="flex flex-col gap-2 items-center">
             <h2 className="text-xl lg:max-w-[90%] font-bold text-[#2F4F4F] leading-tight">
               {result.match_headline}
             </h2>
