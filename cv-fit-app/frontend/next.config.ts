@@ -13,6 +13,29 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Legacy public tool routes moved into the authenticated workspace.
+      {
+        source: "/cv-analyzer",
+        destination: "/app/analyzer",
+        permanent: true,
+      },
+      {
+        source: "/interview",
+        destination: "/app/interview",
+        permanent: true,
+      },
+      // Serve crawlers that still request the historical favicon filename.
+      {
+        source: "/favicon.ico",
+        destination: "/icon.ico",
+        permanent: true,
+      },
+      // The retired procurement tag is best represented by the current logistics guide.
+      {
+        source: "/blog/tag/CV%20chuy%C3%AAn%20vi%C3%AAn%20thu%20mua",
+        destination: "/blog/cv-nganh-logistics-toi-uu-kinh-nghiem-de-but-pha-su-nghiep",
+        permanent: true,
+      },
       // Fresher IT cluster 2: consolidate cannibalizing pair (same-day publish 2026-06-08)
       {
         source:
