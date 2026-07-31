@@ -6,8 +6,10 @@ Route handlers are kept thin: validate input → build prompt → call service �
 import asyncio
 import json
 import tempfile
+from collections.abc import AsyncIterator
 from contextlib import suppress
 from dataclasses import asdict
+from typing import Any
 from uuid import UUID
 
 import edge_tts
@@ -20,7 +22,7 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.core.config import CV_ANALYSIS_REQUEST_TIMEOUT, PDF_MAX_SIZE
 from app.dependencies import get_current_user, refund_credits, reserve_credits
@@ -37,6 +39,7 @@ from app.models.responses import (
     CandidateProfileResponse,
     CVAnalysisEnvelope,
     CVAnalysisPayload,
+    CVAnalysisResponse,
     FinalInterviewReport,
     InterviewTurnResponse,
     WriterResponse,
@@ -78,6 +81,40 @@ async def _refund_reserved_credit(user_id: str, tx_type: str, description: str) 
             tx_type=tx_type,
             description=description,
         )
+
+
+def _build_cv_analysis_envelope(
+    scored: CVAnalysisResponse,
+    *,
+    user_id: str,
+    cv_text: str,
+    jd_text: str,
+) -> CVAnalysisEnvelope:
+    entitlement = issue_tailoring_entitlement(to_uuid(user_id), cv_text, jd_text)
+    if (
+        scored.document_v2 is None
+        or scored.source_document_v2 is None
+        or scored.reconstruction_diagnostics is None
+    ):
+        raise RuntimeError("Typed CV reconstruction did not complete")
+    analysis = scored.model_dump(
+        exclude={
+            "tailored_cv",
+            "document_v2",
+            "source_document_v2",
+            "reconstruction_diagnostics",
+            "tailoring_entitlement",
+            "block_rewrites",
+        },
+    )
+    return CVAnalysisEnvelope(
+        analysis=CVAnalysisPayload(**analysis),
+        tailored_cv=scored.document_v2,
+        source_document_v2=scored.source_document_v2,
+        reconstruction_diagnostics=scored.reconstruction_diagnostics,
+        legacy_tailored_cv=scored.tailored_cv,
+        tailoring_entitlement=entitlement,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -218,34 +255,11 @@ async def analyze_cv(
                 background_tasks=background_tasks,
                 layout_data=req.layout_data,
             )
-        entitlement = issue_tailoring_entitlement(
-            to_uuid(user["id"]),
-            extracted_text,
-            jd_text,
-        )
-        if (
-            scored.document_v2 is None
-            or scored.source_document_v2 is None
-            or scored.reconstruction_diagnostics is None
-        ):
-            raise RuntimeError("Typed CV reconstruction did not complete")
-        analysis = scored.model_dump(
-            exclude={
-                "tailored_cv",
-                "document_v2",
-                "source_document_v2",
-                "reconstruction_diagnostics",
-                "tailoring_entitlement",
-                "block_rewrites",
-            },
-        )
-        return CVAnalysisEnvelope(
-            analysis=CVAnalysisPayload(**analysis),
-            tailored_cv=scored.document_v2,
-            source_document_v2=scored.source_document_v2,
-            reconstruction_diagnostics=scored.reconstruction_diagnostics,
-            legacy_tailored_cv=scored.tailored_cv,
-            tailoring_entitlement=entitlement,
+        return _build_cv_analysis_envelope(
+            scored,
+            user_id=user["id"],
+            cv_text=extracted_text,
+            jd_text=jd_text,
         )
     except TimeoutError:
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
@@ -262,6 +276,124 @@ async def analyze_cv(
             status_code=500,
             detail=f"Analysis failed: {e}",
         )
+
+
+@router.post("/analyze-cv/stream")
+async def analyze_cv_stream(
+    req: AnalyzeCVRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
+) -> StreamingResponse:
+    """Stream real CV-analysis progress and the final envelope as NDJSON."""
+    extracted_text = req.cv_text.strip()
+    jd_text = req.jd_text or ""
+    if not extracted_text:
+        raise HTTPException(status_code=422, detail="Cần cung cấp nội dung CV.")
+
+    tx_type = "cv_analysis"
+    refund_description = "Hoàn credit do lỗi khi phân tích CV"
+    await reserve_credits(
+        user_id=user["id"],
+        amount=1,
+        tx_type=tx_type,
+        description="Phân tích CV chi tiết",
+    )
+
+    events: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+
+    async def report_progress(
+        stage: str,
+        message: str,
+        details: dict[str, Any] | None,
+    ) -> None:
+        event: dict[str, Any] = {
+            "type": "progress",
+            "stage": stage,
+            "message": message,
+        }
+        if details:
+            event["details"] = details
+        await events.put(event)
+
+    async def run_analysis() -> None:
+        await events.put(
+            {
+                "type": "progress",
+                "stage": "queued",
+                "message": "Đã nhận CV, bắt đầu phân tích...",
+            },
+        )
+        try:
+            async with asyncio.timeout(CV_ANALYSIS_REQUEST_TIMEOUT):
+                scored = await cv_analysis_service.analyze_cv(
+                    cv_text=extracted_text,
+                    jd_text=jd_text,
+                    background_tasks=background_tasks,
+                    layout_data=req.layout_data,
+                    progress=report_progress,
+                )
+            envelope = _build_cv_analysis_envelope(
+                scored,
+                user_id=user["id"],
+                cv_text=extracted_text,
+                jd_text=jd_text,
+            )
+            await events.put(
+                {
+                    "type": "complete",
+                    "data": envelope.model_dump(mode="json"),
+                },
+            )
+        except asyncio.CancelledError:
+            await _refund_reserved_credit(user["id"], tx_type, refund_description)
+            raise
+        except TimeoutError:
+            await _refund_reserved_credit(user["id"], tx_type, refund_description)
+            await events.put(
+                {
+                    "type": "error",
+                    "status": 504,
+                    "message": "Phân tích CV quá thời gian. Vui lòng thử lại.",
+                },
+            )
+        except HTTPException as exc:
+            await _refund_reserved_credit(user["id"], tx_type, refund_description)
+            await events.put(
+                {
+                    "type": "error",
+                    "status": exc.status_code,
+                    "message": str(exc.detail),
+                },
+            )
+        except Exception:
+            await _refund_reserved_credit(user["id"], tx_type, refund_description)
+            await events.put(
+                {
+                    "type": "error",
+                    "status": 500,
+                    "message": "Phân tích CV thất bại. Vui lòng thử lại.",
+                },
+            )
+
+    async def stream_events() -> AsyncIterator[str]:
+        task = asyncio.create_task(run_analysis())
+        try:
+            while True:
+                event = await events.get()
+                yield json.dumps(event, ensure_ascii=False) + "\n"
+                if event["type"] in {"complete", "error"}:
+                    break
+        finally:
+            if not task.done():
+                task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+
+    return StreamingResponse(
+        stream_events(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # ---------------------------------------------------------------------------

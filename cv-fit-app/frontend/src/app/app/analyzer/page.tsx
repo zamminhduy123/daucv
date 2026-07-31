@@ -11,7 +11,11 @@ import MatchDashboard from "@/components/workspace/MatchDashboard";
 import DiffViewer from "@/components/workspace/DiffViewer";
 import { DauOverloadScreen } from "@/components/magicpath/ai-overload-error-screen-dau/DauOverloadScreen";
 import type { CVAnalysisResponse } from "@/types";
-import { analyzeCVAPI, createTailoredCVVersionAPI } from "@/lib/api";
+import {
+  analyzeCVStreamAPI,
+  createTailoredCVVersionAPI,
+  type CVAnalysisProgressEvent,
+} from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
 import { useWorkspace } from "@/context/WorkspaceContext";
 
@@ -25,7 +29,11 @@ export default function AnalyzerPage() {
   );
   const [error, setError] = useState("");
   const [isSavingTailoredCV, setIsSavingTailoredCV] = useState(false);
+  const [progressMessage, setProgressMessage] = useState("Đang gửi CV đến Bé Đậu...");
+  const [retryProgress, setRetryProgress] = useState<{ attempt?: number; total?: number }>({});
   const hasTriggered = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const cancelledByUserRef = useRef(false);
 
   // Route guard: redirect if no data
   useEffect(() => {
@@ -40,16 +48,40 @@ export default function AnalyzerPage() {
     hasTriggered.current = true;
 
     const runAnalysis = async () => {
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      cancelledByUserRef.current = false;
       setIsAnalyzing(true);
       setError("");
+      setProgressMessage("Đang gửi CV đến Bé Đậu...");
+      setRetryProgress({});
       try {
-        const data = await analyzeCVAPI(cvText, jdText, layoutData);
+        const data = await analyzeCVStreamAPI(
+          cvText,
+          jdText,
+          layoutData,
+          (event: CVAnalysisProgressEvent) => {
+            setProgressMessage(event.message);
+            setRetryProgress({
+              attempt: event.details?.attempt,
+              total: event.details?.total_attempts,
+            });
+          },
+          controller.signal,
+        );
         setAnalysisResult(data);
         setCachedAnalysis(data); // Save to cache
       } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError" && cancelledByUserRef.current) {
+          setError("Bạn đã hủy phân tích CV.");
+          return;
+        }
         console.error(err);
         setError(apiErrorMessage(err));
       } finally {
+        if (abortControllerRef.current === controller) {
+          abortControllerRef.current = null;
+        }
         setIsAnalyzing(false);
       }
     };
@@ -88,11 +120,23 @@ export default function AnalyzerPage() {
     setError("");
   };
 
+  const handleCancelAnalysis = () => {
+    cancelledByUserRef.current = true;
+    abortControllerRef.current?.abort();
+  };
+
   if (!isLoaded || !hasData) return null; // Will redirect via useEffect if isLoaded and no data
 
   return (
     <div className="relative">
-      {isAnalyzing && <LoadingOverlay />}
+      {isAnalyzing && (
+        <LoadingOverlay
+          message={progressMessage}
+          retryAttempt={retryProgress.attempt}
+          retryTotal={retryProgress.total}
+          onCancel={handleCancelAnalysis}
+        />
+      )}
 
       {error && !isAnalyzing && (
         <DauOverloadScreen message={error} onRetry={handleReanalyze} />

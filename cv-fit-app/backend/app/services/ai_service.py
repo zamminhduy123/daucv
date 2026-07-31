@@ -8,7 +8,7 @@ Pydantic model.
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -32,6 +32,7 @@ async def call_llm_with_fallback(
     background_tasks: BackgroundTasks | None = None,
     max_retries: int = 1,
     result_validator: Callable[[Any], None] | None = None,
+    on_retry: Callable[[int, int], Awaitable[None]] | None = None,
 ) -> Any:
     """Tries multiple providers in a waterfall logic.
     If a provider fails, switches to the next one.
@@ -52,6 +53,9 @@ async def call_llm_with_fallback(
 
     last_error = None
     fallback_used = False
+
+    total_attempts = len(config.PROVIDERS) * max_retries
+    completed_attempts = 0
 
     for idx, provider in enumerate(config.PROVIDERS):
         if idx > 0:
@@ -104,6 +108,7 @@ async def call_llm_with_fallback(
                 return result.data
 
             except Exception as e:
+                completed_attempts += 1
                 latency_ms = int((time.perf_counter() - start_time) * 1000)
                 last_error = str(e)
 
@@ -139,7 +144,10 @@ async def call_llm_with_fallback(
                     attempt + 1,
                     sanitize(last_error),
                 )
-                await asyncio.sleep(1)  # wait before retry
+                if completed_attempts < total_attempts:
+                    if on_retry is not None:
+                        await on_retry(completed_attempts + 1, total_attempts)
+                    await asyncio.sleep(1)  # wait before retry
 
     raise HTTPException(
         status_code=503,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { LayoutLine } from "@/types";
 import { useWorkspace } from "@/context/WorkspaceContext";
@@ -34,27 +34,36 @@ export default function SetupPage() {
     jdFile: null,
     layoutData: workspaceLayoutData,
   });
+  // Once the user touches a field, late workspace hydration (for example an
+  // active CV returned from the database) must not replace their draft.
+  const locallyEdited = useRef({ cv: false, jd: false });
   
   const [error, setError] = useState("");
 
   // Sync state if context loads asynchronously (e.g. from DB)
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalInputs((prev) => {
-      const mockFile = cvText && cvFileName && cvFileName !== "CV của tôi"
-        ? new File([], cvFileName, { type: "application/pdf" })
-        : prev.cvFile;
       return {
-        cvText,
-        jdText,
-        cvFile: mockFile,
+        cvText: locallyEdited.current.cv ? prev.cvText : cvText,
+        jdText: locallyEdited.current.jd ? prev.jdText : jdText,
+        cvFile: locallyEdited.current.cv
+          ? prev.cvFile
+          : cvText && cvFileName && cvFileName !== "CV của tôi"
+            ? new File([], cvFileName, { type: "application/pdf" })
+            : prev.cvFile,
         jdFile: prev.jdFile,
-        layoutData: workspaceLayoutData,
+        layoutData: locallyEdited.current.cv ? prev.layoutData : workspaceLayoutData,
       };
     });
   }, [cvText, jdText, cvFileName, workspaceLayoutData]);
 
   const handleInputChange = (patch: Partial<LocalInputsState>) => {
+    if (patch.cvText !== undefined || patch.cvFile !== undefined || patch.layoutData !== undefined) {
+      locallyEdited.current.cv = true;
+    }
+    if (patch.jdText !== undefined || patch.jdFile !== undefined) {
+      locallyEdited.current.jd = true;
+    }
     setLocalInputs(prev => ({ ...prev, ...patch }));
 
     // Auto-save CV upload/change to DB

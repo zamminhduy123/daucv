@@ -3,22 +3,39 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
-const MESSAGES = [
-  "Bé Đậu đang đọc JD của bạn...",
-  "Đối chiếu kỹ năng...",
-  "Tinh chỉnh từng câu chữ...",
-  "Sắp xong rồi ✨",
-];
+interface LoadingOverlayProps {
+  message?: string;
+  messages?: string[];
+  retryAttempt?: number;
+  retryTotal?: number;
+  onCancel?: () => void;
+}
 
-export default function LoadingOverlay({messages = MESSAGES} : {messages?: string[]}) {
+export default function LoadingOverlay({
+  message,
+  messages,
+  retryAttempt,
+  retryTotal,
+  onCancel,
+}: LoadingOverlayProps) {
   const [dots, setDots] = useState(0);
-  const [msgIdx, setMsgIdx] = useState(0);
+  const [messageIndex, setMessageIndex] = useState(0);
 
   useEffect(() => {
     const d = setInterval(() => setDots((v) => (v + 1) % 4), 450);
-    const m = setInterval(() => setMsgIdx((i) => Math.min(i + 1, MESSAGES.length - 1)), 500);
-    return () => { clearInterval(d); clearInterval(m); };
-  }, []);
+    const m = !message && messages?.length
+      ? setInterval(
+          () => setMessageIndex((index) => Math.min(index + 1, messages.length - 1)),
+          1500,
+        )
+      : null;
+    return () => {
+      clearInterval(d);
+      if (m) clearInterval(m);
+    };
+  }, [message, messages]);
+
+  const displayMessage = message ?? messages?.[messageIndex] ?? "Đang xử lý...";
 
   return (
     <div
@@ -45,8 +62,13 @@ export default function LoadingOverlay({messages = MESSAGES} : {messages?: strin
           Bé Đậu đang làm việc{".".repeat(dots)}
         </h3>
         <p className="text-[#5A6D6D] text-base leading-relaxed min-h-[1.6rem]">
-          {MESSAGES[msgIdx]}
+          {displayMessage}
         </p>
+        {retryAttempt && retryTotal ? (
+          <p className="mt-2 text-xs font-semibold text-amber-700">
+            Lần thử {retryAttempt}/{retryTotal}
+          </p>
+        ) : null}
 
         {/* Progress bar */}
         <div
@@ -55,9 +77,18 @@ export default function LoadingOverlay({messages = MESSAGES} : {messages?: strin
         >
           <div
             className="h-full rounded-full bg-(--primary)"
-            style={{ animation: "loading-bar 2s ease-in-out forwards" }}
+            style={{ animation: "loading-bar 2s ease-in-out infinite" }}
           />
         </div>
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="mt-6 text-sm font-semibold text-[#5A6D6D] underline-offset-4 hover:text-[#B22222] hover:underline"
+          >
+            Hủy phân tích
+          </button>
+        ) : null}
       </div>
     </div>
   );

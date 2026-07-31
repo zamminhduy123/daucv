@@ -72,6 +72,22 @@ export async function analyzeCVAPI(cvText: string, jdText: string, layoutData: L
     throw await parseApiError(res);
   }
   const payload = await res.json() as CVAnalysisEnvelope;
+  return mapCVAnalysisEnvelope(payload);
+}
+
+export interface CVAnalysisProgressEvent {
+  type: "progress";
+  stage: "queued" | "validating" | "reconstructing" | "analyzing" | "retrying" | "finalizing";
+  message: string;
+  details?: { attempt?: number; total_attempts?: number };
+}
+
+type CVAnalysisStreamEvent =
+  | CVAnalysisProgressEvent
+  | { type: "complete"; data: CVAnalysisEnvelope }
+  | { type: "error"; status: number; message: string };
+
+function mapCVAnalysisEnvelope(payload: CVAnalysisEnvelope): CVAnalysisResponse {
   return {
     ...payload.analysis,
     tailored_cv: payload.legacy_tailored_cv,
@@ -80,6 +96,61 @@ export async function analyzeCVAPI(cvText: string, jdText: string, layoutData: L
     reconstruction_diagnostics: payload.reconstruction_diagnostics,
     tailoring_entitlement: payload.tailoring_entitlement,
   } satisfies CVAnalysisResponse;
+}
+
+function streamError(status: number, message: string): ApiError {
+  if (status === 401 || status === 403) return { type: "auth_error", status, message };
+  if (status === 408 || status === 504) return { type: "timeout", status, message };
+  if (status === 503) return { type: "ai_overloaded", status, message };
+  if (status >= 500) return { type: "server_error", status, message };
+  return { type: "client_error", status, message };
+}
+
+export async function analyzeCVStreamAPI(
+  cvText: string,
+  jdText: string,
+  layoutData: LayoutLine[] | null,
+  onProgress: (event: CVAnalysisProgressEvent) => void,
+  signal?: AbortSignal,
+): Promise<CVAnalysisResponse> {
+  let res: Response;
+  try {
+    res = await fetchWithAuth(`${API_URL}/api/analyze-cv/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cv_text: cvText, jd_text: jdText, layout_data: layoutData }),
+      signal,
+    });
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw parseNetworkError(err);
+  }
+
+  if (!res.ok) throw await parseApiError(res);
+  if (!res.body) throw streamError(502, "Server không trả về luồng phân tích.");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line) as CVAnalysisStreamEvent;
+      if (event.type === "progress") onProgress(event);
+      if (event.type === "error") throw streamError(event.status, event.message);
+      if (event.type === "complete") return mapCVAnalysisEnvelope(event.data);
+    }
+
+    if (done) break;
+  }
+
+  throw streamError(502, "Luồng phân tích kết thúc trước khi có kết quả.");
 }
 
 export async function sendInterviewChatAPI(

@@ -21,9 +21,12 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# dataset
+# Downloaded/public evaluation material. The fictional golden fixtures under
+# cv-fit-app/dataset/golden remain eligible for explicit commits.
+cv-fit-app/dataset/vietnamese_eval/
 cv-fit-app/dataset/
-
+cv-fit-app/backend/tests/
+cv-fit-app/backend/tests/
 # Project
 .vscode/
 .idea/

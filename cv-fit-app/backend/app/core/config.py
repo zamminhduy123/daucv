@@ -23,7 +23,9 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 _RAW_ORIGINS = os.getenv(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://0.0.0.0:3000,https://www.daucv.com,https://daucv.com",
+    "http://localhost:3000,http://127.0.0.1:3000,http://0.0.0.0:3000,"
+    "http://localhost:3001,http://127.0.0.1:3001,http://0.0.0.0:3001,"
+    "https://www.daucv.com,https://daucv.com",
 )
 CORS_ALLOWED_ORIGINS: list[str] = [
     o.strip() for o in _RAW_ORIGINS.split(",") if o.strip()
@@ -71,7 +73,7 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 from app.services.llm_provider import OpenAIProvider, QwenCustomProvider  # noqa: E402
 
 LOCAL_LLM_TIMEOUT = float(os.getenv("LOCAL_LLM_TIMEOUT", "120.0"))
-CLOUD_LLM_TIMEOUT = float(os.getenv("CLOUD_LLM_TIMEOUT", "120.0"))
+CLOUD_LLM_TIMEOUT = float(os.getenv("CLOUD_LLM_TIMEOUT", "300.0"))
 LLM_MAX_OUTPUT_TOKENS = int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "8192"))
 CV_ANALYSIS_REQUEST_TIMEOUT = float(
     os.getenv("CV_ANALYSIS_REQUEST_TIMEOUT", "300.0"),
