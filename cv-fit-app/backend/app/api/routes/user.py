@@ -5,6 +5,7 @@ Route handlers are kept thin: validate input → build prompt → call service �
 
 import asyncio
 import json
+import logging
 import tempfile
 from collections.abc import AsyncIterator
 from contextlib import suppress
@@ -69,6 +70,8 @@ from app.services.layout_extraction import (
 )
 from app.services.tailored_cv_metadata import issue_tailoring_entitlement
 from app.utils.helpers import extract_text_from_pdf
+
+_logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["user"])
 
@@ -270,6 +273,12 @@ async def analyze_cv(
     except HTTPException:
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise
+    except ValueError as exc:
+        await _refund_reserved_credit(user["id"], tx_type, refund_description)
+        raise HTTPException(
+            status_code=422,
+            detail=f"Cấu trúc CV không đủ tiêu chuẩn (tiêu đề mục dính liền với nội dung). Vui lòng tải lên file PDF gốc: {exc!s}",
+        ) from exc
     except Exception as e:
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise HTTPException(
@@ -365,13 +374,24 @@ async def analyze_cv_stream(
                     "message": str(exc.detail),
                 },
             )
-        except Exception:
+        except ValueError as exc:
+            _logger.warning("CV reconstruction quality gate rejected document: %s", exc)
+            await _refund_reserved_credit(user["id"], tx_type, refund_description)
+            await events.put(
+                {
+                    "type": "error",
+                    "status": 422,
+                    "message": (f"Cấu trúc CV không đủ tiêu chuẩn. Chi tiết: {exc!s}"),
+                },
+            )
+        except Exception as exc:
+            _logger.exception("CV analysis streaming task failed: %s", exc)
             await _refund_reserved_credit(user["id"], tx_type, refund_description)
             await events.put(
                 {
                     "type": "error",
                     "status": 500,
-                    "message": "Phân tích CV thất bại. Vui lòng thử lại.",
+                    "message": f"Phân tích CV thất bại: {exc!s}",
                 },
             )
 

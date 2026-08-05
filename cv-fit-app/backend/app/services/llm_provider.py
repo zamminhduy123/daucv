@@ -122,7 +122,9 @@ class OpenAIProvider(BaseAIProvider):
         if self.extra_body:
             kwargs["extra_body"] = self.extra_body
 
-        print(f"Sending request to {self.name}")
+        _logger.info(
+            "Sending request to provider %s (model: %s)", self.name, self.model
+        )
         response = await self.client.chat.completions.create(**kwargs)
 
         choice = response.choices[0]
@@ -166,10 +168,12 @@ class OpenAIProvider(BaseAIProvider):
             input_tokens = response.usage.prompt_tokens
             output_tokens = response.usage.completion_tokens
 
-            print(
-                f"Tokens used by {self.name}: Input: {input_tokens}, Output: {output_tokens}"
+            _logger.info(
+                "Tokens used by %s: Input: %d, Output: %d",
+                self.name,
+                input_tokens,
+                output_tokens,
             )
-        print("Receive results", parsed)
 
         return ProviderResult(
             data=parsed,
@@ -310,7 +314,9 @@ class QwenCustomProvider(BaseAIProvider):
             else:
                 messages.append({"role": "user", "content": user_content})
 
-            print(f"Sending request to Qwen provider: {messages}")
+            _logger.info(
+                "Sending request to provider %s (model: %s)", self.name, self.model
+            )
 
             timeout_val = self.timeout if self.timeout is not None else 300.0
             res = await http_client.post(

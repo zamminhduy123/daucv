@@ -72,7 +72,13 @@ export default function AnalyzerPage() {
         setAnalysisResult(data);
         setCachedAnalysis(data); // Save to cache
       } catch (err: unknown) {
-        if (err instanceof DOMException && err.name === "AbortError" && cancelledByUserRef.current) {
+        const isAbort =
+          cancelledByUserRef.current ||
+          controller.signal.aborted ||
+          (err instanceof Error && err.name === "AbortError") ||
+          (err instanceof DOMException && err.name === "AbortError");
+
+        if (isAbort) {
           setError("Bạn đã hủy phân tích CV.");
           return;
         }
@@ -123,6 +129,8 @@ export default function AnalyzerPage() {
   const handleCancelAnalysis = () => {
     cancelledByUserRef.current = true;
     abortControllerRef.current?.abort();
+    setIsAnalyzing(false);
+    setError("Bạn đã hủy phân tích CV.");
   };
 
   if (!isLoaded || !hasData) return null; // Will redirect via useEffect if isLoaded and no data

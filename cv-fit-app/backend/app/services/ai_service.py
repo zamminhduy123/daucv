@@ -71,14 +71,23 @@ async def call_llm_with_fallback(
             try:
                 # --- Delegate to the provider class ---
 
-                print(f"Calling provider: {provider.name}")
+                _logger.info(
+                    "Waterfall router attempting provider %s (model: %s, attempt %d/%d)",
+                    provider.name,
+                    provider.model,
+                    attempt + 1,
+                    max_retries,
+                )
                 result = await provider.generate_structured(
                     system_prompt=system_prompt,
                     user_content=user_input,
                     response_model=response_model,
                     temperature=0.7,
                 )
-                print(f"Received response from provider: {provider.name}")
+                _logger.info(
+                    "Waterfall router received successful response from provider %s",
+                    provider.name,
+                )
                 input_tokens = result.input_tokens
                 output_tokens = result.output_tokens
                 json_valid = True  # If it didn't raise ValidationError, it's valid

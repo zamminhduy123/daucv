@@ -122,7 +122,13 @@ export async function analyzeCVStreamAPI(
       signal,
     });
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    if (
+      signal?.aborted ||
+      (err instanceof Error && err.name === "AbortError") ||
+      (err instanceof DOMException && err.name === "AbortError")
+    ) {
+      throw new DOMException("The user aborted a request.", "AbortError");
+    }
     throw parseNetworkError(err);
   }
 
@@ -133,21 +139,38 @@ export async function analyzeCVStreamAPI(
   const decoder = new TextDecoder();
   let buffer = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    buffer += decoder.decode(value, { stream: !done });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
+  try {
+    while (true) {
+      if (signal?.aborted) {
+        await reader.cancel().catch(() => {});
+        throw new DOMException("The user aborted a request.", "AbortError");
+      }
 
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      const event = JSON.parse(line) as CVAnalysisStreamEvent;
-      if (event.type === "progress") onProgress(event);
-      if (event.type === "error") throw streamError(event.status, event.message);
-      if (event.type === "complete") return mapCVAnalysisEnvelope(event.data);
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const event = JSON.parse(line) as CVAnalysisStreamEvent;
+        if (event.type === "progress") onProgress(event);
+        if (event.type === "error") throw streamError(event.status, event.message);
+        if (event.type === "complete") return mapCVAnalysisEnvelope(event.data);
+      }
+
+      if (done) break;
     }
-
-    if (done) break;
+  } catch (err: unknown) {
+    if (
+      signal?.aborted ||
+      (err instanceof Error && err.name === "AbortError") ||
+      (err instanceof DOMException && err.name === "AbortError")
+    ) {
+      await reader.cancel().catch(() => {});
+      throw new DOMException("The user aborted a request.", "AbortError");
+    }
+    throw err;
   }
 
   throw streamError(502, "Luồng phân tích kết thúc trước khi có kết quả.");

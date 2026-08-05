@@ -1,7 +1,9 @@
 """CV Analysis orchestration with source-language enforcement."""
 
 import logging
+from collections.abc import Awaitable, Callable
 from functools import partial
+from typing import Any
 
 from fastapi import BackgroundTasks
 
@@ -37,6 +39,18 @@ from app.services.layout_extraction import ExtractedLine
 
 _logger = logging.getLogger(__name__)
 
+AnalysisProgress = Callable[[str, str, dict[str, Any] | None], Awaitable[None]]
+
+
+async def _report_progress(
+    progress: AnalysisProgress | None,
+    stage: str,
+    message: str,
+    details: dict[str, Any] | None = None,
+) -> None:
+    if progress is not None:
+        await progress(stage, message, details)
+
 
 async def analyze_cv(
     *,
@@ -44,6 +58,7 @@ async def analyze_cv(
     jd_text: str,
     background_tasks: BackgroundTasks | None = None,
     layout_data: list[LayoutLine] | None = None,
+    progress: AnalysisProgress | None = None,
 ) -> CVAnalysisResponse:
     """Generate a scored CV Analysis in the source CV's primary language.
 
@@ -51,8 +66,20 @@ async def analyze_cv(
     uses real page/column/font metadata for reconstruction instead of
     fabricating synthetic layout from plain text.
     """
+    await _report_progress(progress, "validating", "Đang kiểm tra nội dung CV...")
     source_language = detect_cv_language(cv_text)
-    _logger.info("Detected source language: %s", source_language)
+    _logger.info(
+        "Stage [validating]: CV len=%d, JD len=%d, source_language=%s",
+        len(cv_text),
+        len(jd_text),
+        source_language,
+    )
+    await _report_progress(progress, "reconstructing", "Đang đọc cấu trúc CV...")
+    _logger.info(
+        "Stage [reconstructing]: Reconstructing CV structure from %s (layout_lines=%d)...",
+        "layout_data" if layout_data else "plain_text",
+        len(layout_data) if layout_data else 0,
+    )
     if layout_data:
         lines = [
             ExtractedLine(
@@ -79,7 +106,16 @@ async def analyze_cv(
     else:
         source_document = reconstruct_cv_text(cv_text)
 
+    _logger.info(
+        "Stage [reconstructing]: Structure built. Sections: %d (%s), Summary lines: %d, Diagnostics warnings: %s",
+        len(source_document.sections),
+        [s.type for s in source_document.sections],
+        len(source_document.summary.source_line_ids) if source_document.summary else 0,
+        source_document.reconstruction_warnings,
+    )
+
     validate_reconstruction_gate(source_document)
+    _logger.info("Stage [reconstructing]: Quality gate passed successfully.")
 
     typed_source = rewrite_payload(source_document)
     if jd_text.strip():
@@ -95,7 +131,25 @@ async def analyze_cv(
             f"\n\nTYPED SOURCE DOCUMENT (structure is authoritative):\n{typed_source}"
         )
 
-    _logger.info("Sending request for CV analysis in %s", source_language)
+    _logger.info(
+        "Stage [analyzing]: Sending prompt to LLM waterfall router (language=%s)...",
+        source_language,
+    )
+    await _report_progress(progress, "analyzing", "Đang đối chiếu CV với công việc...")
+
+    async def report_retry(attempt: int, total_attempts: int) -> None:
+        _logger.warning(
+            "Stage [retrying]: AI service busy, attempt %d/%d...",
+            attempt,
+            total_attempts,
+        )
+        await _report_progress(
+            progress,
+            "retrying",
+            "Dịch vụ AI đang bận, Bé Đậu đang tự thử lại...",
+            {"attempt": attempt, "total_attempts": total_attempts},
+        )
+
     generated = await call_llm_with_fallback(
         build_cv_analysis_prompt(context_instruction, source_language),
         user_content,
@@ -110,8 +164,14 @@ async def analyze_cv(
             source_cv_text=cv_text,
             source_reference_text=f"{cv_text}\n{jd_text}",
         ),
+        on_retry=report_retry,
     )
-    _logger.info("Received response for CV analysis in %s", source_language)
+    _logger.info(
+        "Stage [finalizing]: Received LLM response. Building tailored CV & block rewrites..."
+    )
+    await _report_progress(
+        progress, "finalizing", "Đang hoàn thiện kết quả phân tích..."
+    )
     parsed = CVAnalysisLLMResponse.model_validate(generated.model_dump())
     parsed.tailored_cv = build_source_preserving_tailored_cv(parsed, cv_text)
     tailored_document, _warnings = apply_block_rewrites(
