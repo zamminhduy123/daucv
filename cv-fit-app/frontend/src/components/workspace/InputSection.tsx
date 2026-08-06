@@ -215,7 +215,7 @@ export default function InputSection({
       {/* ── 2-col card grid — stacks on mobile, side-by-side on larger screens ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 flex-none md:flex-1">
 
-                {/* RIGHT: CV */}
+        {/* RIGHT: CV */}
         <TextCard
           title={<>CV của bạn <span className="text-red-500 font-normal text-xs ml-1">(Yêu cầu)</span></>}
           subtitle="Dán text hoặc upload PDF"
@@ -237,35 +237,43 @@ export default function InputSection({
             </button>
           }
           topBadge={
-            inputs.cvFile ? (
-              <div
-                className="flex items-center justify-between px-3 py-2 rounded-xl"
-                style={{ backgroundColor: "rgba(152,193,142,0.1)", border: "1px solid rgba(152,193,142,0.3)" }}
-              >
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-[#2F4F4F] truncate">
-                  {isExtractingPDF.cv ? <Loader2 size={12} className="animate-spin" color="var(--primary)" /> : <CheckCircle size={12} color="var(--primary)" />}
-                  {isExtractingPDF.cv ? "Đang đọc PDF..." : inputs.cvFile.name}
-                </span>
-                <button onClick={() => clearFile("cv")} className="text-[#5A6D6D] hover:text-[#B22222] transition-colors p-0.5 shrink-0" disabled={isExtractingPDF.cv}>
-                  <X size={12} />
-                </button>
+            <div className="flex flex-col gap-1.5">
+              {inputs.cvFile ? (
+                <div
+                  className="flex items-center justify-between px-3 py-2 rounded-xl"
+                  style={{ backgroundColor: "rgba(152,193,142,0.1)", border: "1px solid rgba(152,193,142,0.3)" }}
+                >
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-[#2F4F4F] truncate">
+                    {isExtractingPDF.cv ? <Loader2 size={12} className="animate-spin" color="var(--primary)" /> : <CheckCircle size={12} color="var(--primary)" />}
+                    {isExtractingPDF.cv ? "Đang đọc PDF..." : inputs.cvFile.name}
+                  </span>
+                  <button onClick={() => clearFile("cv")} className="text-[#5A6D6D] hover:text-[#B22222] transition-colors p-0.5 shrink-0" disabled={isExtractingPDF.cv}>
+                    <X size={12} />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragging("cv"); }}
+                  onDragLeave={() => setDragging(null)}
+                  onDrop={(e) => handleDrop(e, "cv")}
+                  onClick={() => cvFileInputRef.current?.click()}
+                  className="text-center cursor-pointer rounded-xl py-2 transition-all text-[#5A6D6D] text-xs  min-h-25 flex items-center justify-center"
+                  style={{
+                    border: `1.5px dashed ${dragging === "cv" ? "var(--primary)" : "rgba(47,79,79,0.12)"}`,
+                    backgroundColor: dragging === "cv" ? "rgba(152,193,142,0.06)" : "transparent",
+                  }}
+                >
+                  <div>
+                    <Upload size={13} color="var(--primary)" className="mx-auto mb-0.5" />
+                    Kéo thả PDF
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg">
+                <AlertTriangle size={12} className="shrink-0 text-red-500" />
+                <span>Lưu ý: Hiện tại hệ thống chỉ hỗ trợ xử lý CV 1 cột (1-column CV).</span>
               </div>
-            ) : (
-              <div
-                onDragOver={(e) => { e.preventDefault(); setDragging("cv"); }}
-                onDragLeave={() => setDragging(null)}
-                onDrop={(e) => handleDrop(e, "cv")}
-                onClick={() => cvFileInputRef.current?.click()}
-                className="text-center cursor-pointer rounded-xl py-2 transition-all text-[#5A6D6D] text-xs"
-                style={{
-                  border: `1.5px dashed ${dragging === "cv" ? "var(--primary)" : "rgba(47,79,79,0.12)"}`,
-                  backgroundColor: dragging === "cv" ? "rgba(152,193,142,0.06)" : "transparent",
-                }}
-              >
-                <Upload size={13} color="var(--primary)" className="mx-auto mb-0.5" />
-                Kéo thả PDF
-              </div>
-            )
+            </div>
           }
         >
           <input
@@ -325,14 +333,16 @@ export default function InputSection({
                 onDragLeave={() => setDragging(null)}
                 onDrop={(e) => handleDrop(e, "jd")}
                 onClick={() => jdFileInputRef.current?.click()}
-                className="text-center cursor-pointer rounded-xl py-2 transition-all text-[#5A6D6D] text-xs"
+                className="text-center cursor-pointer rounded-xl py-2 transition-all text-[#5A6D6D] text-xs min-h-25 flex items-center justify-center"
                 style={{
                   border: `1.5px dashed ${dragging === "jd" ? "var(--primary)" : "rgba(47,79,79,0.12)"}`,
                   backgroundColor: dragging === "jd" ? "rgba(152,193,142,0.06)" : "transparent",
                 }}
               >
+                <div>
                 <Upload size={13} color="var(--primary)" className="mx-auto mb-0.5" />
                 Kéo thả PDF
+                </div>
               </div>
             )
           }

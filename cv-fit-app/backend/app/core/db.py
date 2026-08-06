@@ -19,6 +19,8 @@ class Database:
                     DATABASE_URL,
                     min_size=1,
                     max_size=10,
+                    timeout=30.0,
+                    statement_cache_size=0,
                     max_inactive_connection_lifetime=300.0,
                 )
                 logger.info("Successfully connected to PostgreSQL database pool.")

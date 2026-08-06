@@ -23,8 +23,8 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 _RAW_ORIGINS = os.getenv(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://0.0.0.0:3000,"
-    "http://localhost:3001,http://127.0.0.1:3001,http://0.0.0.0:3001,"
+    "http://127.0.0.1:3000,http://127.0.0.1:3000,http://0.0.0.0:3000,"
+    "http://127.0.0.1:3001,http://127.0.0.1:3001,http://0.0.0.0:3001,"
     "https://www.daucv.com,https://daucv.com",
 )
 CORS_ALLOWED_ORIGINS: list[str] = [
@@ -45,7 +45,7 @@ ENV = os.getenv("ENV", "development").lower()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://postgres:postgres@localhost:5432/postgres",
+    "postgresql://postgres:postgres@127.0.0.1:5432/postgres",
 )
 
 # Enforce NEXTAUTH_SECRET
@@ -105,7 +105,7 @@ PROVIDERS = [
         api_key=os.getenv("QWEN_API_KEY", "not-needed"),
         endpoint=os.getenv(
             "QWEN_ENDPOINT",
-            "http://localhost:8000/v1/chat/completions",
+            "http://127.0.0.1:8000/v1/chat/completions",
         ),
         timeout=LOCAL_LLM_TIMEOUT,
         max_output_tokens=LLM_MAX_OUTPUT_TOKENS,
