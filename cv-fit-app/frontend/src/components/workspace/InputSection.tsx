@@ -269,10 +269,6 @@ export default function InputSection({
                   </div>
                 </div>
               )}
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg">
-                <AlertTriangle size={12} className="shrink-0 text-red-500" />
-                <span>Lưu ý: Hiện tại hệ thống chỉ hỗ trợ xử lý CV 1 cột (1-column CV).</span>
-              </div>
             </div>
           }
         >

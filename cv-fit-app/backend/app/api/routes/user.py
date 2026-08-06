@@ -65,8 +65,9 @@ from app.schemas.user import (
 from app.services import cv_analysis_service, user_cv_service
 from app.services.ai_service import call_llm_with_fallback
 from app.services.layout_extraction import (
-    extract_text_from_layout,
-    layout_extract_pdf,
+    extract_cv_content_blocks,
+    raw_extraction_to_layout_lines,
+    raw_extraction_to_text,
 )
 from app.services.tailored_cv_metadata import issue_tailoring_entitlement
 from app.utils.helpers import extract_text_from_pdf
@@ -207,8 +208,9 @@ async def extract_pdf(file: UploadFile = File(...)):
         )
     try:
         file_bytes = await file.read()
-        lines = layout_extract_pdf(file_bytes)
-        text = extract_text_from_layout(lines)
+        raw = extract_cv_content_blocks(file_bytes)
+        lines = raw_extraction_to_layout_lines(raw)
+        text = raw_extraction_to_text(raw)
         return {
             "text": text,
             "layout_data": [asdict(line) for line in lines],

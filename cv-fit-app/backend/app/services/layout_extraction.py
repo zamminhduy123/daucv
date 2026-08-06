@@ -14,9 +14,366 @@ import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import Any
 
+import fitz
 import pdfplumber
+
+from app.models.cv_raw_extraction import (
+    ExtractionDecision,
+    ExtractionMethod,
+    ExtractionReason,
+    InvalidRawExtractionError,
+    OCRNotAvailableError,
+    RawBlock,
+    RawExtraction,
+    RawPage,
+)
+
+# ---------------------------------------------------------------------------
+# Modular Raw Block Extraction Pipeline
+# ---------------------------------------------------------------------------
+
+
+def validate_raw_extraction(raw: RawExtraction) -> None:
+    """Check that all block IDs in a RawExtraction are unique."""
+    block_ids = [block.block_id for page in raw.pages for block in page.blocks]
+    if len(block_ids) != len(set(block_ids)):
+        raise InvalidRawExtractionError("Raw extraction contains duplicate block IDs.")
+
+
+def sort_raw_page_blocks(
+    blocks: list[RawBlock],
+    page_width: float = 612.0,
+    page_height: float = 792.0,
+) -> list[RawBlock]:
+    """Sort page blocks using column-aware spatial clustering.
+
+    Full-width header blocks come first (top-to-bottom).
+    Content blocks are clustered into spatial columns (left-to-right), and sorted
+    top-to-bottom within each column.
+    Full-width footer blocks come last (top-to-bottom).
+    """
+    if not blocks:
+        return []
+
+    valid_blocks = [b for b in blocks if b.text.strip()]
+    if not valid_blocks:
+        return []
+
+    header_blocks: list[RawBlock] = []
+    footer_blocks: list[RawBlock] = []
+    content_blocks: list[RawBlock] = []
+
+    # Header/footer detection must be based on page position, not block width.
+    # Enhancv places the candidate name and contacts in narrow left-aligned
+    # blocks, so a width-only rule incorrectly moves them after the body.
+    for block in valid_blocks:
+        if not block.bbox:
+            content_blocks.append(block)
+            continue
+        _x0, y0, _x1, _y1 = block.bbox
+        if y0 < (0.13 * page_height):
+            header_blocks.append(block)
+        elif y0 > (0.85 * page_height):
+            footer_blocks.append(block)
+        else:
+            content_blocks.append(block)
+
+    header_blocks.sort(
+        key=lambda block: (block.bbox[1], block.bbox[0]) if block.bbox else (0, 0)
+    )
+    footer_blocks.sort(
+        key=lambda block: (block.bbox[1], block.bbox[0]) if block.bbox else (0, 0)
+    )
+
+    if not content_blocks:
+        return header_blocks + footer_blocks
+
+    # Detect a gutter from a large gap between left edges. Grouping by block
+    # centroid is incorrect here: bullet glyph blocks and their body blocks
+    # have different centroids but belong to the same column.
+    x_starts = sorted(block.bbox[0] for block in content_blocks if block.bbox)
+    gutter_split: float | None = None
+    if len(x_starts) >= 2:
+        gaps = [(right - left, left, right) for left, right in pairwise(x_starts)]
+        min_gutter = max(24.0, page_width * 0.10)
+        candidate = max(gaps, default=(0.0, 0.0, 0.0))
+        if candidate[0] >= min_gutter:
+            gutter_split = (candidate[1] + candidate[2]) / 2.0
+
+    def column_order(block: RawBlock) -> int:
+        if gutter_split is None or not block.bbox:
+            return 0
+        return 0 if block.bbox[0] < gutter_split else 1
+
+    sorted_content = sorted(
+        content_blocks,
+        key=lambda block: (
+            column_order(block),
+            block.bbox[1] if block.bbox else 0,
+            block.bbox[0] if block.bbox else 0,
+        ),
+    )
+    return header_blocks + sorted_content + footer_blocks
+
+
+def _drop_redundant_bullet_glyph_blocks(blocks: list[RawBlock]) -> list[RawBlock]:
+    """Drop standalone bullet glyph blocks when their body is another block.
+
+    Some PDF generators paint each bullet icon as a separate text block while
+    placing the complete bullet text in a neighboring multi-line block. Keeping
+    both produces stray ``•`` lines in the textarea; the body block already
+    contains the candidate's meaningful content.
+    """
+    bullet_markers = {"•", "●", "‣", "▪", "◦", "▷", "◉", "▫", "-", "‐", "‑"}
+    kept: list[RawBlock] = []
+    for block in blocks:
+        marker = block.text.strip()
+        if marker not in bullet_markers or not block.bbox:
+            kept.append(block)
+            continue
+
+        x0, y0, x1, y1 = block.bbox
+        has_body_block = any(
+            candidate is not block
+            and candidate.bbox
+            and candidate.bbox[0] >= x0
+            and candidate.bbox[2] > (x1 + 20.0)
+            and candidate.bbox[1] <= y1
+            and candidate.bbox[3] >= y0
+            and candidate.text.strip() not in bullet_markers
+            for candidate in blocks
+        )
+        if not has_body_block:
+            kept.append(block)
+    return kept
+
+
+def extract_native_blocks(pdf_bytes: bytes) -> RawExtraction:
+    """Extract Tier 1 native blocks using PyMuPDF (fitz) with column-aware sorting."""
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    pages: list[RawPage] = []
+
+    for page_idx, page in enumerate(doc, start=1):
+        pw = float(page.rect.width) or 612.0
+        ph = float(page.rect.height) or 792.0
+        raw_blocks = page.get_text("blocks", sort=False)
+        blocks: list[RawBlock] = []
+        for index, b in enumerate(raw_blocks, start=1):
+            if len(b) >= 5 and isinstance(b[4], str) and b[4].strip():
+                text = b[4].strip()
+                bbox = (float(b[0]), float(b[1]), float(b[2]), float(b[3]))
+                blocks.append(
+                    RawBlock(
+                        block_id=f"temp-p{page_idx}-b{index}",
+                        page=page_idx,
+                        text=text,
+                        bbox=bbox,
+                        extraction_method=ExtractionMethod.NATIVE_BLOCKS,
+                        confidence=1.0,
+                    )
+                )
+
+        blocks = _drop_redundant_bullet_glyph_blocks(blocks)
+        sorted_blocks = sort_raw_page_blocks(blocks, page_width=pw, page_height=ph)
+        # Re-assign clean, sequential block IDs in column reading order
+        final_blocks = [
+            RawBlock(
+                block_id=f"p{page_idx}-b{seq}",
+                page=b.page,
+                text=b.text,
+                bbox=b.bbox,
+                extraction_method=b.extraction_method,
+                confidence=b.confidence,
+            )
+            for seq, b in enumerate(sorted_blocks, start=1)
+        ]
+
+        pages.append(
+            RawPage(
+                page=page_idx,
+                width=pw,
+                height=ph,
+                blocks=final_blocks,
+            )
+        )
+
+    raw = RawExtraction(
+        method=ExtractionMethod.NATIVE_BLOCKS,
+        pages=pages,
+    )
+    validate_raw_extraction(raw)
+    return raw
+
+
+def extract_word_layout_blocks(pdf_bytes: bytes) -> RawExtraction:
+    """Extract Tier 2 word-layout blocks using pdfplumber word grouping with column splitting."""
+    pages: list[RawPage] = []
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page_idx, page in enumerate(pdf.pages, start=1):
+            pw = float(page.width) or 612.0
+            ph = float(page.height) or 792.0
+            words = page.extract_words()
+            if not words:
+                pages.append(
+                    RawPage(
+                        page=page_idx,
+                        width=pw,
+                        height=ph,
+                        blocks=[],
+                    )
+                )
+                continue
+
+            # Cluster words by x-center to prevent joining lines across multi-column gap
+            words_by_x = sorted(words, key=lambda w: (w["x0"] + w["x1"]) / 2)
+            word_clusters: list[tuple[float, list[dict]]] = []
+            for w in words_by_x:
+                cx = (w["x0"] + w["x1"]) / 2
+                matched = False
+                for i, (group_cx, group_words) in enumerate(word_clusters):
+                    if abs(cx - group_cx) < (0.15 * pw):
+                        group_words.append(w)
+                        new_cx = sum(
+                            (item["x0"] + item["x1"]) / 2 for item in group_words
+                        ) / len(group_words)
+                        word_clusters[i] = (new_cx, group_words)
+                        matched = True
+                        break
+                if not matched:
+                    word_clusters.append((cx, [w]))
+
+            word_clusters.sort(key=lambda g: g[0])
+
+            raw_blocks: list[RawBlock] = []
+            block_seq = 1
+            for _, col_words in word_clusters:
+                words_sorted = sorted(
+                    col_words, key=lambda w: (round(w["top"] / 3.0) * 3, w["x0"])
+                )
+                lines_by_y: list[list[dict]] = []
+                current_line: list[dict] = []
+                last_top: float | None = None
+
+                for w in words_sorted:
+                    if last_top is None or abs(w["top"] - last_top) <= 3.0:
+                        current_line.append(w)
+                    else:
+                        lines_by_y.append(current_line)
+                        current_line = [w]
+                    last_top = w["top"]
+                if current_line:
+                    lines_by_y.append(current_line)
+
+                for line_words in lines_by_y:
+                    text = " ".join(w["text"] for w in line_words).strip()
+                    if not text:
+                        continue
+                    x0 = min(w["x0"] for w in line_words)
+                    top = min(w["top"] for w in line_words)
+                    x1 = max(w["x1"] for w in line_words)
+                    bottom = max(w["bottom"] for w in line_words)
+                    raw_blocks.append(
+                        RawBlock(
+                            block_id=f"temp-p{page_idx}-b{block_seq}",
+                            page=page_idx,
+                            text=text,
+                            bbox=(float(x0), float(top), float(x1), float(bottom)),
+                            extraction_method=ExtractionMethod.WORD_LAYOUT,
+                            confidence=0.9,
+                        )
+                    )
+                    block_seq += 1
+
+            sorted_blocks = sort_raw_page_blocks(
+                raw_blocks, page_width=pw, page_height=ph
+            )
+            final_blocks = [
+                RawBlock(
+                    block_id=f"p{page_idx}-b{seq}",
+                    page=b.page,
+                    text=b.text,
+                    bbox=b.bbox,
+                    extraction_method=b.extraction_method,
+                    confidence=b.confidence,
+                )
+                for seq, b in enumerate(sorted_blocks, start=1)
+            ]
+
+            pages.append(
+                RawPage(
+                    page=page_idx,
+                    width=pw,
+                    height=ph,
+                    blocks=final_blocks,
+                )
+            )
+
+    raw = RawExtraction(
+        method=ExtractionMethod.WORD_LAYOUT,
+        pages=pages,
+    )
+    validate_raw_extraction(raw)
+    return raw
+
+
+def evaluate_extraction(raw: RawExtraction) -> ExtractionDecision:
+    """Evaluate whether an extraction result is usable and return decision."""
+    reasons: list[ExtractionReason] = []
+    all_blocks = [block for page in raw.pages for block in page.blocks]
+    total_text = "\n".join(block.text for block in all_blocks).strip()
+
+    if not all_blocks:
+        reasons.append(ExtractionReason.NO_TEXT_BLOCKS)
+
+    if len(total_text) < 150:
+        reasons.append(ExtractionReason.TEXT_TOO_SHORT)
+
+    alnum_count = sum(c.isalnum() for c in total_text)
+    if alnum_count < 80:
+        reasons.append(ExtractionReason.TOO_FEW_ALNUM_CHARACTERS)
+
+    for page in raw.pages:
+        if len(page.blocks) == 1 and page.height:
+            b = page.blocks[0]
+            if b.bbox and (b.bbox[3] - b.bbox[1]) > (0.8 * page.height):
+                reasons.append(ExtractionReason.SUSPICIOUS_SINGLE_BLOCK)
+
+    usable = len(reasons) == 0
+    if usable:
+        recommended = raw.method
+    elif raw.method == ExtractionMethod.NATIVE_BLOCKS:
+        recommended = ExtractionMethod.WORD_LAYOUT
+    else:
+        recommended = ExtractionMethod.OCR
+
+    return ExtractionDecision(
+        usable=usable,
+        recommended_method=recommended,
+        reasons=reasons,
+    )
+
+
+def extract_cv_content_blocks(pdf_bytes: bytes) -> RawExtraction:
+    """Router: extract native blocks -> evaluate -> fallback to word layout -> raise OCRNotAvailableError."""
+    native = extract_native_blocks(pdf_bytes)
+    native_decision = evaluate_extraction(native)
+
+    if native_decision.usable:
+        return native
+
+    if native_decision.recommended_method == ExtractionMethod.WORD_LAYOUT:
+        word_layout = extract_word_layout_blocks(pdf_bytes)
+        word_decision = evaluate_extraction(word_layout)
+        if word_decision.usable:
+            return word_layout
+
+    raise OCRNotAvailableError(
+        "The uploaded PDF appears to contain scanned images without selectable text."
+    )
+
 
 # ---------------------------------------------------------------------------
 # 1. ExtractedLine data model (Step 3.1)
@@ -93,6 +450,62 @@ class ExtractedLine:
             f"ExtractedLine(page={self.page}, y={self.y:.0f}, "
             f"x={self.x:.0f}, text={self.text[:60]!r}...)"
         )
+
+
+def raw_extraction_to_layout_lines(raw: RawExtraction) -> list[ExtractedLine]:
+    """Adapt canonical raw blocks to the legacy analysis metadata contract.
+
+    The upload endpoint and the analysis endpoint currently exchange
+    ``LayoutLine``-shaped records. Keeping this adapter at the extraction seam
+    lets both endpoints consume the same column-ordered PyMuPDF blocks instead
+    of silently falling back to the old pdfplumber line grouping.
+    """
+    lines: list[ExtractedLine] = []
+    for page in raw.pages:
+        page_width = page.width or 612.0
+        for block in page.blocks:
+            if not block.text.strip():
+                continue
+
+            if block.bbox:
+                x0, y0, x1, y1 = block.bbox
+                width = max(x1 - x0, 1.0)
+                height = max(y1 - y0, 1.0)
+                if width >= page_width * 0.65:
+                    column_id = "span"
+                else:
+                    column_id = (
+                        "col-0" if ((x0 + x1) / 2.0) < (page_width / 2.0) else "col-1"
+                    )
+            else:
+                x0, y0, width, height = 0.0, 0.0, page_width, 1.0
+                column_id = "main"
+
+            line = ExtractedLine(
+                text=block.text,
+                page=page.page - 1,
+                x=x0,
+                y=y0,
+                width=width,
+                height=height,
+                column_id=column_id,
+                page_height=page.height,
+                source_line_id=block.block_id,
+            )
+            normalize_line(line)
+            lines.append(line)
+
+    return lines
+
+
+def raw_extraction_to_text(raw: RawExtraction) -> str:
+    """Flatten canonical blocks without re-running line/column heuristics."""
+    page_texts: list[str] = []
+    for page in raw.pages:
+        blocks = [block.text.strip() for block in page.blocks if block.text.strip()]
+        if blocks:
+            page_texts.append("\n\n".join(blocks))
+    return "\n\n".join(page_texts)
 
 
 # ---------------------------------------------------------------------------
@@ -671,28 +1084,164 @@ def should_join_lines(
 # ---------------------------------------------------------------------------
 
 
+def _detect_page_gutters(
+    y_bands: list[list[dict[str, Any]]],
+    page_width: float = 612.0,
+) -> list[tuple[float, float]]:
+    """Detect stable vertical column gutters across Y-coordinate bands on a page."""
+    candidate_min_gap = max(24.0, page_width * 0.05)
+    gap_clusters: list[list[tuple[float, float]]] = []
+
+    for band in y_bands:
+        sorted_words = sorted(band, key=lambda w: float(w.get("x0", 0)))
+        if len(sorted_words) < 2:
+            continue
+
+        for i in range(len(sorted_words) - 1):
+            left_word = sorted_words[i]
+            right_word = sorted_words[i + 1]
+            x1_left = float(left_word.get("x1", left_word.get("x0", 0)))
+            x0_right = float(right_word.get("x0", 0))
+            gap = x0_right - x1_left
+
+            if gap < candidate_min_gap:
+                continue
+
+            # Verify left content width
+            left_words = sorted_words[: i + 1]
+            left_width = float(left_words[-1].get("x1", 0)) - float(
+                left_words[0].get("x0", 0)
+            )
+            if left_width < 20.0:
+                continue
+
+            # Verify right content width
+            right_words = sorted_words[i + 1 :]
+            right_width = float(right_words[-1].get("x1", 0)) - float(
+                right_words[0].get("x0", 0)
+            )
+            if right_width < 20.0:
+                continue
+
+            gap_center = (x1_left + x0_right) / 2.0
+            matched = False
+            for cluster in gap_clusters:
+                # Two gap intervals match if they overlap horizontally or centers are within 40pt
+                if any(
+                    max(x1_left, g[0]) < min(x0_right, g[1])
+                    or abs(gap_center - (g[0] + g[1]) / 2.0) <= 40.0
+                    for g in cluster
+                ):
+                    cluster.append((x1_left, x0_right))
+                    matched = True
+                    break
+            if not matched:
+                gap_clusters.append([(x1_left, x0_right)])
+
+    confirmed_gutters: list[tuple[float, float]] = []
+    min_bands = 3 if len(y_bands) >= 5 else min(3, max(2, len(y_bands)))
+    for cluster in gap_clusters:
+        if len(cluster) >= min_bands:
+            gutter_left = min(g[0] for g in cluster)
+            gutter_right = max(g[1] for g in cluster)
+            confirmed_gutters.append((gutter_left, gutter_right))
+
+    return confirmed_gutters
+
+
 def _group_words_into_lines(
     words: list[dict[str, Any]],
     tolerance: float = 2.0,
+    page_width: float = 612.0,
 ) -> list[list[dict[str, Any]]]:
-    """Group extracted words whose top coordinates describe one visual line."""
-    groups: list[list[dict[str, Any]]] = []
-    group_tops: list[float] = []
+    """Group extracted words whose top coordinates describe one visual line,
+    splitting across stable vertical column gutters.
+    """
+    if not words:
+        return []
+
+    y_bands: list[list[dict[str, Any]]] = []
+    band_tops: list[float] = []
     for word in sorted(
         words, key=lambda item: (float(item.get("top", 0)), float(item.get("x0", 0)))
     ):
         top = float(word.get("top", 0))
-        for index, group_top in enumerate(group_tops):
-            if abs(top - group_top) <= tolerance:
-                groups[index].append(word)
-                group_tops[index] = sum(
-                    float(w.get("top", 0)) for w in groups[index]
-                ) / float(len(groups[index]))
+        for index, band_top in enumerate(band_tops):
+            if abs(top - band_top) <= tolerance:
+                y_bands[index].append(word)
+                band_tops[index] = sum(
+                    float(w.get("top", 0)) for w in y_bands[index]
+                ) / float(len(y_bands[index]))
                 break
         else:
-            groups.append([word])
-            group_tops.append(top)
-    return groups
+            y_bands.append([word])
+            band_tops.append(top)
+
+    gutters = _detect_page_gutters(y_bands, page_width=page_width)
+    if not gutters:
+        return y_bands
+
+    final_groups: list[list[dict[str, Any]]] = []
+    for band in y_bands:
+        sorted_words = sorted(band, key=lambda item: float(item.get("x0", 0)))
+
+        band_x0 = float(sorted_words[0].get("x0", 0))
+        band_x1 = float(sorted_words[-1].get("x1", band_x0))
+        has_spanning_word = False
+        for w in sorted_words:
+            wx0 = float(w.get("x0", 0))
+            wx1 = float(w.get("x1", wx0))
+            for g_left, g_right in gutters:
+                g_center = (g_left + g_right) / 2.0
+                if wx0 < g_center < wx1:
+                    has_spanning_word = True
+                    break
+            if has_spanning_word:
+                break
+
+        if not has_spanning_word and len(sorted_words) > 1:
+            for g_left, g_right in gutters:
+                g_center = (g_left + g_right) / 2.0
+                if band_x0 <= g_left and band_x1 >= g_right:
+                    gaps_over_center = [
+                        float(sorted_words[i + 1].get("x0", 0))
+                        - float(sorted_words[i].get("x1", 0))
+                        for i in range(len(sorted_words) - 1)
+                        if float(sorted_words[i].get("x1", 0))
+                        <= g_center
+                        <= float(sorted_words[i + 1].get("x0", 0))
+                    ]
+                    if gaps_over_center and min(gaps_over_center) < max(
+                        24.0, page_width * 0.05
+                    ):
+                        has_spanning_word = True
+                        break
+
+        if has_spanning_word:
+            final_groups.append(sorted_words)
+            continue
+
+        current_group: list[dict[str, Any]] = []
+        for w in sorted_words:
+            wx0 = float(w.get("x0", 0))
+            if current_group:
+                prev_x1 = float(
+                    current_group[-1].get("x1", current_group[-1].get("x0", 0))
+                )
+                crosses_gutter = any(
+                    prev_x1 <= (g_left + g_right) / 2.0 <= wx0
+                    or max(prev_x1, g_left) < min(wx0, g_right)
+                    for g_left, g_right in gutters
+                )
+                if crosses_gutter:
+                    final_groups.append(current_group)
+                    current_group = [w]
+                    continue
+            current_group.append(w)
+        if current_group:
+            final_groups.append(current_group)
+
+    return final_groups
 
 
 def _mark_layout_artifacts(lines: list[ExtractedLine]) -> None:
@@ -746,7 +1295,7 @@ def _extract_words_to_lines(
                 or []
             )
 
-            for group in _group_words_into_lines(words):
+            for group in _group_words_into_lines(words, page_width=float(page.width)):
                 group_words = sorted(group, key=lambda word: word.get("x0", 0))
                 text_parts = [str(word.get("text", "")) for word in group_words]
                 full_text = " ".join(text_parts)
@@ -892,10 +1441,11 @@ def extract_text_from_layout(lines: list[ExtractedLine]) -> str:
 
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
-    """Legacy plain-text extraction (kept for backward compatibility).
-
-    Uses the new layout-aware pipeline internally, then returns
-    a plain text string for compatibility with existing callers.
-    """
-    lines = layout_extract_pdf(file_bytes)
-    return extract_text_from_layout(lines)
+    """Extract clean plain text from PDF using the unified raw block extraction router."""
+    raw = extract_cv_content_blocks(file_bytes)
+    page_texts: list[str] = []
+    for page in raw.pages:
+        page_text = "\n\n".join(b.text.strip() for b in page.blocks if b.text.strip())
+        if page_text:
+            page_texts.append(page_text)
+    return "\n\n".join(page_texts)

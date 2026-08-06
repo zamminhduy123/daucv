@@ -40,6 +40,60 @@ def test_analyze_cv_rejects_empty_body(client: TestClient) -> None:
     assert resp.status_code == 422
 
 
+def test_extract_pdf_reuses_canonical_blocks_and_preserves_metadata(
+    client: TestClient,
+) -> None:
+    from app.models.cv_raw_extraction import (
+        ExtractionMethod,
+        RawBlock,
+        RawExtraction,
+        RawPage,
+    )
+
+    raw = RawExtraction(
+        method=ExtractionMethod.NATIVE_BLOCKS,
+        pages=[
+            RawPage(
+                page=2,
+                width=595.0,
+                height=842.0,
+                blocks=[
+                    RawBlock(
+                        block_id="p2-b1",
+                        page=2,
+                        text="EDUCATION",
+                        bbox=(72.0, 40.0, 180.0, 52.0),
+                        extraction_method=ExtractionMethod.NATIVE_BLOCKS,
+                    ),
+                    RawBlock(
+                        block_id="p2-b2",
+                        page=2,
+                        text="Soonchunhyang University",
+                        bbox=(72.0, 80.0, 240.0, 96.0),
+                        extraction_method=ExtractionMethod.NATIVE_BLOCKS,
+                    ),
+                ],
+            )
+        ],
+    )
+    with patch(
+        "app.api.routes.user.extract_cv_content_blocks",
+        return_value=raw,
+    ) as extract_blocks:
+        response = client.post(
+            "/api/extract-pdf",
+            files={"file": ("cv.pdf", b"%PDF-1.7", "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["text"] == "EDUCATION\n\nSoonchunhyang University"
+    assert response.json()["layout_data"][0]["page"] == 1
+    assert response.json()["layout_data"][0]["page_height"] == 842
+    assert response.json()["layout_data"][0]["source_line_id"] == "p2-b1"
+    assert response.json()["layout_data"][1]["source_line_id"] == "p2-b2"
+    extract_blocks.assert_called_once_with(b"%PDF-1.7")
+
+
 def test_tailored_cv_create_requires_analysis_entitlement(client: TestClient) -> None:
     resp = client.post(
         "/api/user/tailored-cvs",

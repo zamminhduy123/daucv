@@ -26,6 +26,7 @@ pycparser==3.0
 pydantic==2.13.3
 pydantic_core==2.46.3
 pypdfium2==5.7.1
+PyMuPDF==1.28.0
 python-dotenv==1.2.2
 python-multipart==0.0.26
 PyYAML==6.0.3
