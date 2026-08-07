@@ -172,14 +172,14 @@ export default function AnalyzerPage() {
               <Briefcase className="w-5 h-5" />
               Tìm việc phù hợp
             </button>
-            <button
+            {/* <button
               onClick={handleCreateTailoredCV}
               disabled={isSavingTailoredCV}
               className="px-8 py-4 bg-[var(--primary)] text-white rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
             >
               <Sparkles className="w-5 h-5" />
               {isSavingTailoredCV ? "Đang tạo CV..." : "Tạo CV đã tối ưu"}
-            </button>
+            </button> */}
             <button
               onClick={() => router.push("/app/setup")}
               className="px-8 py-4 bg-white text-[#2F4F4F] rounded-2xl font-semibold hover:scale-105 transition-all border-2 border-[var(--primary)]/20"
