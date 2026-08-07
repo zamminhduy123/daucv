@@ -17,7 +17,7 @@ const containerVariants = {
 export default function HeroSection() {
   return (
     <section
-      className="relative overflow-hidden pt-20 pb-24 lg:pt-16 lg:pb-24 bg-none lg:bg-[url('/bg2.webp')] bg-[50%_auto] bg-right bg-no-repeat"
+      className="relative overflow-hidden pt-20 pb-24 lg:pt-16 lg:pb-24 bg-none lg:bg-[url('/bg2.webp')] bg-[49%_auto] bg-right bg-no-repeat"
     >
       <motion.div
         className="max-w-7xl mx-auto px-6 relative z-10 flex flex-col items-center lg:items-start"
@@ -42,13 +42,13 @@ export default function HeroSection() {
           {/* H1 */}
           <motion.h1
             className="font-heading font-bold leading-tight text-[#2F4F4F] mb-4 lg:mb-6"
-            style={{ letterSpacing: "-0.03em", fontSize: "clamp(2.5rem, 6vw, 4.5rem)" }}
+            style={{ letterSpacing: "-0.03em", fontSize: "clamp(2.5rem, 5.5vw, 4.2rem)" }}
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
-            Nâng cấp CV.<br />
-            <span className="text-(--primary)">Chốt đơn sự nghiệp.</span>
+            Sửa CV chuẩn ATS.<br />
+            <span className="text-(--primary)">Luyện phỏng vấn AI theo JD.</span>
           </motion.h1>
 
           {/* Subtitle */}

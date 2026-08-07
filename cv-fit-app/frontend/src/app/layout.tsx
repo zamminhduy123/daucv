@@ -22,14 +22,23 @@ export const metadata: Metadata = {
       "Phân tích CV theo Job Description, kiểm tra độ phù hợp, gợi ý sửa CV chuẩn ATS và luyện phỏng vấn 1-1 bằng AI.",
     url: SITE_URL,
     siteName: "Đậu",
-    type: "website",
     locale: "vi_VN",
+    type: "website",
+    images: [
+      {
+        url: `${SITE_URL}/og-image.jpg`,
+        width: 1200,
+        height: 630,
+        alt: "Đậu - AI sửa CV chuẩn ATS & luyện phỏng vấn theo JD",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Đậu - AI sửa CV chuẩn ATS & luyện phỏng vấn theo JD",
     description:
       "Tối ưu CV theo Job Description, kiểm tra độ phù hợp và luyện phỏng vấn 1-1 bằng AI.",
+    images: [`${SITE_URL}/og-image.jpg`],
   },
 };
 

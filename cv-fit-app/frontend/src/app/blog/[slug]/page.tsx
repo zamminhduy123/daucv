@@ -186,12 +186,41 @@ export default async function BlogPostPage(props: { params: Params }) {
       }
     };
 
+    const breadcrumbJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Trang chủ",
+          "item": SITE_URL,
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Blog",
+          "item": `${SITE_URL}/blog`,
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": post.title,
+          "item": `${SITE_URL}/blog/${post.slug}`,
+        },
+      ],
+    };
+
     return (
       <div className="min-h-screen bg-[#F9F9F2]">
         {/* Structured Data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
         />
         <LandingNavbar />
         
