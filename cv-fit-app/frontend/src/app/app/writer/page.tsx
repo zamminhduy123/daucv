@@ -33,24 +33,31 @@ const WRITING_TYPES = [
 
 const TONES = ["Chuyên nghiệp", "Ngắn gọn", "Tự tin"];
 
+const LANGUAGES = [
+  { id: "vi", label: "Tiếng Việt", flag: "🇻🇳" },
+  { id: "en", label: "English", flag: "🇬🇧" },
+  { id: "auto", label: "Tự động", flag: "🌐" },
+] as const;
+
 export default function WriterPage() {
   const router = useRouter();
   const { cvText, jdText, hasData, isLoaded, cache, setCachedWriter } = useWorkspace();
 
   const [writingType, setWritingType] = useState("email");
   const [tone, setTone] = useState("Chuyên nghiệp");
+  const [language, setLanguage] = useState<string>("vi");
   const [customPrompt, setCustomPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
   // Derive cache key from current settings
-  const cacheKey = `${writingType}:${tone}`;
+  const cacheKey = `${writingType}:${tone}:${language}`;
   const [result, setResult] = useState<WriterResult | null>(
     cache.writerResults[cacheKey] ?? null
   );
 
-  // Reload cached result when type/tone changes
+  // Reload cached result when type/tone/language changes
   useEffect(() => {
     const cached = cache.writerResults[cacheKey];
     setResult(cached ?? null);
@@ -72,6 +79,7 @@ export default function WriterPage() {
         writing_type: writingType,
         tone,
         custom_prompt: writingType === "custom" ? customPrompt : undefined,
+        language,
       });
       setResult(data);
       setCachedWriter(cacheKey, data); // Save to cache
@@ -148,6 +156,26 @@ export default function WriterPage() {
             </div>
           )}
 
+          {/* Language selector */}
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Ngôn ngữ đầu ra</p>
+          <div className="grid grid-cols-3 gap-2 mb-6">
+            {LANGUAGES.map(({ id, label, flag }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setLanguage(id)}
+                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border cursor-pointer ${
+                  language === id
+                    ? "bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm"
+                    : "border-gray-100 bg-gray-50 text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                <span>{flag}</span>
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+
           {/* Tone selector */}
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Giọng văn</p>
           <select
@@ -211,7 +239,7 @@ export default function WriterPage() {
         )}
 
         {result && !isGenerating && (
-          <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100 relative">
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 relative">
             {/* Subject line */}
             {result.subject_line && (
               <div className="mb-4">

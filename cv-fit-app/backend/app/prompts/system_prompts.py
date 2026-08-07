@@ -315,6 +315,7 @@ def build_writer_prompt(
     tone: str,
     jd_text: str | None,
     custom_prompt: str | None,
+    language: str | None = "auto",
 ) -> str:
     type_desc = WRITER_TYPE_LABELS.get(writing_type, writing_type)
 
@@ -334,11 +335,27 @@ def build_writer_prompt(
         )
     )
 
+    lang_lower = (language or "auto").lower()
+    if lang_lower in ("vi", "vn"):
+        language_rule = (
+            "QUY TẮC BẮT BUỘC VỀ NGÔN NGỮ:\n"
+            "- TẤT CẢ nội dung trả về (subject_line, content, tips) PHẢI ĐƯỢC VIẾT BẰNG TIẾNG VIỆT.\n\n"
+        )
+    elif lang_lower == "en":
+        language_rule = (
+            "MANDATORY LANGUAGE RULE:\n"
+            "- ALL generated content (subject_line, content, tips) MUST BE WRITTEN IN ENGLISH.\n\n"
+        )
+    else:
+        language_rule = (
+            "QUY TẮC BẮT BUỘC VỀ NGÔN NGỮ:\n"
+            "- BƯỚC 1: Xác định ngôn ngữ chính của CV ứng viên (Tiếng Anh hoặc Tiếng Việt).\n"
+            "- BƯỚC 2: TẤT CẢ nội dung trả về PHẢI viết bằng CHÍNH ngôn ngữ của CV đó.\n\n"
+        )
+
     prompt = (
-        "Bạn là một chuyên gia Tư vấn Nghề nghiệp (Career Coach) tại Việt Nam.\n\n"
-        "QUY TẮC BẮT BUỘC VỀ NGÔN NGỮ:\n"
-        "- BƯỚC 1: Xác định ngôn ngữ chính của CV ứng viên (Tiếng Anh hoặc Tiếng Việt).\n"
-        "- BƯỚC 2: TẤT CẢ nội dung trả về PHẢI viết bằng CHÍNH ngôn ngữ của CV đó.\n\n"
+        "Bạn là một chuyên gia Tư vấn Nghề nghiệp (Career Coach).\n\n"
+        f"{language_rule}"
         f"Nhiệm vụ: Viết một {type_desc} với giọng văn '{tone}' dựa trên CV {jd_instruction}"
         "- Giữ ngắn gọn, chuyên nghiệp, và phù hợp với kênh giao tiếp.\n"
     )
@@ -395,4 +412,42 @@ def build_job_parser_prompt() -> str:
         "   - Examples for an AI candidate: ['AI Engineer', 'Machine Learning', 'Python Developer', 'Data Scientist'].\n"
         "   - Examples for a Frontend candidate: ['Frontend Developer', 'ReactJS Developer', 'Web Developer'].\n"
         "   - Keep queries simple, standard, and plain text. Do not use quotes or boolean operators.\n"
+    )
+
+
+# ---------------------------------------------------------------------------
+# CV Content Extraction & Block Parsing
+# ---------------------------------------------------------------------------
+
+
+def format_raw_extraction_blocks(raw_extraction: any) -> str:
+    """Format RawExtraction blocks into clean text with explicit block markers."""
+    parts: list[str] = []
+    for page in raw_extraction.pages:
+        parts.append(f"=== PAGE {page.page} ===")
+        for block in page.blocks:
+            parts.append(f"[BLOCK {block.block_id}]\n{block.text}\n")
+    return "\n".join(parts)
+
+
+def build_block_parsing_prompt() -> str:
+    """Build system prompt for LLM semantic parsing from raw extraction blocks."""
+    return (
+        "You are an expert resume parsing engine.\n"
+        "You are provided raw text blocks extracted from a candidate's CV.\n"
+        "The blocks may not be in perfect visual reading order.\n\n"
+        "Your task:\n"
+        "1. Extract all candidate information into structured CV JSON.\n"
+        "2. Use section headings and semantic meaning to associate content with sections.\n"
+        '3. Include source_block_ids: ["block_id"] for every field and section entry.\n'
+        "4. FILTER OUT TEMPLATE PLACEHOLDERS: Do NOT extract generic template guidance text or placeholder instructions "
+        "(e.g., 'Your Achievement', 'Describe what you did and the impact it had.', 'Your Strength', 'Explain how it benefits your work.', "
+        "'Company Description', 'Powered by Enhancv') as actual candidate sections, achievements, or bullets. "
+        "Route all such boilerplate blocks to 'unmapped_references' with reason 'placeholder_content'.\n"
+        "5. Return an array 'unmapped_references' for blocks containing unknown/decorative/placeholder/ambiguous content:\n"
+        "   - block_id: exact raw block ID\n"
+        "   - reason: one of ['unknown_section', 'decorative_content', 'placeholder_content', 'ambiguous_content']\n"
+        "6. Do NOT invent or fabricate block IDs. Only reference block IDs present in the input.\n"
+        "7. Do NOT omit genuine candidate information merely because it appears in an unusual block order.\n"
+        "8. Output ONLY valid JSON matching the schema."
     )

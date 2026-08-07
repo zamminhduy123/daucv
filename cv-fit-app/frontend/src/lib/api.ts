@@ -245,6 +245,7 @@ export interface WriterPayload {
   writing_type: string;
   tone: string;
   custom_prompt?: string;
+  language?: string;
 }
 
 export async function generateWritingAPI(payload: WriterPayload) {

@@ -689,6 +689,7 @@ async def writer_generate(req: WriterRequest, background_tasks: BackgroundTasks)
         tone=req.tone,
         jd_text=req.jd_text,
         custom_prompt=req.custom_prompt,
+        language=req.language,
     )
 
     if req.jd_text.strip():

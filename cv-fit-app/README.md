@@ -42,7 +42,7 @@ cp .env.example .env
 uvicorn main:app --reload --port 8000
 ```
 
-Backend will be live at **http://localhost:8000**
+Backend will be live at **http://127.0.0.1:8000**
 
 ### Docker
 
@@ -55,12 +55,12 @@ cp backend/.env.example backend/.env
 docker compose up --build backend
 ```
 
-The API will be available at **http://localhost:8000**.
+The API will be available at **http://127.0.0.1:8000**.
 
 Useful checks:
 
 ```bash
-curl http://localhost:8000/
+curl http://127.0.0.1:8000/
 docker compose ps
 docker compose logs -f backend
 ```
@@ -77,7 +77,7 @@ npm install
 npm run dev
 ```
 
-Frontend will be live at **http://localhost:3000**
+Frontend will be live at **http://127.0.0.1:3000**
 
 ## API Endpoints
 

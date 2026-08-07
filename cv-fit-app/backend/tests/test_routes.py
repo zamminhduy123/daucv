@@ -4,6 +4,8 @@ No LLM calls — these only test that routes exist, accept valid input,
 and reject invalid input with 422 (Pydantic validation errors).
 """
 
+import asyncio
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -26,7 +28,9 @@ POST_ROUTES = [
 
 
 @pytest.mark.parametrize(
-    "path", POST_ROUTES, ids=lambda p: p.replace("/", "_").strip("_")
+    "path",
+    POST_ROUTES,
+    ids=lambda p: p.replace("/", "_").strip("_"),
 )
 def test_post_route_is_registered(client: TestClient, path: str) -> None:
     """Each POST route should exist (not 404). Hit with GET; we only care about route presence."""
@@ -106,6 +110,29 @@ def test_tailored_cv_create_requires_analysis_entitlement(client: TestClient) ->
     assert resp.status_code == 422
 
 
+def test_tailored_cv_create_reports_required_persistence_migration(
+    client: TestClient,
+) -> None:
+    from app.services.tailored_cv_service import CVPersistenceMigrationRequiredError
+
+    with patch(
+        "app.services.tailored_cv_service.create_version",
+        new=AsyncMock(side_effect=CVPersistenceMigrationRequiredError()),
+    ):
+        response = client.post(
+            "/api/user/tailored-cvs",
+            json={
+                "tailored_cv": {"name": "Duy", "sections": []},
+                "source_cv_text": "Duy\nduy@example.com",
+                "jd_text": "Backend Engineer",
+                "tailoring_entitlement": "x" * 65,
+            },
+        )
+
+    assert response.status_code == 503
+    assert "nâng cấp" in response.json()["detail"]
+
+
 def test_tailored_cv_routes_validate_version_id(client: TestClient) -> None:
     patch_response = client.patch(
         "/api/user/tailored-cvs/not-a-uuid",
@@ -142,12 +169,74 @@ def test_analyze_cv_422_with_whitespace_only(client: TestClient) -> None:
     assert resp.status_code == 422
 
 
+def test_analyze_cv_times_out_and_refunds_reserved_credit(
+    client: TestClient,
+) -> None:
+    async def slow_analysis(**_: object) -> None:
+        await asyncio.sleep(1)
+
+    with (
+        patch(
+            "app.api.routes.user.CV_ANALYSIS_REQUEST_TIMEOUT",
+            0.01,
+        ),
+        patch(
+            "app.api.routes.user.cv_analysis_service.analyze_cv",
+            side_effect=slow_analysis,
+        ),
+        patch(
+            "app.api.routes.user._refund_reserved_credit",
+            new_callable=AsyncMock,
+        ) as refund,
+    ):
+        response = client.post(
+            "/api/analyze-cv",
+            json={"cv_text": "Backend engineer", "jd_text": "Backend role"},
+        )
+
+    assert response.status_code == 504
+    assert response.json()["detail"] == "CV analysis timed out. Please try again."
+    refund.assert_awaited_once()
+
+
 def test_writer_rejects_empty_cv(client: TestClient) -> None:
     resp = client.post(
         "/api/writer/generate",
-        json={"cv_text": "", "writing_type": "email", "tone": "Chuyên nghiệp"},
+        json={
+            "cv_text": "",
+            "writing_type": "email",
+            "tone": "Chuyên nghiệp",
+            "language": "vi",
+        },
     )
     assert resp.status_code == 422
+
+
+def test_writer_accepts_language_options(client: TestClient, monkeypatch: Any) -> None:
+    from app.models.responses import WriterResponse
+
+    async def mock_call_llm(*args: Any, **kwargs: Any) -> WriterResponse:
+        return WriterResponse(
+            subject_line="Subject",
+            content="Content",
+            tips=["Tip 1"],
+        )
+
+    monkeypatch.setattr("app.api.routes.user.call_llm_with_fallback", mock_call_llm)
+
+    for lang in ["vi", "en", "auto"]:
+        resp = client.post(
+            "/api/writer/generate",
+            json={
+                "cv_text": "Software Engineer CV",
+                "writing_type": "email",
+                "tone": "Chuyên nghiệp",
+                "language": lang,
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["content"] == "Content"
 
 
 def test_interview_chat_accepts_empty_history_first_turn(client: TestClient) -> None:
@@ -248,7 +337,8 @@ def test_deactivate_user_cv(client: TestClient) -> None:
 
 
 @patch(
-    "app.api.routes.user.user_cv_service.submit_user_feedback", new_callable=AsyncMock
+    "app.api.routes.user.user_cv_service.submit_user_feedback",
+    new_callable=AsyncMock,
 )
 def test_submit_feedback_route(mock_submit: AsyncMock, client: TestClient) -> None:
     mock_submit.return_value = (5, 15)  # 5 credits rewarded, new balance 15
@@ -271,7 +361,8 @@ def test_list_feedbacks_route(client: TestClient) -> None:
 
 
 @patch(
-    "app.api.routes.tailored_cv.tailored_cv_service.get_version", new_callable=AsyncMock
+    "app.api.routes.tailored_cv.tailored_cv_service.get_version",
+    new_callable=AsyncMock,
 )
 def test_get_tailored_cv_pdf_ownership(mock_get: AsyncMock, client: TestClient) -> None:
     from app.services.tailored_cv_service import TailoredCVNotFoundError
@@ -284,10 +375,13 @@ def test_get_tailored_cv_pdf_ownership(mock_get: AsyncMock, client: TestClient) 
 
 @patch("app.api.routes.tailored_cv.generate_tailored_cv_pdf", new_callable=AsyncMock)
 @patch(
-    "app.api.routes.tailored_cv.tailored_cv_service.get_version", new_callable=AsyncMock
+    "app.api.routes.tailored_cv.tailored_cv_service.get_version",
+    new_callable=AsyncMock,
 )
 def test_get_tailored_cv_pdf_downloads_pdf(
-    mock_get: AsyncMock, mock_generate: AsyncMock, client: TestClient
+    mock_get: AsyncMock,
+    mock_generate: AsyncMock,
+    client: TestClient,
 ) -> None:
     from types import SimpleNamespace
     from uuid import UUID
@@ -317,7 +411,8 @@ def test_get_tailored_cv_pdf_downloads_pdf(
     new_callable=AsyncMock,
 )
 def test_update_tailored_cv_design_ownership(
-    mock_update: AsyncMock, client: TestClient
+    mock_update: AsyncMock,
+    client: TestClient,
 ) -> None:
     from app.services.tailored_cv_service import TailoredCVNotFoundError
 
@@ -335,7 +430,8 @@ def test_update_tailored_cv_design_ownership(
     new_callable=AsyncMock,
 )
 def test_delete_tailored_cv_version_ownership(
-    mock_delete: AsyncMock, client: TestClient
+    mock_delete: AsyncMock,
+    client: TestClient,
 ) -> None:
     from app.services.tailored_cv_service import TailoredCVNotFoundError
 

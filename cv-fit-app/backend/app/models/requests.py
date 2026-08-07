@@ -77,6 +77,7 @@ class WriterRequest(BaseModel):
     tone: str  # e.g. "Chuyên nghiệp", "Ngắn gọn", "Tự tin"
     jd_text: str | None = ""
     custom_prompt: str | None = None
+    language: str | None = "auto"
 
 
 # ---------------------------------------------------------------------------
