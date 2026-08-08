@@ -1,5 +1,5 @@
 import { getSession } from "next-auth/react";
-import type { CVAnalysisEnvelope, CVAnalysisResponse, CVDesign, LayoutLine, SuggestedEdit, TailoredCV, TailoredCVVersion } from "@/types";
+import type { FileInfo, CVAnalysisEnvelope, CVAnalysisResponse, CVDesign, LayoutLine, SuggestedEdit, TailoredCV, TailoredCVVersion } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const TTS_API_URL = process.env.NEXT_PUBLIC_TTS_SERVICE_URL || "http://127.0.0.1:8000";
@@ -27,6 +27,7 @@ export async function pingAPI() {
 export interface PdfExtractResult {
   text: string;
   layout_data: LayoutLine[];
+  file_info?: FileInfo;
   error?: string;
 }
 

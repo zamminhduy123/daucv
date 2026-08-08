@@ -7,6 +7,19 @@ import type {
 // Re-export for consumers
 export type LayoutLine = _LayoutLine;
 
+export interface FileInfo {
+  id: string;
+  user_id: string;
+  bucket: string;
+  object_path: string;
+  original_filename: string;
+  content_type: string;
+  url: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+
 export type {
   CVSectionType,
   CVBlockMetadata,
@@ -76,9 +89,9 @@ export interface TailoredCVVersion {
   source_document_v2?: _CVDocumentV2 | null;
   source_pdf_reference?: string | null;
   selected_design: CVDesign;
-  // Schema versioning metadata
   document_schema_version?: number;
   reconstruction_version?: number;
+  reconstruction_status?: "current" | "outdated";
   source_hash?: string | null;
   jd_hash?: string | null;
   reconstruction_warnings?: string[];

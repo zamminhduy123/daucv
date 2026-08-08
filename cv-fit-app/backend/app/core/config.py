@@ -48,8 +48,15 @@ DATABASE_URL = os.getenv(
     "postgresql://postgres:postgres@127.0.0.1:5432/postgres",
 )
 
+# Supabase Storage Configuration
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""))
+SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "cv")
+
+
 # Enforce NEXTAUTH_SECRET
 NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET")
+
 if not NEXTAUTH_SECRET:
     raise ValueError("CRITICAL: NEXTAUTH_SECRET is required in all environments.")
 

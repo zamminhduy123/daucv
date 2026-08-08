@@ -20,13 +20,21 @@ from fastapi import (
     Depends,
     File,
     Form,
+    Header,
     HTTPException,
     UploadFile,
 )
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.core.config import CV_ANALYSIS_REQUEST_TIMEOUT, PDF_MAX_SIZE
-from app.dependencies import get_current_user, refund_credits, reserve_credits
+from app.dependencies import (
+    get_current_user,
+    get_file_service,
+    refund_credits,
+    reserve_credits,
+)
+from app.services.files import FileService
+
 from app.models.domain import MatchResult
 from app.models.requests import (
     AnalyzeCVRequest,
@@ -198,25 +206,53 @@ async def upload_and_match(
 
 
 @router.post("/extract-pdf")
-async def extract_pdf(file: UploadFile = File(...)):
+async def extract_pdf(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+    file_service: FileService = Depends(get_file_service),
+):
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
-    if file.size is not None and file.size > PDF_MAX_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=f"PDF too large. Maximum size is {PDF_MAX_SIZE // (1024 * 1024)} MB.",
-        )
     try:
         file_bytes = await file.read()
         raw = extract_cv_content_blocks(file_bytes)
         lines = raw_extraction_to_layout_lines(raw)
         text = raw_extraction_to_text(raw)
-        return {
+
+        # Upload to storage bucket only if file size is within PDF_MAX_SIZE limit
+        file_info = None
+        file_size = len(file_bytes)
+        if file_size <= PDF_MAX_SIZE:
+            user_id = str(user["id"])
+            try:
+                file_info = await file_service.upload_file(
+                    user_id=user_id,
+                    filename=file.filename or "uploaded_cv.pdf",
+                    data=file_bytes,
+                    content_type="application/pdf",
+                    bucket="cv",
+                )
+            except Exception as upload_err:
+                _logger.warning(
+                    f"File upload to bucket skipped/failed during extract-pdf: {upload_err}"
+                )
+        else:
+            _logger.info(
+                f"PDF size ({file_size} bytes) exceeds upload limit ({PDF_MAX_SIZE} bytes). Skipped bucket upload."
+            )
+
+        res = {
             "text": text,
             "layout_data": [asdict(line) for line in lines],
         }
+        if file_info:
+            res["file_info"] = file_info
+        return res
     except Exception as e:
         return {"error": str(e)}
+
+
+
 
 
 # ---------------------------------------------------------------------------

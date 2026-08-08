@@ -9,6 +9,7 @@ frontend/.playwright-cli/
 /backend/run_tests.sh
 /backend/tests/_run_phase*_tests.py
 /backend/tests/
+/backend/logs/
 # Prevent accidentally nesting a second copy of this application
 /cv-fit-app/
 cv-fit-app/dataset/

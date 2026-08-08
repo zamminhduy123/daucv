@@ -188,3 +188,18 @@ async def refund_credits(user_id, amount: int, tx_type: str, description: str) -
         tx_type=tx_type,
         description=description,
     )
+
+
+def get_storage():
+    """FastAPI dependency yielding current Storage implementation."""
+    from app.storage.supabase import SupabaseStorage
+
+    return SupabaseStorage()
+
+
+def get_file_service(storage=Depends(get_storage)):
+    """FastAPI dependency yielding FileService configured with active Storage."""
+    from app.services.files import FileService
+
+    return FileService(storage=storage)
+
