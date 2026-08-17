@@ -2,7 +2,9 @@ FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DEFAULT_TIMEOUT=100 \
+    PIP_RETRIES=5
 
 WORKDIR /app
 
@@ -12,7 +14,7 @@ RUN apt-get update \
 
 COPY requirements.txt .
 RUN pip install --upgrade pip \
-    && pip install -r requirements.txt
+    && pip install --default-timeout=100 --retries=5 -r requirements.txt
 RUN playwright install --with-deps chromium
 
 COPY . .
