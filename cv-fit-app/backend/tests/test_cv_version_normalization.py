@@ -98,7 +98,7 @@ class TestNormalizeVersionV1:
                 "education": "",
             },
             document_v2_data=_make_v2_doc(
-                identity={"name": "Stale V2 payload"}
+                identity={"name": "Stale V2 payload"},
             ).model_dump(),
             schema_version=1,
             **_defaults(),
@@ -134,7 +134,7 @@ class TestNormalizeVersionV1:
             tailored_cv_data={
                 "name": "Duy",
                 "sections": [
-                    {"title": "Work Experience", "items": ["Engineer at ABC"]}
+                    {"title": "Work Experience", "items": ["Engineer at ABC"]},
                 ],
                 "experience": [],
                 "skills": [],
@@ -159,7 +159,7 @@ class TestNormalizeVersionV1:
                         "company": "ABC",
                         "role": "Engineer",
                         "bullet_points": ["Built APIs"],
-                    }
+                    },
                 ],
                 "skills": ["React"],
                 "education": "Bachelor's in CS",

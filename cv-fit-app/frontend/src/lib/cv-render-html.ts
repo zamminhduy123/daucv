@@ -1,22 +1,22 @@
 import type { CVBlockType, CVDesign, CVDocumentV2, CVSection } from "@/types";
+import { identityContactLines } from "./cv-identity-compat.js";
 
 export function buildCVHtml(doc: CVDocumentV2, design: CVDesign, language: "vi" | "en") {
-  const contacts = (doc.identity.contact_lines || []).map(escapeHtml).join(" · ");
+  const contacts = identityContactLines(doc.identity).map(escapeHtml).join(" · ");
   const profile = language === "vi" ? "Tóm tắt" : "Profile";
-  const contact = language === "vi" ? "Liên hệ" : "Contact";
   const summary = doc.summary ? `<section><h2>${profile}</h2>${renderBlock(doc.summary)}</section>` : "";
   const sections = doc.sections.filter((section) => section.type !== "summary");
-  let header = `<header><h1>${escapeHtml(doc.identity.name || "CV")}</h1><h3>${escapeHtml(doc.identity.headline || "")}</h3><p class="contacts">${contacts}</p></header>`;
+  let header = `<header><h1>${escapeHtml(doc.identity.full_name || doc.identity.name || "CV")}</h1><h3>${escapeHtml(doc.identity.headline || "")}</h3><p class="contacts">${contacts}</p></header>`;
   let body = `${summary}${sections.map(renderSection).join("")}`;
 
   if (design === "modern_professional") {
     const sidebar = sections.filter((section) => section.type === "skills" || section.type === "education");
     const main = sections.filter((section) => section.type !== "skills" && section.type !== "education");
-    body = `<aside>${header}<section><h2>${contact}</h2><p class="item">${contacts}</p></section>${sidebar.map(renderSection).join("")}</aside><main>${summary}${main.map(renderSection).join("")}</main>`;
+    body = `<aside>${header}${sidebar.map(renderSection).join("")}</aside><main>${summary}${main.map(renderSection).join("")}</main>`;
     header = "";
   }
 
-  const warning = design === "compact_one_page" && compactRenderingWarnings(doc).length
+  const warning = design === "compact" && compactRenderingWarnings(doc).length
     ? ' data-render-warning="compact_template_content_exceeds_one_page"'
     : "";
   return `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style></head><body${warning}><article class="${design}">${header}${body}</article></body></html>`;
@@ -29,7 +29,7 @@ export function compactRenderingWarnings(doc: CVDocumentV2): string[] {
 }
 
 function estimatedRenderLines(doc: CVDocumentV2) {
-  let lines = 2 + (doc.identity.contact_lines || []).length;
+  let lines = 2 + identityContactLines(doc.identity).length;
   if (doc.summary) lines += 2 + wrappedLines(doc.summary.text);
   for (const section of doc.sections) {
     lines += 2;
@@ -59,6 +59,9 @@ function wrappedLines(text: string, width = 88) {
 }
 
 function renderSection(section: CVSection) {
+  if (section.type === "custom" && section.title?.toLowerCase().includes("unclassified")) {
+    return "";
+  }
   return `<section data-section-type="${section.type}"><h2>${escapeHtml(section.title)}</h2>${section.blocks.map(renderBlock).join("")}</section>`;
 }
 
@@ -100,7 +103,7 @@ function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function isPresent(value: string | undefined): value is string { return Boolean(value); }
+function isPresent(value: string | null | undefined): value is string { return Boolean(value); }
 
 const CSS = `
 @page { size: A4; margin: 0; } * { box-sizing: border-box; }

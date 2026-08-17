@@ -19,6 +19,7 @@ by section type.
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Sequence
 from hashlib import sha256
@@ -34,6 +35,8 @@ from app.models.cv_document_v2 import (
     CVUnknownBlock,
 )
 from app.services.layout_extraction import ExtractedLine
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Regex patterns shared across section parsers
@@ -413,10 +416,6 @@ def _parse_experience_entry(
     entry = CVEntryBlock(title="")
     i = start
     lines_consumed = 1
-
-    org_lines: list[str] = []
-    date: str | None = None
-    location: str | None = None
     bullets: list[str] = []
     subtitle_parts: list[str] = []
 
@@ -1247,6 +1246,10 @@ def _citation_continues(prev_text: str, next_text: str) -> bool:
     # Remove trailing whitespace
     stripped_prev = stripped_prev.rstrip()
 
+    # If next line starts with a bullet marker, it is a new citation
+    if stripped_next.startswith(("•", "-", "*", "–", "—", "▪", "▸")):
+        return False
+
     # If previous line doesn't end with terminal punctuation, continue
     if not stripped_prev.endswith((".", "!", "?")):
         return True
@@ -1843,12 +1846,28 @@ def reconstruct_blocks(
 
 def _line_matches_block(line_text: str, block: CVBlockType) -> bool:
     line_clean = _strip_bullet(line_text).casefold().strip()
+    line_clean = re.sub(r'[“”"\'`’]', "", line_clean)
     if not line_clean:
         return False
+
+    primary_values: list[str] = []
+    date_val = getattr(block, "date", None)
+    date_clean = _strip_bullet(date_val).casefold().strip() if date_val else ""
+
     for val in _block_text_values(block):
         val_clean = _strip_bullet(val).casefold().strip()
+        val_clean = re.sub(r'[“”"\'`’]', "", val_clean)
         if not val_clean:
             continue
+        if val_clean == date_clean and re.match(
+            r"^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{4}|present|current|\s|-|/)+$",
+            val_clean,
+        ):
+            continue
+        primary_values.append(val_clean)
+
+    # First match primary values (title, organization, bullets)
+    for val_clean in primary_values:
         if len(val_clean) >= 3 and len(line_clean) >= 3:
             if val_clean in line_clean or line_clean in val_clean:
                 return True
@@ -1865,7 +1884,35 @@ def _line_matches_block(line_text: str, block: CVBlockType) -> bool:
             )
             if overlap >= 0.6:
                 return True
-    return False
+
+    # Fallback: date matching ONLY if the line itself is a standalone date line
+    return bool(
+        date_clean
+        and re.match(
+            r"^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{4}|present|current|\s|-|/)+$",
+            line_clean,
+        )
+        and (date_clean in line_clean or line_clean in date_clean)
+    )
+
+
+def _line_exactly_matches_block(line_text: str, block: CVBlockType) -> bool:
+    """Return whether a physical line exactly matches one block value."""
+    line_clean = _strip_bullet(line_text).casefold().strip()
+    line_clean = re.sub(r'[“”"\'`’]', "", line_clean)
+    if not line_clean:
+        return False
+
+    return any(
+        line_clean
+        == re.sub(
+            r'[“”"\'`’]',
+            "",
+            _strip_bullet(value).casefold().strip(),
+        )
+        for value in _block_text_values(block)
+        if value
+    )
 
 
 def attach_reconstruction_metadata(
@@ -1885,26 +1932,95 @@ def attach_reconstruction_metadata(
     if claimed_line_ids is None:
         claimed_line_ids = set()
 
+    positional_one_to_one = len(blocks) == len(available_lines) and all(
+        line_id not in claimed_line_ids for line_id in all_source_ids
+    )
+
     for block_idx, block in enumerate(blocks):
         block_line_ids: list[str] = []
-        for index, line in enumerate(available_lines):
-            line_id = line.source_line_id or f"p{line.page + 1}-l{index + 1}"
-            if line_id not in claimed_line_ids and _line_matches_block(
-                _get_text(line), block
+        explicit_line_ids = list(dict.fromkeys(block.source_line_ids))
+        if explicit_line_ids:
+            available_ids = set(all_source_ids)
+            for line_id in explicit_line_ids:
+                if line_id in available_ids and line_id not in claimed_line_ids:
+                    block_line_ids.append(line_id)
+                    claimed_line_ids.add(line_id)
+        elif positional_one_to_one:
+            line_id = all_source_ids[block_idx]
+            block_line_ids = [line_id]
+            claimed_line_ids.add(line_id)
+        else:
+            unclaimed_lines = [
+                (index, line)
+                for index, line in enumerate(available_lines)
+                if (line.source_line_id or f"p{line.page + 1}-l{index + 1}")
+                not in claimed_line_ids
+            ]
+            exact_matches = [
+                (index, line)
+                for index, line in unclaimed_lines
+                if _line_exactly_matches_block(_get_text(line), block)
+            ]
+
+            # Paragraph, bullet and skill-group blocks represent one physical
+            # source line. Claiming every overlapping line here starves later
+            # blocks that share a term (for example, "Python" and
+            # "Python FastAPI"). Composite entries may legitimately own
+            # several exact lines, such as title, organization and bullets.
+            if exact_matches and isinstance(
+                block,
+                (CVParagraphBlock, CVBulletBlock, CVSkillGroupBlock),
             ):
-                block_line_ids.append(line_id)
-                claimed_line_ids.add(line_id)
+                exact_matches = exact_matches[:1]
+
+            candidate_lines = exact_matches or unclaimed_lines
+            later_blocks = blocks[block_idx + 1 :]
+            for index, line in candidate_lines:
+                line_id = line.source_line_id or f"p{line.page + 1}-l{index + 1}"
+                line_txt = _get_text(line).strip()
+                if not exact_matches and any(
+                    _line_exactly_matches_block(line_txt, later_block)
+                    for later_block in later_blocks
+                ):
+                    continue
+                if line_id not in claimed_line_ids and _line_matches_block(
+                    line_txt, block
+                ):
+                    block_line_ids.append(line_id)
+                    claimed_line_ids.add(line_id)
+                    # For single-item block section types (like publications/certifications), stop after 1 line match
+                    if section_type in (
+                        "publications",
+                        "certifications",
+                        "languages",
+                        "awards",
+                        "interests",
+                    ) and line_txt.startswith(("•", "-", "*", "–", "—", "▪", "▸")):
+                        break
 
         if block_line_ids:
             block.source_line_ids = block_line_ids
-        elif len(blocks) == 1:
-            block.source_line_ids = [
-                lid for lid in all_source_ids if lid not in claimed_line_ids
-            ]
-            claimed_line_ids.update(block.source_line_ids)
         else:
-            block.source_line_ids = []
-            block.reconstruction_warnings.append("missing_line_provenance")
+            unclaimed = [lid for lid in all_source_ids if lid not in claimed_line_ids]
+            if unclaimed:
+                # Assign the next available unclaimed line in this section
+                chosen_id = unclaimed[0]
+                block.source_line_ids = [chosen_id]
+                claimed_line_ids.add(chosen_id)
+            else:
+                block.source_line_ids = []
+                block.reconstruction_warnings.append("missing_line_provenance")
+                _logger.warning(
+                    "Provenance allocation failed: section_type=%s, "
+                    "block_index=%d, block_type=%s, section_lines=%d, "
+                    "claimed_line_ids=%d, explicit_line_ids=%d",
+                    section_type,
+                    block_idx,
+                    block.type,
+                    len(available_lines),
+                    len(claimed_line_ids),
+                    len(explicit_line_ids),
+                )
 
         stable_seed = "|".join(
             [

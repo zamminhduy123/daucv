@@ -70,6 +70,10 @@ class BaseAIProvider(ABC):
         self.timeout = timeout
         self.max_output_tokens = max_output_tokens
 
+    @property
+    def is_configured(self) -> bool:
+        return True
+
     @abstractmethod
     async def generate_structured(
         self,
@@ -95,8 +99,24 @@ class OpenAIProvider(BaseAIProvider):
         extra_body: dict[str, Any] | None = None,
     ):
         super().__init__(name, model, timeout, max_output_tokens)
-        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url, max_retries=1)
+        self.api_key = api_key
+        self.base_url = base_url
+        self.client = AsyncOpenAI(
+            api_key=api_key or "not-needed",
+            base_url=base_url,
+            max_retries=0,
+        )
         self.extra_body = extra_body
+
+    @property
+    def is_configured(self) -> bool:
+        if (
+            "127.0.0.1" in self.base_url
+            or "localhost" in self.base_url
+            or "0.0.0.0" in self.base_url
+        ):
+            return True
+        return bool(self.api_key and self.api_key.strip())
 
     async def generate_structured(
         self,
@@ -194,7 +214,12 @@ class GeminiNativeProvider(BaseAIProvider):
         timeout: float | None = None,
     ):
         super().__init__(name, model, timeout)
-        self.client = genai.Client(api_key=api_key)
+        self.api_key = api_key
+        self.client = genai.Client(api_key=api_key or "not-needed")
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.api_key and self.api_key.strip())
 
     async def generate_structured(
         self,
@@ -319,22 +344,34 @@ class QwenCustomProvider(BaseAIProvider):
             )
 
             timeout_val = self.timeout if self.timeout is not None else 300.0
-            res = await http_client.post(
-                self.endpoint,
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "temperature": temperature,
-                    "response_format": {
-                        "type": "json_object",
-                        "schema": response_model.model_json_schema(),
+            try:
+                res = await http_client.post(
+                    self.endpoint,
+                    # llama-server can leave a keep-alive response open after
+                    # finishing a large non-streaming JSON generation. Closing
+                    # this request's connection forces a complete response
+                    # boundary without affecting the next queued request.
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Connection": "close",
                     },
-                    "chat_template_kwargs": {"enable_thinking": False},
-                    "max_tokens": self.max_output_tokens,
-                },
-                timeout=timeout_val,
-            )
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "temperature": temperature,
+                        "response_format": {
+                            "type": "json_object",
+                            "schema": response_model.model_json_schema(),
+                        },
+                        "chat_template_kwargs": {"enable_thinking": False},
+                        "max_tokens": self.max_output_tokens,
+                    },
+                    timeout=timeout_val,
+                )
+            except httpx.TimeoutException as exc:
+                raise TimeoutError(
+                    f"Remote Qwen timed out after {timeout_val:g}s"
+                ) from exc
             res.raise_for_status()
             data = res.json()
             choice = data["choices"][0]

@@ -10,8 +10,8 @@ import tempfile
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from dataclasses import asdict
-from typing import Any
-from uuid import UUID
+from typing import Any, Literal
+from uuid import UUID, uuid4
 
 import edge_tts
 from fastapi import (
@@ -20,21 +20,24 @@ from fastapi import (
     Depends,
     File,
     Form,
-    Header,
     HTTPException,
     UploadFile,
 )
 from fastapi.responses import FileResponse, StreamingResponse
 
-from app.core.config import CV_ANALYSIS_REQUEST_TIMEOUT, PDF_MAX_SIZE
+from app.core.config import (
+    CV_ANALYSIS_REQUEST_TIMEOUT,
+    PDF_MAX_SIZE,
+    RAW_EXTRACTION_BUCKET,
+    SKIP_RAW_EXTRACTION_UPLOAD,
+)
 from app.dependencies import (
     get_current_user,
     get_file_service,
     refund_credits,
     reserve_credits,
 )
-from app.services.files import FileService
-
+from app.models.cv_raw_extraction import RAW_EXTRACTION_CONTENT_TYPE
 from app.models.domain import MatchResult
 from app.models.requests import (
     AnalyzeCVRequest,
@@ -64,6 +67,7 @@ from app.prompts.system_prompts import (
     build_writer_prompt,
 )
 from app.schemas.feedback import FeedbackResponse, FeedbackSubmit
+from app.schemas.tailored_cv import VerifyUserEditRequest, VerifyUserEditResponse
 from app.schemas.user import (
     CVListResponse,
     CVResponse,
@@ -72,12 +76,16 @@ from app.schemas.user import (
 )
 from app.services import cv_analysis_service, user_cv_service
 from app.services.ai_service import call_llm_with_fallback
+from app.services.cv_rewrite_service import verify_and_rebind_user_edit
+from app.services.files import FileService
 from app.services.layout_extraction import (
     extract_cv_content_blocks,
     raw_extraction_to_layout_lines,
     raw_extraction_to_text,
 )
-from app.services.tailored_cv_metadata import issue_tailoring_entitlement
+from app.services.tailored_cv_metadata import (
+    issue_tailoring_entitlement_v3,
+)
 from app.utils.helpers import extract_text_from_pdf
 
 _logger = logging.getLogger(__name__)
@@ -102,19 +110,31 @@ def _build_cv_analysis_envelope(
     cv_text: str,
     jd_text: str,
 ) -> CVAnalysisEnvelope:
-    entitlement = issue_tailoring_entitlement(to_uuid(user_id), cv_text, jd_text)
     if (
         scored.document_v2 is None
         or scored.source_document_v2 is None
         or scored.reconstruction_diagnostics is None
     ):
         raise RuntimeError("Typed CV reconstruction did not complete")
+    tailoring_diag = scored.tailoring_diagnostics
+    if tailoring_diag is None:
+        raise RuntimeError("Phase 5 tailoring diagnostics did not complete")
+    entitlement = issue_tailoring_entitlement_v3(
+        to_uuid(user_id),
+        cv_text,
+        jd_text,
+        scored.source_document_v2,
+        scored.document_v2,
+        tailoring_diag,
+    )
+
     analysis = scored.model_dump(
         exclude={
             "tailored_cv",
             "document_v2",
             "source_document_v2",
             "reconstruction_diagnostics",
+            "tailoring_diagnostics",
             "tailoring_entitlement",
             "block_rewrites",
         },
@@ -124,6 +144,7 @@ def _build_cv_analysis_envelope(
         tailored_cv=scored.document_v2,
         source_document_v2=scored.source_document_v2,
         reconstruction_diagnostics=scored.reconstruction_diagnostics,
+        tailoring_diagnostics=tailoring_diag,
         legacy_tailored_cv=scored.tailored_cv,
         tailoring_entitlement=entitlement,
     )
@@ -208,51 +229,124 @@ async def upload_and_match(
 @router.post("/extract-pdf")
 async def extract_pdf(
     file: UploadFile = File(...),
+    purpose: Literal["cv", "jd"] = Form(...),
+    replaces_raw_extraction_id: UUID | None = Form(default=None),
     user: dict = Depends(get_current_user),
     file_service: FileService = Depends(get_file_service),
 ):
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+    if file.size is not None and file.size > PDF_MAX_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail="PDF exceeds the maximum allowed size.",
+        )
     try:
-        file_bytes = await file.read()
+        file_bytes = await file.read(PDF_MAX_SIZE + 1)
+        if len(file_bytes) > PDF_MAX_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail="PDF exceeds the maximum allowed size.",
+            )
+        user_id = str(user["id"])
         raw = extract_cv_content_blocks(file_bytes)
         lines = raw_extraction_to_layout_lines(raw)
         text = raw_extraction_to_text(raw)
-
-        # Upload to storage bucket only if file size is within PDF_MAX_SIZE limit
-        file_info = None
-        file_size = len(file_bytes)
-        if file_size <= PDF_MAX_SIZE:
-            user_id = str(user["id"])
-            try:
-                file_info = await file_service.upload_file(
+        raw_file_info = None
+        if purpose == "cv":
+            if not SKIP_RAW_EXTRACTION_UPLOAD:
+                # Phase 3 will resolve this opaque reference server-side instead of
+                # trusting client-supplied flattened layout_data.
+                raw_file_info = await file_service.upload_file(
                     user_id=user_id,
-                    filename=file.filename or "uploaded_cv.pdf",
-                    data=file_bytes,
-                    content_type="application/pdf",
-                    bucket="cv",
+                    filename=f"raw-extraction-{uuid4().hex}.json",
+                    data=raw.model_dump_json().encode("utf-8"),
+                    content_type=RAW_EXTRACTION_CONTENT_TYPE,
+                    bucket=RAW_EXTRACTION_BUCKET,
+                    include_url=False,
                 )
-            except Exception as upload_err:
-                _logger.warning(
-                    f"File upload to bucket skipped/failed during extract-pdf: {upload_err}"
+                if not raw_file_info.get("id"):
+                    raise RuntimeError(
+                        "Raw extraction metadata could not be persisted."
+                    )
+            else:
+                _logger.info(
+                    "Skipping raw extraction Supabase upload in development mode."
                 )
-        else:
-            _logger.info(
-                f"PDF size ({file_size} bytes) exceeds upload limit ({PDF_MAX_SIZE} bytes). Skipped bucket upload."
+
+        # Source PDFs keep their existing public-file behavior.
+        file_info = None
+        try:
+            file_info = await file_service.upload_file(
+                user_id=user_id,
+                filename=file.filename or "uploaded_cv.pdf",
+                data=file_bytes,
+                content_type="application/pdf",
+                bucket="cv",
             )
+        except Exception as upload_err:
+            _logger.warning(
+                f"File upload to bucket skipped/failed during extract-pdf: {upload_err}"
+            )
+
+        pending_raw_cleanup_ids: list[str] = []
+        if (
+            purpose == "cv"
+            and replaces_raw_extraction_id is not None
+            and raw_file_info is not None
+        ):
+            old_raw_id = str(replaces_raw_extraction_id)
+            new_raw_id = str(raw_file_info["id"])
+            # Persist-new-first policy: the old artifact remains valid if
+            # extraction or new persistence fails. Once the new artifact is
+            # durable, failure to retire the old one is returned as explicit
+            # cleanup state while the new reference remains usable.
+            if old_raw_id != new_raw_id:
+                try:
+                    old_deleted = await file_service.delete_raw_extraction(
+                        user_id,
+                        old_raw_id,
+                    )
+                except Exception:
+                    _logger.warning("Old raw extraction cleanup remains pending")
+                    old_deleted = False
+                if not old_deleted:
+                    pending_raw_cleanup_ids.append(old_raw_id)
 
         res = {
             "text": text,
             "layout_data": [asdict(line) for line in lines],
         }
+        if raw_file_info:
+            res["raw_extraction_ref"] = {
+                "id": str(raw_file_info["id"]),
+                "extraction_version": raw.extraction_version,
+                "method": raw.method.value,
+            }
+        if pending_raw_cleanup_ids:
+            res["pending_raw_extraction_cleanup_ids"] = pending_raw_cleanup_ids
         if file_info:
             res["file_info"] = file_info
         return res
-    except Exception as e:
-        return {"error": str(e)}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _logger.error("PDF extraction failed")
+        raise HTTPException(
+            status_code=500,
+            detail="PDF extraction failed. Please try again.",
+        ) from exc
 
 
-
+@router.delete("/raw-extractions/{file_id}", status_code=204)
+async def delete_raw_extraction(
+    file_id: UUID,
+    user: dict = Depends(get_current_user),
+    file_service: FileService = Depends(get_file_service),
+) -> None:
+    deleted = await file_service.delete_raw_extraction(str(user["id"]), str(file_id))
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Raw extraction was not found.")
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +359,7 @@ async def analyze_cv(
     req: AnalyzeCVRequest,
     background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
+    file_service: FileService = Depends(get_file_service),
 ):
     """Accept raw CV text and a Job Description.
     Return a structured analysis.
@@ -295,6 +390,13 @@ async def analyze_cv(
                 jd_text=jd_text,
                 background_tasks=background_tasks,
                 layout_data=req.layout_data,
+                raw_extraction_ref_id=(
+                    str(req.raw_extraction_ref_id)
+                    if req.raw_extraction_ref_id
+                    else None
+                ),
+                user_id=str(user["id"]),
+                file_service=file_service,
             )
         return _build_cv_analysis_envelope(
             scored,
@@ -312,16 +414,21 @@ async def analyze_cv(
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise
     except ValueError as exc:
+        _logger.warning(
+            "CV reconstruction quality gate rejected document: error_type=%s",
+            type(exc).__name__,
+        )
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise HTTPException(
             status_code=422,
-            detail=f"Cấu trúc CV không đủ tiêu chuẩn (tiêu đề mục dính liền với nội dung). Vui lòng tải lên file PDF gốc: {exc!s}",
+            detail="Cấu trúc CV không đủ tiêu chuẩn (tiêu đề mục dính liền hoặc thiếu thông tin). Vui lòng tải lên file PDF gốc.",
         ) from exc
     except Exception as e:
+        _logger.error("CV analysis failed: error_type=%s", type(e).__name__)
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise HTTPException(
             status_code=500,
-            detail=f"Analysis failed: {e}",
+            detail="Phân tích CV thất bại. Vui lòng thử lại sau.",
         )
 
 
@@ -330,6 +437,7 @@ async def analyze_cv_stream(
     req: AnalyzeCVRequest,
     background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
+    file_service: FileService = Depends(get_file_service),
 ) -> StreamingResponse:
     """Stream real CV-analysis progress and the final envelope as NDJSON."""
     extracted_text = req.cv_text.strip()
@@ -377,6 +485,13 @@ async def analyze_cv_stream(
                     jd_text=jd_text,
                     background_tasks=background_tasks,
                     layout_data=req.layout_data,
+                    raw_extraction_ref_id=(
+                        str(req.raw_extraction_ref_id)
+                        if req.raw_extraction_ref_id
+                        else None
+                    ),
+                    user_id=str(user["id"]),
+                    file_service=file_service,
                     progress=report_progress,
                 )
             envelope = _build_cv_analysis_envelope(
@@ -413,23 +528,28 @@ async def analyze_cv_stream(
                 },
             )
         except ValueError as exc:
-            _logger.warning("CV reconstruction quality gate rejected document: %s", exc)
+            _logger.warning(
+                "CV reconstruction quality gate rejected document: error_type=%s",
+                type(exc).__name__,
+            )
             await _refund_reserved_credit(user["id"], tx_type, refund_description)
             await events.put(
                 {
                     "type": "error",
                     "status": 422,
-                    "message": (f"Cấu trúc CV không đủ tiêu chuẩn. Chi tiết: {exc!s}"),
+                    "message": "Cấu trúc CV không đủ tiêu chuẩn (tiêu đề mục dính liền hoặc thiếu thông tin). Vui lòng tải lên file PDF gốc.",
                 },
             )
         except Exception as exc:
-            _logger.exception("CV analysis streaming task failed: %s", exc)
+            _logger.error(
+                "CV analysis streaming task failed: error_type=%s", type(exc).__name__
+            )
             await _refund_reserved_credit(user["id"], tx_type, refund_description)
             await events.put(
                 {
                     "type": "error",
                     "status": 500,
-                    "message": f"Phân tích CV thất bại: {exc!s}",
+                    "message": "Phân tích CV thất bại. Vui lòng thử lại sau.",
                 },
             )
 
@@ -845,3 +965,30 @@ async def list_feedbacks() -> list:
         "SELECT id, name, avatar, rating, content, created_at FROM public.feedbacks WHERE is_public = TRUE ORDER BY created_at DESC",
     )
     return [dict(r) for r in rows]
+
+
+@router.post("/user/tailored-cv/verify-edit", response_model=VerifyUserEditResponse)
+async def verify_user_edit(
+    req: VerifyUserEditRequest,
+    user: dict = Depends(get_current_user),
+) -> VerifyUserEditResponse:
+    """Verify an edit against the signed current tailored document."""
+    try:
+        result = verify_and_rebind_user_edit(
+            user_id=to_uuid(user["id"]),
+            source_cv_text=req.source_cv_text,
+            jd_text=req.jd_text,
+            source_document=req.source_document_v2,
+            current_tailored_document=req.current_tailored_document_v2,
+            edited_document=req.edited_document_v2,
+            diagnostics=req.tailoring_diagnostics,
+            tailoring_entitlement=req.tailoring_entitlement,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid tailored CV edit") from exc
+
+    return VerifyUserEditResponse(
+        edited_document_v2=result.tailored_document,
+        tailoring_diagnostics=result.diagnostics,
+        tailoring_entitlement=result.tailoring_entitlement,
+    )

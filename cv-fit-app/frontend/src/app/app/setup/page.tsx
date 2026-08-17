@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import type { LayoutLine } from "@/types";
+import type { LayoutLine, RawExtractionReference } from "@/types";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import InputSection from "@/components/workspace/InputSection";
 
@@ -12,6 +12,7 @@ interface LocalInputsState {
   cvFile: File | null;
   jdFile: File | null;
   layoutData: LayoutLine[] | null;
+  rawExtractionRef: RawExtractionReference | null;
 }
 
 export default function SetupPage() {
@@ -21,7 +22,9 @@ export default function SetupPage() {
     cvFileName,
     jdText,
     layoutData: workspaceLayoutData,
+    rawExtractionRef: workspaceRawExtractionRef,
     updateWorkspace,
+    queueRawExtractionCleanupIds,
     uploadFileCV,
     deleteActiveCV,
   } = useWorkspace();
@@ -33,6 +36,7 @@ export default function SetupPage() {
     cvFile: null,
     jdFile: null,
     layoutData: workspaceLayoutData,
+    rawExtractionRef: workspaceRawExtractionRef,
   });
   // Once the user touches a field, late workspace hydration (for example an
   // active CV returned from the database) must not replace their draft.
@@ -53,12 +57,13 @@ export default function SetupPage() {
             : prev.cvFile,
         jdFile: prev.jdFile,
         layoutData: locallyEdited.current.cv ? prev.layoutData : workspaceLayoutData,
+        rawExtractionRef: locallyEdited.current.cv ? prev.rawExtractionRef : workspaceRawExtractionRef,
       };
     });
-  }, [cvText, jdText, cvFileName, workspaceLayoutData]);
+  }, [cvText, jdText, cvFileName, workspaceLayoutData, workspaceRawExtractionRef]);
 
   const handleInputChange = (patch: Partial<LocalInputsState>) => {
-    if (patch.cvText !== undefined || patch.cvFile !== undefined || patch.layoutData !== undefined) {
+    if (patch.cvText !== undefined || patch.cvFile !== undefined || patch.layoutData !== undefined || patch.rawExtractionRef !== undefined) {
       locallyEdited.current.cv = true;
     }
     if (patch.jdText !== undefined || patch.jdFile !== undefined) {
@@ -86,6 +91,9 @@ export default function SetupPage() {
     if (patch.layoutData !== undefined) {
       updateWorkspace({ layoutData: patch.layoutData });
     }
+    if (patch.rawExtractionRef !== undefined) {
+      updateWorkspace({ rawExtractionRef: patch.rawExtractionRef });
+    }
 
     // Sync JD text to workspace locally
     if (patch.jdText !== undefined) {
@@ -106,6 +114,7 @@ export default function SetupPage() {
       cvFileName: localInputs.cvFile ? localInputs.cvFile.name : cvFileName,
       jdText: localInputs.jdText || "",
       layoutData: localInputs.layoutData,
+      rawExtractionRef: localInputs.rawExtractionRef,
     });
 
     // Navigate to the chosen tool
@@ -117,6 +126,7 @@ export default function SetupPage() {
       <InputSection 
         inputs={localInputs}
         onChange={handleInputChange}
+        onRawExtractionCleanupPending={queueRawExtractionCleanupIds}
         onAnalyze={() => handleSaveAndNavigate("/app/analyzer")}
         onInterview={() => handleSaveAndNavigate("/app/interview")}
         onWrite={() => handleSaveAndNavigate("/app/writer")}

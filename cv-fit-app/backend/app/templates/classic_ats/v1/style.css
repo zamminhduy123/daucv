@@ -1,0 +1,170 @@
+@page {
+  size: A4;
+  margin: 16mm 16mm 16mm 16mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Liberation Sans", "Helvetica Neue", Arial, sans-serif;
+  color: #111827;
+  background-color: #ffffff;
+  margin: 0;
+  padding: 0;
+  font-size: 10pt;
+  line-height: 1.45;
+}
+
+.cv-container {
+  width: 100%;
+  max-width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 16mm 18mm;
+  background-color: #ffffff;
+}
+
+@media print {
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  .cv-container {
+    padding: 0;
+    margin: 0;
+    max-width: none;
+    min-height: auto;
+  }
+}
+
+.cv-header {
+  border-bottom: 2px solid #111827;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+}
+
+.cv-name {
+  font-size: 19pt;
+  font-weight: 700;
+  margin: 0 0 3px 0;
+  color: #111827;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cv-headline {
+  font-size: 10.5pt;
+  font-weight: 600;
+  margin: 0 0 6px 0;
+  color: #374151;
+}
+
+.cv-contacts {
+  font-size: 9pt;
+  color: #4b5563;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.cv-contact-item {
+  display: inline-block;
+  word-break: break-all;
+}
+
+.cv-summary {
+  margin-bottom: 14px;
+}
+
+.cv-section {
+  margin-bottom: 14px;
+}
+
+.cv-section-title {
+  font-size: 11.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #111827;
+  border-bottom: 1px solid #d1d5db;
+  padding-bottom: 3px;
+  margin: 0 0 8px 0;
+}
+
+.cv-block {
+  margin-bottom: 8px;
+}
+
+.entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.entry-title {
+  font-weight: 700;
+  font-size: 10pt;
+  color: #111827;
+  margin: 0;
+}
+
+.entry-subtitle {
+  font-weight: 600;
+  font-size: 9.5pt;
+  color: #374151;
+  margin: 1px 0 2px 0;
+}
+
+.entry-meta {
+  font-size: 9pt;
+  color: #4b5563;
+  margin: 0 0 3px 0;
+}
+
+.entry-header .entry-meta {
+  font-size: 9pt;
+  color: #4b5563;
+  font-style: italic;
+  white-space: nowrap;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.bullet-list {
+  margin: 3px 0 6px 0;
+  padding-left: 18px;
+}
+
+.bullet-item {
+  margin-bottom: 3px;
+  color: #1f2937;
+  text-align: justify;
+}
+
+.skills-group {
+  margin-bottom: 5px;
+  line-height: 1.45;
+}
+
+.skills-label {
+  font-weight: 700;
+  color: #111827;
+  display: inline;
+}
+
+.skills-list {
+  color: #374151;
+  display: inline;
+}
+
+.item-paragraph {
+  margin: 0 0 5px 0;
+  line-height: 1.45;
+  color: #374151;
+  text-align: justify;
+}

@@ -416,6 +416,8 @@ def v1_to_v2(cv: TailoredCV) -> CVDocumentV2:
 
     return CVDocumentV2(
         schema_version=2,
+        reconstruction_version=1,
+        requires_reprocessing=True,
         identity=identity,
         summary=summary_block,
         sections=sections,

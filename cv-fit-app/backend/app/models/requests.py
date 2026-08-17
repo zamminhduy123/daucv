@@ -1,5 +1,7 @@
 """Pydantic request models — inbound payloads from API clients."""
 
+from uuid import UUID
+
 from pydantic import AliasChoices, BaseModel, Field
 
 from app.models.domain import Message
@@ -34,6 +36,7 @@ class AnalyzeCVRequest(BaseModel):
     cv_text: str
     jd_text: str | None = ""
     layout_data: list[LayoutLine] | None = None
+    raw_extraction_ref_id: UUID | None = None
 
 
 # ---------------------------------------------------------------------------

@@ -8,20 +8,29 @@ import json
 from typing import Any
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.models.cv_document_v2 import (
+    CURRENT_RECONSTRUCTION_VERSION,
+    ContentOrigin,
+    CVBlockRewrite,
     CVBulletBlock,
     CVDocumentV2,
     CVEducationBlock,
     CVEntryBlock,
     CVIdentity,
+    CVIdentitySourceMap,
     CVParagraphBlock,
     CVPublicationBlock,
+    CVReconstructionDiagnostics,
     CVSection,
     CVSkillGroupBlock,
+    CVSourceCoverageDiagnostics,
+    CVSourceCoverageIssue,
     CVUnknownBlock,
+    CVUnmappedContent,
 )
+from app.models.cv_structuring import LLMSemanticCVResponse
 from app.models.domain import (
     AIFeedbackSummary,
     EvidenceAnalysis,
@@ -46,7 +55,10 @@ from app.models.requests import (
 )
 from app.models.responses import (
     CandidateProfileResponse,
+    CVAnalysisEnvelope,
+    CVAnalysisGenerationResponse,
     CVAnalysisLLMResponse,
+    CVAnalysisPayload,
     CVAnalysisResponse,
     FinalInterviewReport,
     InterviewTurnResponse,
@@ -89,6 +101,8 @@ ALL_MODELS: list[type[BaseModel]] = [
     # Response models
     CVAnalysisLLMResponse,
     CVAnalysisResponse,
+    CVAnalysisEnvelope,
+    CVAnalysisPayload,
     InterviewTurnResponse,
     FinalInterviewReport,
     WriterResponse,
@@ -105,6 +119,7 @@ ALL_MODELS: list[type[BaseModel]] = [
     CVDocumentV2,
     CVSection,
     CVIdentity,
+    CVIdentitySourceMap,
     CVEntryBlock,
     CVBulletBlock,
     CVParagraphBlock,
@@ -112,11 +127,142 @@ ALL_MODELS: list[type[BaseModel]] = [
     CVPublicationBlock,
     CVEducationBlock,
     CVUnknownBlock,
+    LLMSemanticCVResponse,
+    CVBlockRewrite,
+    CVReconstructionDiagnostics,
+    CVSourceCoverageDiagnostics,
+    CVSourceCoverageIssue,
 ]
 
 
 def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
     """Return a minimal valid payload for *model*."""
+    if model is CVBlockRewrite:
+        return {"block_id": "entry-1", "bullets": ["Built APIs."]}
+
+    if model is CVSourceCoverageDiagnostics:
+        return {
+            "raw_block_count": 10,
+            "accounted_block_count": 8,
+            "significant_character_count": 1000,
+            "mapped_character_count": 800,
+            "benign_unmapped_character_count": 50,
+            "substantive_unmapped_character_count": 150,
+            "duplicate_character_count": 0,
+            "coverage_ratio": 0.8,
+            "issues": [],
+        }
+
+    if model is CVSourceCoverageIssue:
+        return {
+            "code": "substantive_source_omission",
+            "block_id": "b1",
+            "significant_character_count": 50,
+        }
+
+    if model is CVReconstructionDiagnostics:
+        return {
+            "warnings": [],
+            "block_confidence": {"entry-1": 0.9},
+            "source_coverage": minimal_data(CVSourceCoverageDiagnostics),
+        }
+
+    if model is CVAnalysisPayload:
+        return {
+            "match_headline": "Strong match",
+            "match_summary": "Good alignment",
+            "technical_match": 80,
+            "experience_relevance": 75,
+            "keyword_coverage": 70,
+            "impact_evidence": 65,
+            "tone_quality": 85,
+            "ats_readiness": 90,
+            "missing_keywords": ["aws", "docker"],
+            "suggested_edits": [
+                {
+                    "section": "Experience",
+                    "original_text": "Did backend work.",
+                    "improved_safe": "Built backend services.",
+                    "improved_with_placeholders": "Built [N] backend services.",
+                    "metric_questions": ["How many services?"],
+                    "unsupported_assumptions": [],
+                    "rewrite_risk": "safe",
+                    "reason": "Stronger verb.",
+                },
+                {
+                    "section": "Summary",
+                    "original_text": "Worker.",
+                    "improved_safe": "Experienced developer.",
+                    "improved_with_placeholders": "[Years]-year developer.",
+                    "metric_questions": ["How many years?"],
+                    "unsupported_assumptions": [],
+                    "rewrite_risk": "safe",
+                    "reason": "Be specific.",
+                },
+            ],
+            "cv_strengths": ["Strong experience", "Good skills"],
+            "prioritized_keywords": [],
+            "evidence_analysis": [
+                {
+                    "claim": "Built APIs",
+                    "evidence_strength": "Medium",
+                    "comment": "Supported by the experience section.",
+                },
+            ],
+        }
+
+    if model is CVAnalysisEnvelope:
+        document = minimal_data(CVDocumentV2)
+        return {
+            "analysis": {
+                "match_headline": "Strong match",
+                "match_summary": "Good alignment",
+                "technical_match": 80,
+                "experience_relevance": 75,
+                "keyword_coverage": 70,
+                "impact_evidence": 65,
+                "tone_quality": 85,
+                "ats_readiness": 90,
+                "missing_keywords": ["aws", "docker"],
+                "suggested_edits": [
+                    {
+                        "section": "Experience",
+                        "original_text": "Did backend work.",
+                        "improved_safe": "Built backend services.",
+                        "improved_with_placeholders": "Built [N] backend services.",
+                        "metric_questions": ["How many services?"],
+                        "unsupported_assumptions": [],
+                        "rewrite_risk": "safe",
+                        "reason": "Stronger verb.",
+                    },
+                    {
+                        "section": "Summary",
+                        "original_text": "Worker.",
+                        "improved_safe": "Experienced developer.",
+                        "improved_with_placeholders": "[Years]-year developer.",
+                        "metric_questions": ["How many years?"],
+                        "unsupported_assumptions": [],
+                        "rewrite_risk": "safe",
+                        "reason": "Be specific.",
+                    },
+                ],
+                "cv_strengths": ["Strong experience", "Good skills"],
+                "prioritized_keywords": [],
+                "evidence_analysis": [
+                    {
+                        "claim": "Built APIs",
+                        "evidence_strength": "Medium",
+                        "comment": "Supported by the experience section.",
+                    },
+                ],
+            },
+            "tailored_cv": document,
+            "source_document_v2": document,
+            "reconstruction_diagnostics": minimal_data(CVReconstructionDiagnostics),
+            "legacy_tailored_cv": minimal_data(TailoredCV),
+            "tailoring_entitlement": "token",
+        }
+
     # --- SuggestedEdit (has nested list fields) ---
     if model is SuggestedEdit:
         return {
@@ -175,7 +321,7 @@ def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
             "name": "Duy",
             "summary": "Backend developer.",
             "experience": [
-                {"company": "Acme", "role": "Dev", "bullet_points": ["Built stuff."]}
+                {"company": "Acme", "role": "Dev", "bullet_points": ["Built stuff."]},
             ],
             "education": "CS Degree",
             "skills": ["Python", "FastAPI"],
@@ -241,7 +387,7 @@ def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
                     "user_answer": "A1",
                     "feedback": "Okay.",
                     "ideal_answer_snippet": "Ideal A1.",
-                }
+                },
             ],
         }
 
@@ -285,7 +431,7 @@ def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
                     "claim": "Backend work",
                     "evidence_strength": "Medium",
                     "comment": "No metrics.",
-                }
+                },
             ],
             "tailored_cv": {
                 "name": "Duy",
@@ -303,7 +449,7 @@ def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
                 "role_fit_score": 72,
                 "match_score": 62,
                 "score_breakdown": scorebreak_data(),
-            }
+            },
         )
         return data
 
@@ -351,7 +497,7 @@ def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
                 "match_label": "good_match",
                 "match_reasons": ["Python"],
                 "missing_skills": [],
-            }
+            },
         )
         return data
 
@@ -361,6 +507,14 @@ def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
     # Request models — return empty or default values
     if model is AnalyzeCVRequest:
         return {"cv_text": "Test CV"}
+
+    if model is LLMSemanticCVResponse:
+        return {
+            "identity": {},
+            "sections": [],
+            "unmapped_references": [],
+            "confidence": 1.0,
+        }
 
     if model is InterviewChatRequest:
         return {
@@ -411,6 +565,9 @@ def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
             "headline": "Backend Engineer",
             "contact_lines": ["duy@example.com"],
         }
+
+    if model is CVIdentitySourceMap:
+        return {"full_name": ["p1-b1"], "email": ["p1-b2"]}
 
     if model is CVEntryBlock:
         return {
@@ -537,6 +694,8 @@ def test_all_models_are_listed() -> None:
         "JobSearchRequest",
         "CVAnalysisLLMResponse",
         "CVAnalysisResponse",
+        "CVAnalysisEnvelope",
+        "CVAnalysisPayload",
         "InterviewTurnResponse",
         "FinalInterviewReport",
         "WriterResponse",
@@ -552,6 +711,7 @@ def test_all_models_are_listed() -> None:
         "CVDocumentV2",
         "CVSection",
         "CVIdentity",
+        "CVIdentitySourceMap",
         "CVEntryBlock",
         "CVBulletBlock",
         "CVParagraphBlock",
@@ -559,5 +719,203 @@ def test_all_models_are_listed() -> None:
         "CVPublicationBlock",
         "CVEducationBlock",
         "CVUnknownBlock",
+        "LLMSemanticCVResponse",
+        "CVBlockRewrite",
+        "CVReconstructionDiagnostics",
+        "CVSourceCoverageDiagnostics",
+        "CVSourceCoverageIssue",
     }
     assert names == expected, f"Missing: {expected - names}. Extra: {names - expected}"
+
+
+def test_llm_semantic_block_schema_requires_type_discriminator() -> None:
+    schema = LLMSemanticCVResponse.model_json_schema()
+    definitions = schema["$defs"]
+
+    for block_name in (
+        "LLMEntryBlock",
+        "LLMBulletBlock",
+        "LLMParagraphBlock",
+        "LLMSkillGroupBlock",
+        "LLMPublicationBlock",
+        "LLMEducationBlock",
+        "LLMUnknownBlock",
+    ):
+        assert "type" in definitions[block_name]["required"]
+
+
+def test_canonical_cv_document_round_trip_preserves_contract_fields() -> None:
+    document = CVDocumentV2(
+        raw_extraction_id="raw-123",
+        source_hash="source-hash",
+        identity=CVIdentity(
+            full_name="Nguyen Minh An",
+            headline="Backend Engineer",
+            email="an@example.com",
+            phone="+84 912 345 678",
+            location="Ha Noi",
+            links=["https://github.com/minhan"],
+            source_block_ids=["p1-b0"],
+            field_source_block_ids={
+                "full_name": ["p1-b1"],
+                "headline": ["p1-b1"],
+                "email": ["p1-b2"],
+                "phone": ["p1-b2"],
+                "location": ["p1-b2"],
+                "links": {"https://github.com/minhan": ["p1-b2"]},
+            },
+        ),
+        sections=[
+            CVSection(
+                id="experience",
+                type="experience",
+                title="Experience",
+                blocks=[
+                    CVEntryBlock(
+                        block_id="experience-1",
+                        title="Backend Engineer",
+                        organization="Example Company",
+                        bullets=["Built reliable APIs."],
+                        source_block_ids=["p1-b3"],
+                        origin=ContentOrigin.LLM_REWRITE,
+                    )
+                ],
+            )
+        ],
+        unmapped_content=[
+            CVUnmappedContent(
+                block_id="p1-b4",
+                text="Decorative footer",
+                page=1,
+                reason="decorative_content",
+                fragment_id="frag-1",
+                source_start=10,
+                source_end=27,
+            )
+        ],
+        reconstruction_warnings=["review_unmapped_content"],
+    )
+
+    reloaded = CVDocumentV2.model_validate_json(document.model_dump_json())
+
+    assert reloaded.raw_extraction_id == "raw-123"
+    assert reloaded.extraction_version == "2.0"
+    assert reloaded.parser_version == "2.0"
+    assert reloaded.reconstruction_version == CURRENT_RECONSTRUCTION_VERSION
+    assert reloaded.identity.full_name == "Nguyen Minh An"
+    assert reloaded.identity.email == "an@example.com"
+    assert reloaded.identity.source_block_ids == ["p1-b0", "p1-b1", "p1-b2"]
+    assert reloaded.identity.field_source_block_ids.email == ["p1-b2"]
+    assert reloaded.identity.field_source_block_ids.links == {
+        "https://github.com/minhan": ["p1-b2"]
+    }
+    assert reloaded.sections[0].blocks[0].source_block_ids == ["p1-b3"]
+    assert reloaded.sections[0].blocks[0].origin == ContentOrigin.LLM_REWRITE
+    assert reloaded.unmapped_content[0].block_id == "p1-b4"
+    assert reloaded.unmapped_content[0].fragment_id == "frag-1"
+    assert reloaded.unmapped_content[0].source_start == 10
+    assert reloaded.unmapped_content[0].source_end == 27
+    assert reloaded.reconstruction_warnings == ["review_unmapped_content"]
+
+
+def test_legacy_identity_is_lifted_without_losing_original_contact_rows() -> None:
+    identity = CVIdentity.model_validate(
+        {
+            "name": "Nguyen Minh An",
+            "headline": "Backend Engineer",
+            "contact_lines": [
+                "  an@example.com | +84 912 345 678  ",
+                "linkedin.com/in/minhan",
+                "Ha Noi, Vietnam",
+            ],
+        }
+    )
+
+    assert identity.full_name == "Nguyen Minh An"
+    assert identity.email == "an@example.com"
+    assert identity.phone == "+84 912 345 678"
+    assert identity.links == ["linkedin.com/in/minhan"]
+    assert identity.location is None
+    assert identity.contact_lines == [
+        "an@example.com",
+        "+84 912 345 678",
+        "linkedin.com/in/minhan",
+        "Ha Noi, Vietnam",
+    ]
+    assert identity.canonical_contact_lines().count("an@example.com") == 1
+    assert identity.canonical_contact_lines().count("+84 912 345 678") == 1
+    assert identity.canonical_contact_lines().count("Ha Noi, Vietnam") == 1
+
+
+def test_canonical_identity_keeps_legacy_consumers_working() -> None:
+    identity = CVIdentity(
+        full_name="Nguyen Minh An",
+        email="an@example.com",
+        phone="+84 912 345 678",
+        location="Ha Noi",
+        links=["https://github.com/minhan"],
+    )
+
+    assert identity.name == "Nguyen Minh An"
+    assert identity.contact_lines == [
+        "an@example.com",
+        "+84 912 345 678",
+        "Ha Noi",
+        "https://github.com/minhan",
+    ]
+
+
+def test_canonical_identity_overrides_conflicting_legacy_values_on_round_trip() -> None:
+    identity = CVIdentity(
+        full_name="Canonical Name",
+        name="Stale Legacy Name",
+        email="canonical@example.com",
+        phone="+84 912 345 678",
+        links=["https://example.com/canonical"],
+        contact_lines=[
+            "legacy@example.com",
+            "+84 900 000 000",
+            "https://example.com/legacy",
+            "Unclassified contact note",
+        ],
+    )
+
+    reloaded = CVIdentity.model_validate_json(identity.model_dump_json())
+
+    assert reloaded.full_name == "Canonical Name"
+    assert reloaded.name == "Canonical Name"
+    assert reloaded.email == "canonical@example.com"
+    assert reloaded.phone == "+84 912 345 678"
+    assert reloaded.links == ["https://example.com/canonical"]
+    assert reloaded.contact_lines == [
+        "canonical@example.com",
+        "+84 912 345 678",
+        "https://example.com/canonical",
+        "Unclassified contact note",
+    ]
+
+
+def test_mutated_legacy_identity_can_be_canonicalized() -> None:
+    identity = CVIdentity()
+    identity.name = "Nguyen Minh An"
+    identity.contact_lines.append("an@example.com")
+
+    canonical = identity.canonicalized()
+
+    assert canonical.full_name == "Nguyen Minh An"
+    assert canonical.email == "an@example.com"
+
+
+@pytest.mark.parametrize("field", ["contact_lines", "links"])
+def test_identity_bridge_does_not_hide_invalid_list_inputs(field: str) -> None:
+    with pytest.raises(ValidationError):
+        CVIdentity.model_validate({field: "not-a-list"})
+
+
+def test_scoring_llm_contract_rejects_block_rewrites() -> None:
+    payload = minimal_data(CVAnalysisLLMResponse)
+    payload.pop("tailored_cv", None)
+    payload["block_rewrites"] = []
+
+    with pytest.raises(ValidationError, match="block_rewrites"):
+        CVAnalysisGenerationResponse.model_validate(payload)

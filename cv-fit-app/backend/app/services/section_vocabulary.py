@@ -12,6 +12,7 @@ form is retained so the detector can report the exact heading text found.
 
 from __future__ import annotations
 
+import re
 import unicodedata
 
 # ---------------------------------------------------------------------------
@@ -21,6 +22,36 @@ import unicodedata
 SECTION_TYPE = str  # "summary" | "experience" | "projects" | "skills" | "education" |
 # "publications" | "certifications" | "languages" | "awards" |
 # "activities" | "interests" | "custom"
+
+SECTION_TYPE_TO_VIETNAMESE: dict[str, str] = {
+    "summary": "Tóm tắt chuyên môn",
+    "experience": "Kinh nghiệm làm việc",
+    "projects": "Dự án tiêu biểu",
+    "skills": "Kỹ năng & Chuyên môn",
+    "education": "Học vấn",
+    "publications": "Công bố khoa học",
+    "certifications": "Chứng chỉ & Đào tạo",
+    "languages": "Ngoại ngữ",
+    "awards": "Giải thưởng & Danh hiệu",
+    "activities": "Hoạt động & Lãnh đạo",
+    "interests": "Sở thích",
+    "custom": "Thông tin bổ sung",
+}
+
+SECTION_TYPE_TO_ENGLISH: dict[str, str] = {
+    "summary": "Professional Summary",
+    "experience": "Work Experience",
+    "projects": "Projects",
+    "skills": "Skills & Expertise",
+    "education": "Education",
+    "publications": "Publications",
+    "certifications": "Certifications & Training",
+    "languages": "Languages",
+    "awards": "Honors & Awards",
+    "activities": "Activities & Leadership",
+    "interests": "Interests",
+    "custom": "Additional Information",
+}
 
 # ---------------------------------------------------------------------------
 # 2. Vocabulary definitions
@@ -177,6 +208,29 @@ _SECTIONS_INTERESTS: list[str] = [
     "sở thích",
 ]
 
+_SECTIONS_STRENGTHS: list[str] = [
+    "strengths",
+    "key strengths",
+    "core strengths",
+    "my strengths",
+    "diem manh",
+    "điểm mạnh",
+    "uu diem",
+    "ưu điểm",
+]
+
+_SECTIONS_MOST_PROUD_OF: list[str] = [
+    "most proud of",
+    "proudest achievements",
+    "key achievements",
+    "major achievements",
+    "achievements",
+    "tu hao nhat",
+    "tự hào nhất",
+    "thanh tuu",
+    "thành tựu",
+]
+
 _SECTIONS_OTHER: list[str] = [
     "contact",
     "lien he",
@@ -195,8 +249,15 @@ _SECTIONS_OTHER: list[str] = [
 
 
 def _normalize(text: str) -> str:
-    """NFKD-decompose, lowercase, strip accents, collapse whitespace."""
-    decomposed = unicodedata.normalize("NFKD", text.strip().lower())
+    """NFKD-decompose, lowercase, strip accents, collapse whitespace, strip leading numbers/bullets & trailing colons/punctuation."""
+    cleaned_str = text.strip()
+    # Strip leading numbers/bullets like "1.", "1)", "I.", "#", "-", "•", "▪", "◦"
+    cleaned_str = re.sub(r"^[0-9IVXLCDMivxlcdm]+[\.\)]\s*", "", cleaned_str)
+    cleaned_str = re.sub(r"^[\#\-\*•▪◦]\s*", "", cleaned_str)
+    # Strip trailing colons, dashes, equals signs
+    cleaned_str = re.sub(r"[\:\-\=]+$", "", cleaned_str).strip()
+
+    decomposed = unicodedata.normalize("NFKD", cleaned_str.lower())
     cleaned = "".join(c for c in decomposed if not unicodedata.combining(c))
     return " ".join(cleaned.split())
 
@@ -216,6 +277,8 @@ _SECTION_GROUPS: list[tuple[SECTION_TYPE, list[str]]] = [
     ("awards", _SECTIONS_AWARDS),
     ("activities", _SECTIONS_ACTIVITIES),
     ("interests", _SECTIONS_INTERESTS),
+    ("custom", _SECTIONS_STRENGTHS),
+    ("custom", _SECTIONS_MOST_PROUD_OF),
     ("other", _SECTIONS_OTHER),  # "other" → "custom" at classification time
 ]
 
@@ -242,21 +305,33 @@ def classify_heading(text: str) -> tuple[SECTION_TYPE, str] | None:
     does not match any known vocabulary entry.
 
     The lookup uses NFKD decomposition + accent stripping so that
-    "KỸ NĂNG", "Ky nang", "ky năng", etc. all match.
+    "KỸ NĂNG", "Ky nang", "ky năng", etc. all match. Also handles multi-column
+    concatenated headers (e.g. "EDUCATION EXPERIENCE", "SKILLS ACTIVITIES").
     """
     norm = _normalize(text)
     if not norm:
         return None
     entry = _VOCABULARY.get(norm)
-    if entry is None:
-        return None
-    canonical, original = entry
-    if canonical == "other":
-        return ("custom", original)
-    return (canonical, original)
+    if entry is not None:
+        canonical, original = entry
+        if canonical == "other":
+            return ("custom", original)
+        return (canonical, original)
+
+    # Fallback for concatenated multi-column headers (e.g., "EDUCATION EXPERIENCE", "SKILLS ACTIVITIES")
+    words = norm.split()
+    if 2 <= len(words) <= 4:
+        for word in words:
+            word_entry = _VOCABULARY.get(word)
+            if word_entry is not None:
+                canonical, original = word_entry
+                if canonical != "other":
+                    return (canonical, text.strip())
+
+    return None
 
 
-def is_known_section_type(section_type: SECTION_TYPE) -> bool:
+def is_known_section_type(section_type: str) -> bool:
     """Check if a canonical section type is one we recognize."""
     return section_type in RECOGNIZED_TYPES or section_type == "custom"
 

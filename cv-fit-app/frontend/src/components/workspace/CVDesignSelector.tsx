@@ -17,7 +17,7 @@ function DesignThumbnail({ design }: { design: CVDesign }) {
     </div>;
   }
 
-  if (design === "compact_one_page") {
+  if (design === "compact") {
     return <div className="h-36 w-full overflow-hidden rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-inner shadow-gray-100/60">
       <div className="mb-2 space-y-1"><div className="flex items-end justify-between gap-3"><div className="h-2.5 w-2/5 rounded-sm bg-gray-800" /><div className="h-1 w-1/3 rounded-sm bg-gray-300" /></div><div className="h-1 w-full bg-[#4A90A4]" /></div>
       <div className="space-y-1.5">{["w-16", "w-10", "w-12", "w-14"].map((width, index) => <div key={index} className="border-l-2 border-[#4A90A4] pl-2"><div className={`mb-1 h-1.5 rounded-sm bg-gray-700 ${width}`} />{index === 1 ? <div className="grid grid-cols-3 gap-1">{Array.from({ length: 6 }).map((_, chip) => <div key={chip} className="h-2 rounded-full bg-gray-100" />)}</div> : <div className="space-y-0.5"><div className="h-0.5 w-full rounded-sm bg-gray-200" /><div className="h-0.5 w-10/12 rounded-sm bg-gray-200" /></div>}</div>)}</div>

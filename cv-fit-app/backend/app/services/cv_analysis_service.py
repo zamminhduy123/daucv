@@ -28,14 +28,11 @@ from app.services.cv_quality_checks import (
     build_source_preserving_tailored_cv,
 )
 from app.services.cv_reconstruction_service import (
-    reconstruct_cv_text,
-    reconstruct_from_lines,
     reconstruction_diagnostics,
     validate_reconstruction_gate,
 )
-from app.services.cv_rendering_diagnostics import compact_rendering_warnings
-from app.services.cv_tailoring_service import apply_block_rewrites, rewrite_payload
-from app.services.layout_extraction import ExtractedLine
+from app.services.cv_structuring_service import structure_cv
+from app.services.files import FileService
 
 _logger = logging.getLogger(__name__)
 
@@ -58,78 +55,80 @@ async def analyze_cv(
     jd_text: str,
     background_tasks: BackgroundTasks | None = None,
     layout_data: list[LayoutLine] | None = None,
+    raw_extraction_ref_id: str | None = None,
+    user_id: str | None = None,
+    file_service: FileService | None = None,
     progress: AnalysisProgress | None = None,
 ) -> CVAnalysisResponse:
     """Generate a scored CV Analysis in the source CV's primary language.
 
-    When *layout_data* is provided (from Phase 3 layout extraction),
-    uses real page/column/font metadata for reconstruction instead of
-    fabricating synthetic layout from plain text.
+    Client layout metadata is retained only for request compatibility. PDF
+    structure is loaded from the server-owned raw extraction reference; manual
+    text is converted to deterministic server-side blocks.
     """
     await _report_progress(progress, "validating", "Đang kiểm tra nội dung CV...")
-    source_language = detect_cv_language(cv_text)
     _logger.info(
-        "Stage [validating]: CV len=%d, JD len=%d, source_language=%s",
+        "Stage [validating]: submitted CV len=%d, JD len=%d, has_raw_ref=%s",
         len(cv_text),
         len(jd_text),
-        source_language,
-    )
-    await _report_progress(progress, "reconstructing", "Đang đọc cấu trúc CV...")
-    _logger.info(
-        "Stage [reconstructing]: Reconstructing CV structure from %s (layout_lines=%d)...",
-        "layout_data" if layout_data else "plain_text",
-        len(layout_data) if layout_data else 0,
+        bool(raw_extraction_ref_id),
     )
     if layout_data:
-        lines = [
-            ExtractedLine(
-                text=item.text,
-                page=item.page,
-                x=item.x,
-                y=item.y,
-                width=item.width,
-                height=item.height,
-                font_size=item.font_size,
-                font_weight=item.font_weight,
-                bullet_marker=item.bullet_marker,
-                normalized_text=item.normalized_text,
-                column_id=item.column_id,
-                joined_to_prev=item.joined_to_prev,
-                is_page_break_marker=item.is_page_break_marker,
-                is_layout_artifact=item.is_layout_artifact,
-                page_height=item.page_height,
-                source_line_id=item.source_line_id or "",
-            )
-            for item in layout_data
-        ]
-        source_document = reconstruct_from_lines(lines)
-    else:
-        source_document = reconstruct_cv_text(cv_text)
+        _logger.info("Ignoring client layout_data in authoritative structuring path")
 
-    _logger.info(
-        "Stage [reconstructing]: Structure built. Sections: %d (%s), Summary lines: %d, Diagnostics warnings: %s",
-        len(source_document.sections),
-        [s.type for s in source_document.sections],
-        len(source_document.summary.source_line_ids) if source_document.summary else 0,
-        source_document.reconstruction_warnings,
+    await _report_progress(
+        progress,
+        "structuring",
+        "Đang nhận diện cấu trúc và các mục trong CV...",
     )
 
-    validate_reconstruction_gate(source_document)
-    _logger.info("Stage [reconstructing]: Quality gate passed successfully.")
+    async def report_structuring_retry(attempt: int, total_attempts: int) -> None:
+        _logger.warning(
+            "Stage [retrying]: semantic parser busy, attempt %d/%d",
+            attempt,
+            total_attempts,
+        )
+        await _report_progress(
+            progress,
+            "retrying",
+            "Dịch vụ nhận diện cấu trúc đang bận, Bé Đậu đang thử lại...",
+            {
+                "attempt": attempt,
+                "total_attempts": total_attempts,
+                "operation": "structuring",
+            },
+        )
 
-    typed_source = rewrite_payload(source_document)
+    structured = await structure_cv(
+        cv_text=cv_text,
+        raw_extraction_ref_id=raw_extraction_ref_id,
+        user_id=user_id,
+        file_service=file_service,
+        background_tasks=background_tasks,
+        on_retry=report_structuring_retry,
+    )
+    authoritative_cv_text = structured.source_text
+    source_document = structured.document
+
+    # Phase 4: conservation gate — reject before analysis LLM if source content is not conserved
+    validate_reconstruction_gate(source_document)
+
+    source_language = detect_cv_language(authoritative_cv_text)
+
+    _logger.info(
+        "Stage [structuring]: complete sections=%d parser=%s fallback=%s language=%s",
+        len(source_document.sections),
+        source_document.parser_version,
+        structured.used_fallback,
+        source_language,
+    )
+
     if jd_text.strip():
         context_instruction = CV_ANALYSIS_CONTEXT_WITH_JD
-        user_content = (
-            f"CV của ứng viên:\n{cv_text}\n\nMô tả Công việc (JD):\n{jd_text}"
-            f"\n\nTYPED SOURCE DOCUMENT (structure is authoritative):\n{typed_source}"
-        )
+        user_content = f"CV của ứng viên:\n{authoritative_cv_text}\n\nMô tả Công việc (JD):\n{jd_text}"
     else:
         context_instruction = CV_ANALYSIS_CONTEXT_WITHOUT_JD
-        user_content = (
-            f"CV của ứng viên:\n{cv_text}"
-            f"\n\nTYPED SOURCE DOCUMENT (structure is authoritative):\n{typed_source}"
-        )
+        user_content = f"CV của ứng viên:\n{authoritative_cv_text}"
 
     _logger.info(
         "Stage [analyzing]: Sending prompt to LLM waterfall router (language=%s)...",
@@ -161,36 +160,41 @@ async def analyze_cv(
         result_validator=partial(
             ensure_analysis_response_language,
             expected_language=source_language,
-            source_cv_text=cv_text,
-            source_reference_text=f"{cv_text}\n{jd_text}",
+            source_cv_text=authoritative_cv_text,
+            source_reference_text=f"{authoritative_cv_text}\n{jd_text}",
         ),
         on_retry=report_retry,
     )
     _logger.info(
-        "Stage [finalizing]: Received LLM response. Building tailored CV & block rewrites..."
+        "Stage [finalizing]: Received scoring response. Running evidence-constrained CV rewriter..."
     )
     await _report_progress(
-        progress, "finalizing", "Đang hoàn thiện kết quả phân tích..."
+        progress, "finalizing", "Đang đề xuất cải thiện nội dung chuẩn ATS..."
     )
     parsed = CVAnalysisLLMResponse.model_validate(generated.model_dump())
-    parsed.tailored_cv = build_source_preserving_tailored_cv(parsed, cv_text)
-    tailored_document, _warnings = apply_block_rewrites(
-        source_document,
-        parsed.block_rewrites,
-        cv_text,
+    parsed.tailored_cv = build_source_preserving_tailored_cv(
+        parsed,
+        authoritative_cv_text,
     )
-    tailored_document.reconstruction_warnings = list(
-        dict.fromkeys(
-            [
-                *tailored_document.reconstruction_warnings,
-                *compact_rendering_warnings(tailored_document),
-            ],
-        ),
+
+    # Phase 5: Evidence-constrained rewrite service
+    from app.services.cv_rewrite_service import rewrite_cv
+
+    rewrite_result = await rewrite_cv(
+        source_document=source_document,
+        source_raw_extraction=structured.raw_extraction,
+        jd_text=jd_text,
+        source_language=source_language,
+        background_tasks=background_tasks,
     )
+
+    tailored_document = rewrite_result.tailored_document
     parsed.document_v2 = tailored_document
+
     response = build_scored_analysis(parsed, source_language=source_language)
     response.reconstruction_diagnostics = reconstruction_diagnostics(
-        tailored_document,
+        source_document,
     )
     response.source_document_v2 = source_document
+    response.tailoring_diagnostics = rewrite_result.diagnostics
     return response

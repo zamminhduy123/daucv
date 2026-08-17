@@ -257,10 +257,6 @@ async def search_via_engine(query: str, domain: str, limit: int = 4) -> list[dic
         # fail URL validation and provide zero useful data.
         return []
 
-    # Filter to job URLs only
-    job_source = (
-        domain.split("/")[-1].split(".")[-2] if "/" in domain else domain.split(".")[-2]
-    )
     # Map domain to source label
     source_map = {
         "itviec.com": "itviec",

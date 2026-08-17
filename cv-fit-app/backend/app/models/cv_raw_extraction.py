@@ -4,11 +4,14 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+RAW_EXTRACTION_CONTENT_TYPE = "application/vnd.daucv.raw-extraction+json"
+
 
 class ExtractionMethod(str, Enum):
     NATIVE_BLOCKS = "native_blocks"
     WORD_LAYOUT = "word_layout"
     OCR = "ocr"
+    MANUAL_TEXT = "manual_text"
 
 
 class ExtractionReason(str, Enum):
@@ -29,6 +32,7 @@ class RawBlock(BaseModel):
     text: str
     bbox: tuple[float, float, float, float] | None = None
     extraction_method: ExtractionMethod
+    reading_order: int = Field(default=0, ge=0)
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
@@ -69,5 +73,11 @@ class OCRNotAvailableError(Exception):
 
 class InvalidRawExtractionError(ValueError):
     """Raised when RawExtraction contains invalid or duplicate block IDs."""
+
+    pass
+
+
+class InvalidRawExtractionArtifactError(ValueError):
+    """Raised when a stored file reference is not a valid raw extraction."""
 
     pass

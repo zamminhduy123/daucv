@@ -2,12 +2,25 @@
 
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
-import pytest
-from fastapi.testclient import TestClient
 
-from app.core.db import Database
-from app.dependencies import get_current_user
-from app.main import create_app
+import pytest
+
+# Lazy imports — only load the full FastAPI app when tests actually need
+# the ``client`` fixture.  Pure unit tests (e.g. Phase 0 extraction tests)
+# should not trigger these imports to avoid pulling in database drivers.
+try:
+    from fastapi.testclient import TestClient
+
+    from app.core.db import Database
+    from app.dependencies import get_current_user
+    from app.main import create_app
+
+    _APP_LOADED = True
+except ImportError:  # pragma: no cover
+    # Only skip for missing optional dependencies (e.g. asyncpg, jwt).
+    # Syntax errors, circular imports, and configuration failures must
+    # surface as test failures so they are not silently swallowed.
+    _APP_LOADED = False
 
 MOCK_USER = {
     "id": "12345678-1234-1234-1234-123456789012",
@@ -18,9 +31,11 @@ MOCK_USER = {
 }
 
 
-@pytest.fixture()
+@pytest.fixture
 def client():
     """Provide a TestClient for the FastAPI app with mocked auth and database."""
+    if not _APP_LOADED:  # pragma: no cover
+        pytest.skip("FastAPI app not available (missing dependencies).")
     app = create_app()
 
     async def mock_get_current_user():
@@ -49,7 +64,7 @@ def client():
                 "cv_text": "Sample CV Text",
                 "is_active": True,
                 "created_at": datetime.now(),
-            }
+            },
         ]
 
     async def mock_execute(*args, **kwargs):
@@ -93,30 +108,50 @@ def client():
     Database.pool = MockPool()
 
     # Mock database connections and credit deductions
-    with patch(
-        "app.api.routes.user.reserve_credits", new_callable=AsyncMock
-    ), patch(
-        "app.api.routes.user.refund_credits", new_callable=AsyncMock
-    ), patch(
-        "app.api.routes.jobs.reserve_credits", new_callable=AsyncMock
-    ), patch(
-        "app.api.routes.jobs.refund_credits", new_callable=AsyncMock
-    ), patch(
-        "app.api.routes.billing.add_credits", new_callable=AsyncMock
-    ) as mock_add, patch(
-        "app.core.db.Database.connect", new_callable=AsyncMock
-    ) as mock_connect, patch(
-        "app.core.db.Database.disconnect", new_callable=AsyncMock
-    ) as mock_disconnect, patch(
-        "app.core.db.Database.fetch_one", side_effect=mock_fetch_one
-    ), patch(
-        "app.core.db.Database.fetch_all", side_effect=mock_fetch_all
-    ), patch(
-        "app.core.db.Database.execute", side_effect=mock_execute
+    with (
+        patch(
+            "app.api.routes.user.reserve_credits",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "app.api.routes.user.refund_credits",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "app.api.routes.jobs.reserve_credits",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "app.api.routes.jobs.refund_credits",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "app.api.routes.billing.add_credits",
+            new_callable=AsyncMock,
+        ) as mock_add,
+        patch(
+            "app.core.db.Database.connect",
+            new_callable=AsyncMock,
+        ) as mock_connect,
+        patch(
+            "app.core.db.Database.disconnect",
+            new_callable=AsyncMock,
+        ) as mock_disconnect,
+        patch(
+            "app.core.db.Database.fetch_one",
+            side_effect=mock_fetch_one,
+        ),
+        patch(
+            "app.core.db.Database.fetch_all",
+            side_effect=mock_fetch_all,
+        ),
+        patch(
+            "app.core.db.Database.execute",
+            side_effect=mock_execute,
+        ),
+        TestClient(app) as c,
     ):
-
-        with TestClient(app) as c:
-            yield c
+        yield c
 
     # Cleanups
     Database.pool = original_pool

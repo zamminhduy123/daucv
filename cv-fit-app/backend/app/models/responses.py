@@ -8,6 +8,7 @@ from app.models.cv_document_v2 import (
     CVBlockRewrite,
     CVDocumentV2,
     CVReconstructionDiagnostics,
+    CVTailoringDiagnostics,
 )
 from app.models.domain import (
     AIFeedbackSummary,
@@ -102,7 +103,6 @@ class CVAnalysisGenerationResponse(BaseModel):
         list[EvidenceAnalysis],
         Field(min_length=1, max_length=6, default_factory=list),
     ]
-    block_rewrites: list[CVBlockRewrite]
     target_role: str | None = None
     company_name: str | None = None
 
@@ -126,9 +126,6 @@ class CVAnalysisGenerationResponse(BaseModel):
                 normalized[field_name] = []
             elif isinstance(value, list):
                 normalized[field_name] = value[:max_items]
-
-        if normalized.get("block_rewrites") is None:
-            normalized["block_rewrites"] = []
 
         if not normalized.get("suggested_edits"):
             normalized["suggested_edits"] = [
@@ -223,6 +220,7 @@ class CVAnalysisResponse(CVAnalysisLLMResponse):
     score_breakdown: ScoreBreakdown
     reconstruction_diagnostics: CVReconstructionDiagnostics | None = None
     source_document_v2: CVDocumentV2 | None = None
+    tailoring_diagnostics: CVTailoringDiagnostics | None = None
 
 
 class CVAnalysisPayload(BaseModel):
@@ -271,6 +269,7 @@ class CVAnalysisEnvelope(BaseModel):
     tailored_cv: CVDocumentV2
     source_document_v2: CVDocumentV2
     reconstruction_diagnostics: CVReconstructionDiagnostics
+    tailoring_diagnostics: CVTailoringDiagnostics | None = None
     legacy_tailored_cv: TailoredCV
     tailoring_entitlement: str
 

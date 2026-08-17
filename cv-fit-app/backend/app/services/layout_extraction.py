@@ -14,7 +14,6 @@ import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass
-from itertools import pairwise
 from typing import Any
 
 import fitz
@@ -35,6 +34,17 @@ from app.models.cv_raw_extraction import (
 # Modular Raw Block Extraction Pipeline
 # ---------------------------------------------------------------------------
 
+_DATE_ROW_RE = re.compile(
+    r"(?:\b(?:19|20)\d{2}\b|\bpresent\b|\bcurrent\b|\bnow\b)",
+    re.IGNORECASE,
+)
+_CONTACT_SIGNAL_RE = re.compile(r"@|https?://|www\.|\+?\d[\d\s().-]{6,}")
+_SECTION_HEADING_RE = re.compile(
+    r"\b(?:PROFILE|SUMMARY|CAREER\s+OBJECTIVE|EDUCATION|EXPERIENCE|"
+    r"WORK\s+EXPERIENCE|SKILLS|ACTIVITIES|CERTIFICATIONS?|PROJECTS?)\b",
+    re.IGNORECASE,
+)
+
 
 def validate_raw_extraction(raw: RawExtraction) -> None:
     """Check that all block IDs in a RawExtraction are unique."""
@@ -43,17 +53,47 @@ def validate_raw_extraction(raw: RawExtraction) -> None:
         raise InvalidRawExtractionError("Raw extraction contains duplicate block IDs.")
 
 
+def _is_compact_metadata_text(text: str) -> bool:
+    stripped = text.strip()
+    return len(stripped) <= 80 and bool(
+        _DATE_ROW_RE.search(stripped) or _CONTACT_SIGNAL_RE.search(stripped)
+    )
+
+
+def _is_compact_right_fragment(block: RawBlock, page_width: float) -> bool:
+    if not block.bbox:
+        return False
+    x0, _y0, _x1, _y1 = block.bbox
+    stripped = block.text.strip()
+    return len(stripped) <= 40 and x0 > page_width * 0.35 and ":" not in stripped
+
+
+def _has_embedded_heading_anomaly(text: str) -> bool:
+    """Detect a heading token mixed with a substantial heading-like fragment."""
+    stripped = text.strip()
+    matches = list(_SECTION_HEADING_RE.finditer(stripped))
+    if len(matches) >= 2:
+        return True
+    if len(matches) != 1:
+        return False
+    match = matches[0]
+    remainder = (stripped[: match.start()] + stripped[match.end() :]).strip(" -|:/")
+    matched_text = match.group(0)
+    heading_case = matched_text.isupper() or matched_text.istitle()
+    short_heading_line = len(stripped) <= 80 and not re.search(r"[.!?;]", stripped)
+    return heading_case and short_heading_line and len(remainder) >= 8
+
+
 def sort_raw_page_blocks(
     blocks: list[RawBlock],
     page_width: float = 612.0,
     page_height: float = 792.0,
 ) -> list[RawBlock]:
-    """Sort page blocks using column-aware spatial clustering.
+    """Return a deterministic, conservative page reading order.
 
-    Full-width header blocks come first (top-to-bottom).
-    Content blocks are clustered into spatial columns (left-to-right), and sorted
-    top-to-bottom within each column.
-    Full-width footer blocks come last (top-to-bottom).
+    Repeated left edges establish up to three content lanes. One-off right-aligned
+    dates/contact fragments therefore do not create a false column. Page-margin
+    headers and footers remain outside the lane sort.
     """
     if not blocks:
         return []
@@ -91,31 +131,73 @@ def sort_raw_page_blocks(
     if not content_blocks:
         return header_blocks + footer_blocks
 
-    # Detect a gutter from a large gap between left edges. Grouping by block
-    # centroid is incorrect here: bullet glyph blocks and their body blocks
-    # have different centroids but belong to the same column.
-    x_starts = sorted(block.bbox[0] for block in content_blocks if block.bbox)
-    gutter_split: float | None = None
-    if len(x_starts) >= 2:
-        gaps = [(right - left, left, right) for left, right in pairwise(x_starts)]
-        min_gutter = max(24.0, page_width * 0.10)
-        candidate = max(gaps, default=(0.0, 0.0, 0.0))
-        if candidate[0] >= min_gutter:
-            gutter_split = (candidate[1] + candidate[2]) / 2.0
+    lane_tolerance = max(24.0, page_width * 0.06)
+    x_clusters: list[list[float]] = []
+    for x_start in sorted(
+        block.bbox[0]
+        for block in content_blocks
+        if block.bbox
+        and (block.bbox[2] - block.bbox[0]) < page_width * 0.65
+        and not _is_compact_metadata_text(block.text)
+        and not _is_compact_right_fragment(block, page_width)
+    ):
+        for cluster in x_clusters:
+            if abs(x_start - (sum(cluster) / len(cluster))) <= lane_tolerance:
+                cluster.append(x_start)
+                break
+        else:
+            x_clusters.append([x_start])
+
+    # A lane needs repeated evidence. This intentionally treats sparse pages
+    # and isolated right-aligned dates as ordinary single-column rows.
+    lane_starts = sorted(
+        sum(cluster) / len(cluster) for cluster in x_clusters if len(cluster) >= 2
+    )[:3]
+    if len(lane_starts) < 2:
+        lane_starts = []
 
     def column_order(block: RawBlock) -> int:
-        if gutter_split is None or not block.bbox:
+        if not lane_starts or not block.bbox:
             return 0
-        return 0 if block.bbox[0] < gutter_split else 1
+        x0, _y0, x1, _y1 = block.bbox
+        if (x1 - x0) >= page_width * 0.65:
+            return -1
+        return min(
+            range(len(lane_starts)),
+            key=lambda index: abs(x0 - lane_starts[index]),
+        )
 
-    sorted_content = sorted(
-        content_blocks,
-        key=lambda block: (
-            column_order(block),
-            block.bbox[1] if block.bbox else 0,
-            block.bbox[0] if block.bbox else 0,
+    def sort_lane_segment(segment: list[RawBlock]) -> list[RawBlock]:
+        return sorted(
+            segment,
+            key=lambda block: (
+                column_order(block),
+                block.bbox[1] if block.bbox else 0,
+                block.bbox[0] if block.bbox else 0,
+            ),
+        )
+
+    spanning = sorted(
+        (
+            block
+            for block in content_blocks
+            if block.bbox and (block.bbox[2] - block.bbox[0]) >= page_width * 0.65
         ),
+        key=lambda block: (block.bbox[1], block.bbox[0]),
     )
+    remaining = [block for block in content_blocks if block not in spanning]
+    sorted_content: list[RawBlock] = []
+    for span in spanning:
+        assert span.bbox is not None
+        before = [
+            block
+            for block in remaining
+            if not block.bbox or block.bbox[1] < span.bbox[1]
+        ]
+        sorted_content.extend(sort_lane_segment(before))
+        sorted_content.append(span)
+        remaining = [block for block in remaining if block not in before]
+    sorted_content.extend(sort_lane_segment(remaining))
     return header_blocks + sorted_content + footer_blocks
 
 
@@ -151,26 +233,128 @@ def _drop_redundant_bullet_glyph_blocks(blocks: list[RawBlock]) -> list[RawBlock
     return kept
 
 
+def _native_spans_to_text(
+    spans: list[dict[str, Any]],
+    *,
+    page_width: float,
+    page_height: float,
+) -> tuple[str, bool]:
+    """Join one native line and flag likely cross-column span interleaving."""
+    ordered = sorted(
+        (span for span in spans if str(span.get("text", "")).strip()),
+        key=lambda span: float(span.get("bbox", (0, 0, 0, 0))[0]),
+    )
+    if not ordered:
+        return "", False
+
+    line_text = ""
+    suspicious_gap = False
+    for index, span in enumerate(ordered):
+        raw_piece = str(span.get("text", ""))
+        text = raw_piece.strip()
+        gap = 0.0
+        if index:
+            previous = ordered[index - 1]
+            previous_bbox = previous.get("bbox", (0, 0, 0, 0))
+            bbox = span.get("bbox", (0, 0, 0, 0))
+            gap = float(bbox[0]) - float(previous_bbox[2])
+            left_text = str(previous.get("text", "")).strip()
+            right_text = text
+            line_top = min(float(previous_bbox[1]), float(bbox[1]))
+            logical_date_row = bool(_DATE_ROW_RE.search(right_text))
+            logical_contact_row = (
+                bool(
+                    _CONTACT_SIGNAL_RE.search(left_text)
+                    or _CONTACT_SIGNAL_RE.search(right_text)
+                )
+                and line_top < page_height * 0.18
+            )
+            if (
+                gap >= max(36.0, page_width * 0.08)
+                and len(left_text) >= 4
+                and len(right_text) >= 4
+                and not logical_date_row
+                and not logical_contact_row
+            ):
+                suspicious_gap = True
+        if (
+            line_text
+            and not line_text[-1].isspace()
+            and not raw_piece[0].isspace()
+            and gap > 1.0
+        ):
+            line_text += " "
+        line_text += raw_piece
+
+    return line_text.strip(), suspicious_gap
+
+
 def extract_native_blocks(pdf_bytes: bytes) -> RawExtraction:
-    """Extract Tier 1 native blocks using PyMuPDF (fitz) with column-aware sorting."""
+    """Extract exact native text-line blocks using PyMuPDF span geometry."""
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     pages: list[RawPage] = []
+    interleaved_line_count = 0
 
     for page_idx, page in enumerate(doc, start=1):
         pw = float(page.rect.width) or 612.0
         ph = float(page.rect.height) or 792.0
-        raw_blocks = page.get_text("blocks", sort=False)
+        # Collect page link annotations (hyperlinks)
+        page_links: list[dict[str, Any]] = []
+        for link_dict in page.get_links():
+            uri = link_dict.get("uri")
+            from_rect = link_dict.get("from")
+            if (
+                uri
+                and from_rect
+                and uri.startswith(("http://", "https://", "mailto:", "tel:"))
+            ):
+                clean_uri = (
+                    uri[7:]
+                    if uri.startswith("mailto:")
+                    else (uri[4:] if uri.startswith("tel:") else uri)
+                )
+                page_links.append({"uri": clean_uri, "rect": fitz.Rect(from_rect)})
+
+        page_dict = page.get_text("dict", sort=False)
         blocks: list[RawBlock] = []
-        for index, b in enumerate(raw_blocks, start=1):
-            if len(b) >= 5 and isinstance(b[4], str) and b[4].strip():
-                text = b[4].strip()
-                bbox = (float(b[0]), float(b[1]), float(b[2]), float(b[3]))
+        for native_block_idx, native_block in enumerate(
+            page_dict.get("blocks", []), start=1
+        ):
+            if native_block.get("type", 0) != 0:
+                continue
+            for line_idx, native_line in enumerate(
+                native_block.get("lines", []), start=1
+            ):
+                spans = native_line.get("spans", [])
+                text, suspicious = _native_spans_to_text(
+                    spans,
+                    page_width=pw,
+                    page_height=ph,
+                )
+                if not text:
+                    continue
+                bbox = native_line.get("bbox")
+                if not bbox or len(bbox) < 4:
+                    continue
+
+                line_rect = fitz.Rect(bbox)
+                matching_uris: list[str] = []
+                for link_item in page_links:
+                    if line_rect.intersects(link_item["rect"]):
+                        uri = link_item["uri"]
+                        if uri not in matching_uris and uri not in text:
+                            matching_uris.append(uri)
+                if matching_uris:
+                    text = f"{text} ({' | '.join(matching_uris)})"
+
+                if suspicious:
+                    interleaved_line_count += 1
                 blocks.append(
                     RawBlock(
-                        block_id=f"temp-p{page_idx}-b{index}",
+                        block_id=(f"temp-p{page_idx}-b{native_block_idx}-l{line_idx}"),
                         page=page_idx,
                         text=text,
-                        bbox=bbox,
+                        bbox=tuple(float(value) for value in bbox[:4]),
                         extraction_method=ExtractionMethod.NATIVE_BLOCKS,
                         confidence=1.0,
                     )
@@ -186,6 +370,7 @@ def extract_native_blocks(pdf_bytes: bytes) -> RawExtraction:
                 text=b.text,
                 bbox=b.bbox,
                 extraction_method=b.extraction_method,
+                reading_order=seq - 1,
                 confidence=b.confidence,
             )
             for seq, b in enumerate(sorted_blocks, start=1)
@@ -200,22 +385,34 @@ def extract_native_blocks(pdf_bytes: bytes) -> RawExtraction:
             )
         )
 
+    doc.close()
+
     raw = RawExtraction(
         method=ExtractionMethod.NATIVE_BLOCKS,
         pages=pages,
+        warnings=(
+            [ExtractionReason.POSSIBLE_COLUMN_INTERLEAVING.value]
+            if interleaved_line_count >= 2
+            else []
+        ),
     )
     validate_raw_extraction(raw)
     return raw
 
 
 def extract_word_layout_blocks(pdf_bytes: bytes) -> RawExtraction:
-    """Extract Tier 2 word-layout blocks using pdfplumber word grouping with column splitting."""
+    """Extract Tier 2 blocks from words using the canonical gutter splitter."""
     pages: list[RawPage] = []
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         for page_idx, page in enumerate(pdf.pages, start=1):
             pw = float(page.width) or 612.0
             ph = float(page.height) or 792.0
-            words = page.extract_words()
+            words = page.extract_words(
+                x_tolerance=3.0,
+                y_tolerance=2.0,
+                keep_blank_chars=False,
+                extra_attrs=["fontname", "size"],
+            )
             if not words:
                 pages.append(
                     RawPage(
@@ -227,65 +424,37 @@ def extract_word_layout_blocks(pdf_bytes: bytes) -> RawExtraction:
                 )
                 continue
 
-            # Cluster words by x-center to prevent joining lines across multi-column gap
-            words_by_x = sorted(words, key=lambda w: (w["x0"] + w["x1"]) / 2)
-            word_clusters: list[tuple[float, list[dict]]] = []
-            for w in words_by_x:
-                cx = (w["x0"] + w["x1"]) / 2
-                matched = False
-                for i, (group_cx, group_words) in enumerate(word_clusters):
-                    if abs(cx - group_cx) < (0.15 * pw):
-                        group_words.append(w)
-                        new_cx = sum(
-                            (item["x0"] + item["x1"]) / 2 for item in group_words
-                        ) / len(group_words)
-                        word_clusters[i] = (new_cx, group_words)
-                        matched = True
-                        break
-                if not matched:
-                    word_clusters.append((cx, [w]))
-
-            word_clusters.sort(key=lambda g: g[0])
-
             raw_blocks: list[RawBlock] = []
-            block_seq = 1
-            for _, col_words in word_clusters:
-                words_sorted = sorted(
-                    col_words, key=lambda w: (round(w["top"] / 3.0) * 3, w["x0"])
-                )
-                lines_by_y: list[list[dict]] = []
-                current_line: list[dict] = []
-                last_top: float | None = None
-
-                for w in words_sorted:
-                    if last_top is None or abs(w["top"] - last_top) <= 3.0:
-                        current_line.append(w)
-                    else:
-                        lines_by_y.append(current_line)
-                        current_line = [w]
-                    last_top = w["top"]
-                if current_line:
-                    lines_by_y.append(current_line)
-
-                for line_words in lines_by_y:
-                    text = " ".join(w["text"] for w in line_words).strip()
-                    if not text:
-                        continue
-                    x0 = min(w["x0"] for w in line_words)
-                    top = min(w["top"] for w in line_words)
-                    x1 = max(w["x1"] for w in line_words)
-                    bottom = max(w["bottom"] for w in line_words)
-                    raw_blocks.append(
-                        RawBlock(
-                            block_id=f"temp-p{page_idx}-b{block_seq}",
-                            page=page_idx,
-                            text=text,
-                            bbox=(float(x0), float(top), float(x1), float(bottom)),
-                            extraction_method=ExtractionMethod.WORD_LAYOUT,
-                            confidence=0.9,
+            for block_seq, line_words in enumerate(
+                _group_words_into_lines(words, tolerance=3.0, page_width=pw),
+                start=1,
+            ):
+                ordered_words = sorted(line_words, key=lambda word: word["x0"])
+                text = " ".join(str(word["text"]) for word in ordered_words).strip()
+                if not text:
+                    continue
+                x0 = min(float(word["x0"]) for word in ordered_words)
+                top = min(float(word["top"]) for word in ordered_words)
+                x1 = max(float(word["x1"]) for word in ordered_words)
+                bottom = max(
+                    float(
+                        word.get(
+                            "bottom",
+                            float(word.get("top", 0)) + float(word.get("height", 12)),
                         )
                     )
-                    block_seq += 1
+                    for word in ordered_words
+                )
+                raw_blocks.append(
+                    RawBlock(
+                        block_id=f"temp-p{page_idx}-b{block_seq}",
+                        page=page_idx,
+                        text=text,
+                        bbox=(x0, top, x1, bottom),
+                        extraction_method=ExtractionMethod.WORD_LAYOUT,
+                        confidence=0.9,
+                    )
+                )
 
             sorted_blocks = sort_raw_page_blocks(
                 raw_blocks, page_width=pw, page_height=ph
@@ -297,6 +466,7 @@ def extract_word_layout_blocks(pdf_bytes: bytes) -> RawExtraction:
                     text=b.text,
                     bbox=b.bbox,
                     extraction_method=b.extraction_method,
+                    reading_order=seq - 1,
                     confidence=b.confidence,
                 )
                 for seq, b in enumerate(sorted_blocks, start=1)
@@ -328,18 +498,28 @@ def evaluate_extraction(raw: RawExtraction) -> ExtractionDecision:
     if not all_blocks:
         reasons.append(ExtractionReason.NO_TEXT_BLOCKS)
 
-    if len(total_text) < 150:
+    if len(total_text) < 40:
         reasons.append(ExtractionReason.TEXT_TOO_SHORT)
 
     alnum_count = sum(c.isalnum() for c in total_text)
-    if alnum_count < 80:
+    if alnum_count < 20:
         reasons.append(ExtractionReason.TOO_FEW_ALNUM_CHARACTERS)
+
+    if ExtractionReason.POSSIBLE_COLUMN_INTERLEAVING.value in raw.warnings:
+        reasons.append(ExtractionReason.POSSIBLE_COLUMN_INTERLEAVING)
 
     for page in raw.pages:
         if len(page.blocks) == 1 and page.height:
             b = page.blocks[0]
             if b.bbox and (b.bbox[3] - b.bbox[1]) > (0.8 * page.height):
                 reasons.append(ExtractionReason.SUSPICIOUS_SINGLE_BLOCK)
+        if raw.method == ExtractionMethod.NATIVE_BLOCKS:
+            for block in page.blocks:
+                if "\n" not in block.text and _has_embedded_heading_anomaly(block.text):
+                    reasons.append(ExtractionReason.POSSIBLE_COLUMN_INTERLEAVING)
+                    break
+
+    reasons = list(dict.fromkeys(reasons))
 
     usable = len(reasons) == 0
     if usable:
@@ -358,16 +538,27 @@ def evaluate_extraction(raw: RawExtraction) -> ExtractionDecision:
 
 def extract_cv_content_blocks(pdf_bytes: bytes) -> RawExtraction:
     """Router: extract native blocks -> evaluate -> fallback to word layout -> raise OCRNotAvailableError."""
-    native = extract_native_blocks(pdf_bytes)
-    native_decision = evaluate_extraction(native)
+    native: RawExtraction | None = None
+    try:
+        native = extract_native_blocks(pdf_bytes)
+        native_decision = evaluate_extraction(native)
+    except (fitz.EmptyFileError, fitz.FileDataError):
+        native_decision = ExtractionDecision(
+            usable=False,
+            recommended_method=ExtractionMethod.WORD_LAYOUT,
+            reasons=[ExtractionReason.CORRUPTED_TEXT],
+        )
 
-    if native_decision.usable:
+    if native_decision.usable and native is not None:
         return native
 
     if native_decision.recommended_method == ExtractionMethod.WORD_LAYOUT:
         word_layout = extract_word_layout_blocks(pdf_bytes)
         word_decision = evaluate_extraction(word_layout)
         if word_decision.usable:
+            word_layout.warnings = [
+                f"native_rejected:{reason.value}" for reason in native_decision.reasons
+            ]
             return word_layout
 
     raise OCRNotAvailableError(
@@ -463,7 +654,31 @@ def raw_extraction_to_layout_lines(raw: RawExtraction) -> list[ExtractedLine]:
     lines: list[ExtractedLine] = []
     for page in raw.pages:
         page_width = page.width or 612.0
-        for block in page.blocks:
+        lane_tolerance = max(24.0, page_width * 0.06)
+        lane_clusters: list[list[float]] = []
+        for x_start in sorted(
+            block.bbox[0]
+            for block in page.blocks
+            if block.bbox
+            and (block.bbox[2] - block.bbox[0]) < page_width * 0.65
+            and not _is_compact_metadata_text(block.text)
+            and not _is_compact_right_fragment(block, page_width)
+        ):
+            for cluster in lane_clusters:
+                if abs(x_start - (sum(cluster) / len(cluster))) <= lane_tolerance:
+                    cluster.append(x_start)
+                    break
+            else:
+                lane_clusters.append([x_start])
+        lane_starts = sorted(
+            sum(cluster) / len(cluster)
+            for cluster in lane_clusters
+            if len(cluster) >= 2
+        )[:3]
+        if len(lane_starts) < 2:
+            lane_starts = []
+
+        for block in sorted(page.blocks, key=lambda item: item.reading_order):
             if not block.text.strip():
                 continue
 
@@ -471,12 +686,16 @@ def raw_extraction_to_layout_lines(raw: RawExtraction) -> list[ExtractedLine]:
                 x0, y0, x1, y1 = block.bbox
                 width = max(x1 - x0, 1.0)
                 height = max(y1 - y0, 1.0)
-                if width >= page_width * 0.65:
+                if not lane_starts:
+                    column_id = "main"
+                elif width >= page_width * 0.65:
                     column_id = "span"
                 else:
-                    column_id = (
-                        "col-0" if ((x0 + x1) / 2.0) < (page_width / 2.0) else "col-1"
+                    lane_index = min(
+                        range(len(lane_starts)),
+                        key=lambda index: abs(x0 - lane_starts[index]),
                     )
+                    column_id = f"col-{lane_index}"
             else:
                 x0, y0, width, height = 0.0, 0.0, page_width, 1.0
                 column_id = "main"
@@ -493,6 +712,17 @@ def raw_extraction_to_layout_lines(raw: RawExtraction) -> list[ExtractedLine]:
                 source_line_id=block.block_id,
             )
             normalize_line(line)
+            norm_lower = (line.normalized_text or line.text).strip().lower()
+            if norm_lower in {
+                "your strength",
+                "explain how it benefits your work.",
+                "explain how it benefits your work",
+                "your achievement",
+                "describe what you did and the impact it had.",
+                "describe what you did and the impact it had",
+                "company description",
+            }:
+                line.is_layout_artifact = True
             lines.append(line)
 
     return lines
@@ -502,7 +732,11 @@ def raw_extraction_to_text(raw: RawExtraction) -> str:
     """Flatten canonical blocks without re-running line/column heuristics."""
     page_texts: list[str] = []
     for page in raw.pages:
-        blocks = [block.text.strip() for block in page.blocks if block.text.strip()]
+        blocks = [
+            block.text.strip()
+            for block in sorted(page.blocks, key=lambda item: item.reading_order)
+            if block.text.strip()
+        ]
         if blocks:
             page_texts.append("\n\n".join(blocks))
     return "\n\n".join(page_texts)
@@ -1142,9 +1376,12 @@ def _detect_page_gutters(
     min_bands = 3 if len(y_bands) >= 5 else min(3, max(2, len(y_bands)))
     for cluster in gap_clusters:
         if len(cluster) >= min_bands:
-            gutter_left = min(g[0] for g in cluster)
-            gutter_right = max(g[1] for g in cluster)
-            confirmed_gutters.append((gutter_left, gutter_right))
+            # Use the shared overlap, not the union. The union can stretch back
+            # through ordinary word spaces on a short left-column line.
+            gutter_left = max(g[0] for g in cluster)
+            gutter_right = min(g[1] for g in cluster)
+            if gutter_left < gutter_right:
+                confirmed_gutters.append((gutter_left, gutter_right))
 
     return confirmed_gutters
 
@@ -1359,60 +1596,8 @@ def _extract_words_to_lines(
 
 
 def layout_extract_pdf(pdf_bytes: bytes) -> list[ExtractedLine]:
-    """Full layout-aware PDF extraction pipeline.
-
-    This is the Phase 3 replacement for ``extract_text_from_pdf()``.
-
-    Pipeline:
-    1. Extract words with spatial metadata (Step 3.1).
-    2. Normalize each line (Step 3.2).
-    3. Detect columns and assign column IDs (Step 3.3).
-    4. Sort lines into reading order (Step 3.3).
-    5. Detect physical line continuations (Step 3.4).
-
-    Returns a list of ``ExtractedLine`` with ``normalized_text`` populated.
-    """
-    # Step 1: Extract words → lines
-    lines, page_widths = _extract_words_to_lines(pdf_bytes)
-
-    if not lines:
-        return lines
-
-    # Step 2: Normalize each line
-    for line in lines:
-        normalize_line(line)
-
-    _mark_layout_artifacts(lines)
-    lines = [line for line in lines if not line.is_layout_artifact]
-
-    # Step 3: Column detection and reading order
-    for page, page_width in page_widths.items():
-        page_lines = [line for line in lines if line.page == page]
-        assign_columns(page_lines, page_width)
-    lines = sort_by_reading_order(lines)
-
-    page_line_numbers: dict[int, int] = {}
-    for line in lines:
-        page_line_numbers[line.page] = page_line_numbers.get(line.page, 0) + 1
-        line.source_line_id = f"p{line.page + 1}-l{page_line_numbers[line.page]}"
-
-    # Step 3.3: Record page transitions (for cross-page continuation)
-    # This is handled implicitly by the page field in each line.
-
-    # Step 3.4: Detect physical line continuations
-    for i in range(1, len(lines)):
-        prev = lines[i - 1]
-        curr = lines[i]
-
-        # Skip page-break markers
-        if curr.is_page_break_marker:
-            continue
-
-        prev_is_bullet = bool(prev.bullet_marker)
-        if should_join_lines(prev, curr, prev_is_bullet):
-            curr.joined_to_prev = True
-
-    return lines
+    """Compatibility adapter over the authoritative RawExtraction pipeline."""
+    return raw_extraction_to_layout_lines(extract_cv_content_blocks(pdf_bytes))
 
 
 def extract_text_from_layout(lines: list[ExtractedLine]) -> str:

@@ -2,10 +2,12 @@
 import type {
   LayoutLine as _LayoutLine,
   CVDocumentV2 as _CVDocumentV2,
+  CVTailoringDiagnostics as _CVTailoringDiagnostics,
 } from "./cv-document-v2";
 
 // Re-export for consumers
 export type LayoutLine = _LayoutLine;
+export { CURRENT_RECONSTRUCTION_VERSION } from "./cv-document-v2";
 
 export interface FileInfo {
   id: string;
@@ -19,8 +21,16 @@ export interface FileInfo {
   updated_at?: string;
 }
 
+export interface RawExtractionReference {
+  id: string;
+  extraction_version: string;
+  method: "native_blocks" | "word_layout" | "ocr";
+}
+
 
 export type {
+  ContentOrigin,
+  CVTextValue,
   CVSectionType,
   CVBlockMetadata,
   CVBlockType,
@@ -33,8 +43,17 @@ export type {
   CVEducationBlock,
   CVUnknownBlock,
   CVSection,
+  CVIdentitySourceMap,
   CVIdentity,
+  CVUnmappedReason,
+  LLMUnmappedReference,
+  CVUnmappedContent,
   CVDocumentV2,
+  CVRewriteDecision,
+  CVTailoringDiagnostics,
+  CVTranslationDecision,
+  CVTranslationDiagnostics,
+  CVTranslationVariant,
 } from "./cv-document-v2";
 
 // ─── Workspace flow ───────────────────────────────────────────────────────────
@@ -49,6 +68,7 @@ export interface WorkspaceInputs {
   cvFile: File | null;
   jdFile: File | null;
   layoutData: _LayoutLine[] | null;
+  rawExtractionRef: RawExtractionReference | null;
 }
 
 // ─── AI Analysis Result ───────────────────────────────────────────────────────
@@ -75,7 +95,39 @@ export interface TailoredCVSection {
   items: string[];
 }
 
-export type CVDesign = "classic_ats" | "modern_professional" | "compact_one_page";
+export type CVDesign = "classic_ats" | "modern_professional" | "compact";
+
+export interface CVTemplateDefinition {
+  template_id: string;
+  version: number;
+  label: string;
+  description: string;
+  layout: "single_column" | "sidebar";
+  ats_friendly: boolean;
+  supports_multipage: boolean;
+}
+
+export interface CVRenderDiagnostics {
+  render_version: number;
+  document_hash: string;
+  template_id: string;
+  template_version: number;
+  render_hash: string;
+  page_count?: number | null;
+  warnings: string[];
+  missing_field_ids: string[];
+  duplicate_field_ids: string[];
+  mismatched_field_ids: string[];
+  clipped_field_ids: string[];
+  overlapping_field_ids: string[];
+  is_valid: boolean;
+}
+
+export interface CVPreviewResponse {
+  html: string;
+  diagnostics: CVRenderDiagnostics;
+  render_hash: string;
+}
 
 export interface TailoredCVVersion {
   id: string;
@@ -87,10 +139,16 @@ export interface TailoredCVVersion {
   // V2 typed document (nullable for legacy records)
   document_v2?: _CVDocumentV2 | null;
   source_document_v2?: _CVDocumentV2 | null;
+  tailoring_diagnostics?: _CVTailoringDiagnostics | null;
   source_pdf_reference?: string | null;
   selected_design: CVDesign;
+  template_id?: string | null;
+  template_version?: number | null;
+  render_version?: number | null;
+  last_render_diagnostics?: CVRenderDiagnostics | null;
   document_schema_version?: number;
   reconstruction_version?: number;
+  tailoring_pipeline_version?: number;
   reconstruction_status?: "current" | "outdated";
   source_hash?: string | null;
   jd_hash?: string | null;
@@ -166,6 +224,7 @@ export interface CVAnalysisResponse {
   target_role?: string | null;
   company_name?: string | null;
   tailoring_entitlement: string;
+  tailoring_diagnostics?: _CVTailoringDiagnostics | null;
 }
 
 export interface CVAnalysisEnvelope {
@@ -175,6 +234,66 @@ export interface CVAnalysisEnvelope {
   reconstruction_diagnostics: NonNullable<CVAnalysisResponse["reconstruction_diagnostics"]>;
   legacy_tailored_cv: TailoredCV;
   tailoring_entitlement: string;
+  tailoring_diagnostics: _CVTailoringDiagnostics | null;
+}
+
+// ─── Decoupled CV pipeline ─────────────────────────────────────────────────
+
+export type CanonicalCV = Record<string, unknown>;
+
+export type EvaluationMode = "GENERAL_AUDIT" | "JOB_FIT";
+export type EvaluationGrade =
+  | "EXCELLENT"
+  | "STRONG_FIT"
+  | "MODERATE_FIT"
+  | "WEAK_FIT"
+  | "NEEDS_IMPROVEMENT";
+
+export interface CVEvaluationCategoryScores {
+  technical_skills: number;
+  experience_level: number;
+  domain_fit: number;
+  education_fit: number;
+}
+
+export interface CVSkillRequirementMatch {
+  requirement: string;
+  status: "matched" | "partial" | "missing";
+  cv_evidence?: string | null;
+  gap_explanation?: string | null;
+}
+
+export interface CVEvaluationReport {
+  evaluation_mode: EvaluationMode;
+  overall_fit_score: number;
+  match_grade: EvaluationGrade | null;
+  executive_summary: string | null;
+  category_scores: CVEvaluationCategoryScores;
+  key_strengths: string[];
+  critical_gaps: string[];
+  skill_matrix: CVSkillRequirementMatch[];
+  actionable_recommendations: string[];
+}
+
+export interface CVTailoringChangeItem {
+  path: string;
+  original_text: string;
+  proposed_text: string;
+  rationale: string;
+}
+
+export interface CVTailoringResponse {
+  tailored_cv: CanonicalCV;
+  change_log: CVTailoringChangeItem[];
+  tailoring_summary: string;
+}
+
+export interface CVPipelineAnalysis {
+  canonical_cv: CanonicalCV;
+  source_document_v2: _CVDocumentV2;
+  source_ticket: string;
+  evaluation: CVEvaluationReport;
+  tailoring?: CVTailoringResponse;
 }
 
 export interface PrioritizedKeyword {

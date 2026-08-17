@@ -15,8 +15,8 @@ const NAV_ITEMS = [
   { label: "Phỏng vấn 1-1", icon: Mic, href: "/app/interview", requiresCV: true },
   { label: "Trợ lý Viết", icon: PenTool, href: "/app/writer", requiresCV: true },
   // { label: "Thư viện Mẫu CV", icon: LayoutTemplate, href: "/app/templates", requiresCV: false },
-  { label: "Blog & Cẩm nang", icon: BookOpen, href: "/blog", requiresCV: false },
-  // { label: "CV đã tối ưu", icon: Clock, href: "/app/history", requiresCV: false },
+  // { label: "Blog & Cẩm nang", icon: BookOpen, href: "/blog", requiresCV: false },
+  { label: "CV đã tối ưu", icon: Clock, href: "/app/history", requiresCV: false },
 ];
 
 

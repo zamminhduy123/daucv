@@ -1,4 +1,4 @@
-import type { CVDesign } from "@/types";
+import type { CVDesign, CVTemplateDefinition } from "@/types";
 
 export interface CVDesignDefinition {
   value: CVDesign;
@@ -6,19 +6,25 @@ export interface CVDesignDefinition {
   description: string;
 }
 
-export const CV_DESIGNS: readonly CVDesignDefinition[] = [
-  { value: "classic_ats", label: "Classic ATS", description: "Tối ưu ATS, đơn giản, chuyên nghiệp." },
-  { value: "modern_professional", label: "Modern Professional", description: "Hiện đại, bố cục hai cột, nổi bật." },
-  { value: "compact_one_page", label: "Compact One-Page", description: "Gọn gàng, vừa một trang, đầy đủ nội dung." },
+export const DEFAULT_CV_TEMPLATES: readonly CVDesignDefinition[] = [
+  { value: "classic_ats", label: "Classic ATS", description: "Tối ưu ATS, đơn giản, chuẩn mực." },
+  { value: "modern_professional", label: "Modern Professional", description: "Hiện đại, bố cục hai cột nổi bật." },
+  { value: "compact", label: "Compact", description: "Mật độ thông tin cao, tự động phân trang khi dài." },
 ];
 
-export const CV_DESIGN_LABELS = Object.fromEntries(
-  CV_DESIGNS.map((design) => [design.value, design.label]),
-) as Record<CVDesign, string>;
+export const CV_DESIGNS = DEFAULT_CV_TEMPLATES;
 
-export function cvSectionKind(title: string): "skills" | "education" | "main" {
-  const normalized = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  if (normalized.includes("skill") || normalized.includes("ky nang")) return "skills";
-  if (normalized.includes("education") || normalized.includes("hoc van")) return "education";
-  return "main";
+export const CV_DESIGN_LABELS: Record<string, string> = {
+  classic_ats: "Classic ATS",
+  modern_professional: "Modern Professional",
+  compact: "Compact",
+  compact_one_page: "Compact",
+};
+
+export function templateDefinitionsToDesigns(templates: CVTemplateDefinition[]): CVDesignDefinition[] {
+  return templates.map((t) => ({
+    value: t.template_id as CVDesign,
+    label: t.label,
+    description: t.description,
+  }));
 }

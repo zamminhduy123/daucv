@@ -1,0 +1,151 @@
+@page {
+  size: A4;
+  margin: 10mm 12mm 10mm 12mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Liberation Sans", "Helvetica Neue", Arial, sans-serif;
+  color: #111827;
+  background-color: #ffffff;
+  margin: 0;
+  padding: 0;
+  font-size: 8.5pt;
+  line-height: 1.35;
+}
+
+.cv-container {
+  width: 100%;
+  max-width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 10mm 12mm;
+  background-color: #ffffff;
+}
+
+@media print {
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  .cv-container {
+    padding: 0;
+    margin: 0;
+    max-width: none;
+    min-height: auto;
+  }
+}
+
+.cv-header {
+  border-bottom: 1.5px solid #111827;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+
+.cv-name {
+  font-size: 16pt;
+  font-weight: 700;
+  margin: 0 0 2px 0;
+  color: #111827;
+  text-transform: uppercase;
+}
+
+.cv-headline {
+  font-size: 9.5pt;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: #374151;
+}
+
+.cv-contacts {
+  font-size: 8pt;
+  color: #4b5563;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  margin: 0;
+}
+
+.cv-contact-item {
+  display: inline-block;
+  word-break: break-all;
+}
+
+.cv-summary {
+  margin-bottom: 10px;
+}
+
+.cv-section {
+  margin-bottom: 10px;
+}
+
+.cv-section-title {
+  font-size: 9.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #111827;
+  border-bottom: 1px solid #9ca3af;
+  padding-bottom: 2px;
+  margin: 0 0 6px 0;
+}
+
+.cv-block {
+  margin-bottom: 6px;
+}
+
+.entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1px;
+}
+
+.entry-title {
+  font-weight: 700;
+  font-size: 9pt;
+  color: #111827;
+  margin: 0;
+}
+
+.entry-subtitle {
+  font-weight: 600;
+  font-size: 8.5pt;
+  color: #374151;
+  margin: 0 0 1px 0;
+}
+
+.entry-meta {
+  font-size: 8pt;
+  color: #6b7280;
+  margin: 0 0 2px 0;
+}
+
+.bullet-list {
+  margin: 2px 0 4px 0;
+  padding-left: 14px;
+}
+
+.bullet-item {
+  margin-bottom: 2px;
+}
+
+.skills-group {
+  margin-bottom: 4px;
+}
+
+.skills-label {
+  font-weight: 700;
+  display: inline;
+}
+
+.skills-list {
+  display: inline;
+}
+
+.item-paragraph {
+  margin: 0 0 4px 0;
+}

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Upload, FileText, X, CheckCircle, AlertTriangle, Sparkles, Mic, Loader2, PenTool, Briefcase } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { LayoutLine, WorkspaceInputs } from "@/types";
+import type { LayoutLine, RawExtractionReference, WorkspaceInputs } from "@/types";
 import { wordCount } from "@/lib/utils";
 import { extractPdfAPI, type PdfExtractResult } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 interface InputSectionProps {
   inputs: WorkspaceInputs;
   onChange: (patch: Partial<WorkspaceInputs>) => void;
+  onRawExtractionCleanupPending: (ids: string[]) => void;
   onAnalyze: () => void;
   onInterview: () => void;
   onWrite: () => void;
@@ -67,6 +68,7 @@ function TextCard({ title, subtitle, children, wordCountText, headerRight, topBa
 export default function InputSection({ 
   inputs, 
   onChange, 
+  onRawExtractionCleanupPending,
   onAnalyze, 
   onInterview, 
   onWrite,
@@ -96,9 +98,20 @@ export default function InputSection({
     if (ref.current) ref.current.value = "";
   };
 
-  const updatePdfTarget = (target: "cv" | "jd", file: File | null, text?: string, layoutData?: LayoutLine[] | null) => {
+  const updatePdfTarget = (
+    target: "cv" | "jd",
+    file: File | null,
+    text?: string,
+    layoutData?: LayoutLine[] | null,
+    rawExtractionRef?: RawExtractionReference | null,
+  ) => {
     if (target === "cv") {
-      onChange({ cvFile: file, ...(text !== undefined ? { cvText: text } : {}), ...(layoutData !== undefined ? { layoutData } : {}) });
+      onChange({
+        cvFile: file,
+        ...(text !== undefined ? { cvText: text } : {}),
+        ...(layoutData !== undefined ? { layoutData } : {}),
+        ...(rawExtractionRef !== undefined ? { rawExtractionRef } : {}),
+      });
     } else {
       onChange({ jdFile: file, ...(text !== undefined ? { jdText: text } : {}) });
     }
@@ -106,9 +119,11 @@ export default function InputSection({
 
   const handleFile = async (file: File, target: "cv" | "jd") => {
     const label = target === "cv" ? "CV" : "JD";
+    const replacedRawExtractionId =
+      target === "cv" ? inputs.rawExtractionRef?.id : undefined;
 
     if (file.type !== "application/pdf") {
-      updatePdfTarget(target, null, "");
+      updatePdfTarget(target, null, "", null, target === "cv" ? null : undefined);
       clearPdfInputValue(target);
       setExtractError(target, `${label}: Vui lòng tải lên file PDF.`);
       return;
@@ -116,28 +131,53 @@ export default function InputSection({
 
     // 10 MB limit (same as backend PDF_MAX_SIZE)
     if (file.size > 10 * 1024 * 1024) {
-      updatePdfTarget(target, null, "");
+      updatePdfTarget(target, null, "", null, target === "cv" ? null : undefined);
       clearPdfInputValue(target);
       setExtractError(target, `${label}: File quá lớn. Giới hạn 10 MB.`);
       return;
     }
     
-    updatePdfTarget(target, file);
+    if (target === "cv") {
+      updatePdfTarget(target, file);
+    } else {
+      updatePdfTarget(target, file);
+    }
     setExtractError(target, "");
     setExtracting(target, true);
 
     try {
-      const result = await extractPdfAPI(file) as PdfExtractResult;
+      const result = await extractPdfAPI(
+        file,
+        target,
+        replacedRawExtractionId,
+      ) as PdfExtractResult;
       if (result.error) {
         setExtractError(target, `${label}: Đã có lỗi xảy ra khi trích xuất, vui lòng thử lại.`);
         console.error(result.error);
-        updatePdfTarget(target, null, "");
+        updatePdfTarget(target, null, "", null, target === "cv" ? null : undefined);
         clearPdfInputValue(target);
       } else {
-        updatePdfTarget(target, file, result.text || "", result.layout_data);
+        if (target === "cv" && !result.raw_extraction_ref) {
+          throw new Error("CV extraction did not return a durable raw reference.");
+        }
+        updatePdfTarget(
+          target,
+          file,
+          result.text || "",
+          result.layout_data,
+          target === "cv" ? result.raw_extraction_ref : undefined,
+        );
+        if (
+          target === "cv" &&
+          result.pending_raw_extraction_cleanup_ids?.length
+        ) {
+          onRawExtractionCleanupPending(
+            result.pending_raw_extraction_cleanup_ids,
+          );
+        }
       }
     } catch (err: unknown) {
-      updatePdfTarget(target, null, "");
+      updatePdfTarget(target, null, "", null, target === "cv" ? null : undefined);
       clearPdfInputValue(target);
       setExtractError(target, `${label}: ${apiErrorMessage(err)}`);
       console.error(err);
@@ -154,7 +194,7 @@ export default function InputSection({
   };
 
   const clearFile = (target: "cv" | "jd") => {
-    updatePdfTarget(target, null, "", null);
+    updatePdfTarget(target, null, "", null, target === "cv" ? null : undefined);
     setExtractError(target, "");
     clearPdfInputValue(target);
   };
@@ -281,7 +321,7 @@ export default function InputSection({
           />
           <textarea
             value={inputs.cvText}
-            onChange={(e) => onChange({ cvText: e.target.value, layoutData: null })}
+            onChange={(e) => onChange({ cvText: e.target.value, layoutData: null, rawExtractionRef: null })}
             placeholder={"// Dán nội dung CV của bạn vào đây...\n\nHọ tên: Nguyễn Văn A\nKinh nghiệm: 3 năm tại...\nKỹ năng: React, TypeScript..."}
             className="flex-1 w-full min-h-[200px] resize-none outline-none bg-transparent text-[#2F4F4F] leading-relaxed text-sm"
             style={{ padding: "0.75rem 1rem", fontFamily: "'Inter', 'Courier New', monospace" }}

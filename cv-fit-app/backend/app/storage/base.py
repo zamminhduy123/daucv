@@ -25,6 +25,14 @@ class Storage(Protocol):
         """Delete an object from specified bucket and path."""
         ...
 
+    async def download(
+        self,
+        bucket: str,
+        path: str,
+    ) -> bytes:
+        """Download an object without exposing a public URL."""
+        ...
+
     async def get_url(
         self,
         bucket: str,

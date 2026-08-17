@@ -1,0 +1,86 @@
+{
+  "document": {
+    "schema_version": 2,
+    "reconstruction_version": 2,
+    "identity": {
+      "name": "Duy Nguyen",
+      "headline": "Backend Engineer",
+      "contact_lines": ["duy@example.com"]
+    },
+    "summary": {
+      "type": "paragraph",
+      "block_id": "summary-1",
+      "confidence": 1.0,
+      "text": "Builds reliable services."
+    },
+    "sections": [
+      {
+        "id": "experience-1",
+        "type": "experience",
+        "title": "Experience",
+        "blocks": [
+          {
+            "type": "entry",
+            "block_id": "entry-1",
+            "confidence": 1.0,
+            "title": "Engineer",
+            "organization": "Example Co",
+            "date": "2024",
+            "bullets": ["Built Python APIs."]
+          }
+        ]
+      },
+      {
+        "id": "skills-1",
+        "type": "skills",
+        "title": "Skills",
+        "blocks": [
+          {
+            "type": "skill_group",
+            "block_id": "skill-group-1",
+            "confidence": 1.0,
+            "label": "Backend",
+            "skills": ["Python", "FastAPI"]
+          }
+        ]
+      },
+      {
+        "id": "custom-1",
+        "type": "custom",
+        "title": "Other",
+        "blocks": [
+          {
+            "type": "unknown",
+            "block_id": "unknown-1",
+            "confidence": 0.2,
+            "lines": ["Preserved uncertain content"]
+          }
+        ]
+      }
+    ],
+    "reconstruction_warnings": []
+  },
+  "expected_block_types": ["paragraph", "entry", "skill_group", "unknown"],
+  "expected_style_tokens": [
+    ".entry-title",
+    ".entry-subtitle",
+    ".entry-meta",
+    ".bullet",
+    ".skills",
+    ".unknown",
+    ".neutral-block",
+    ".classic_ats",
+    ".modern_professional",
+    ".compact_one_page"
+  ],
+  "expected_content": [
+    "Duy Nguyen",
+    "Builds reliable services.",
+    "Engineer",
+    "Example Co",
+    "Built Python APIs.",
+    "Python",
+    "FastAPI",
+    "Preserved uncertain content"
+  ]
+}

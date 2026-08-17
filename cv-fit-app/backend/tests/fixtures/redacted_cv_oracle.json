@@ -1,0 +1,124 @@
+{
+  "fixture_name": "redacted_structural_cv_oracle",
+  "description": "Anonymized structural oracle matching candidate CV (2-page Letter PDF)",
+  "identity": {
+    "name": "Nguyen Thanh Minh Duy",
+    "headline": "AI Engineer / ML Engineer",
+    "contact_lines": [
+      "Ho Chi Minh City, Vietnam",
+      "zamminhduy123@gmail.com",
+      "linkedin.com/in/duynguyen-ai",
+      "github.com/duynguyen-ai"
+    ]
+  },
+  "expected_counts": {
+    "sections": 7,
+    "education_entries": 2,
+    "skill_groups": 6,
+    "research_entries": 1,
+    "research_bullets": 8,
+    "project_entries": 3,
+    "work_entries": 1,
+    "work_bullets": 7,
+    "publications": 2,
+    "certifications": 2
+  },
+  "sections": [
+    {
+      "type": "education",
+      "title": "Education",
+      "record_count": 2,
+      "records": [
+        {
+          "institution": "Soonchunhyang University",
+          "degree": "Master of Science in Computer Science and Engineering",
+          "date": "Feb 2024 – Feb 2026",
+          "location": "Asan, South Korea"
+        },
+        {
+          "institution": "VNU-HCM University of Science",
+          "degree": "Bachelor of Science in Information Technology",
+          "date": "Sep 2019 – Oct 2023",
+          "location": "Ho Chi Minh City, Vietnam"
+        }
+      ]
+    },
+    {
+      "type": "skills",
+      "title": "Technical Skills",
+      "record_count": 6,
+      "groups": [
+        "AI Engineering",
+        "ML / Deep Learning",
+        "Backend / Deployment",
+        "Frontend / Product",
+        "Languages",
+        "Applied Coursework"
+      ]
+    },
+    {
+      "type": "experience",
+      "title": "Research Experience",
+      "record_count": 1,
+      "records": [
+        {
+          "organization": "Soonchunhyang University – IoT Network Lab",
+          "role": "Graduate Research Assistant",
+          "date": "Feb 2024 – Feb 2026",
+          "bullet_count": 8
+        }
+      ]
+    },
+    {
+      "type": "projects",
+      "title": "Applied AI Projects",
+      "record_count": 3,
+      "records": [
+        {
+          "title": "Bé Đậu – AI Career SaaS",
+          "role": "AI + Full-Stack Engineer",
+          "date": "2025 – Present"
+        },
+        {
+          "title": "Interactive Video Retrieval System",
+          "role": "AI + Fullstack Developer",
+          "date": "2024"
+        },
+        {
+          "title": "AI Support Chatbot for Small Academic Center",
+          "role": "Freelance AI Engineer",
+          "date": "2024"
+        }
+      ]
+    },
+    {
+      "type": "experience",
+      "title": "Software Engineering Experience",
+      "record_count": 1,
+      "records": [
+        {
+          "organization": "Zalo – VNG Corporation",
+          "role": "Software Engineer, Zalo PC",
+          "date": "May 2022 – Mar 2024",
+          "bullet_count": 7
+        }
+      ]
+    },
+    {
+      "type": "publications",
+      "title": "Publications",
+      "record_count": 2
+    },
+    {
+      "type": "certifications",
+      "title": "Certifications",
+      "record_count": 2
+    }
+  ],
+  "deny_list_unsupported_claims": [
+    "100% uptime",
+    "eliminate server costs",
+    "MCP",
+    "LangGraph"
+  ]
+}

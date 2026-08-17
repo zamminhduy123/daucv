@@ -83,7 +83,6 @@ def build_cv_analysis_prompt(
             "  + claim: Skill/competency evaluated in English\n"
             '  + evidence_strength: MUST be one of ["Strong", "Medium", "Weak", "Missing"].\n'
             "  + comment: Short comment in English explaining the rating.\n\n"
-            "- block_rewrites: Array of block rewrite suggestions ONLY for blocks that actually need changes. Do NOT include unchanged blocks. Return exact same block_id. Only use text for paragraph/summary, bullets for entry, or skills for skill_group.\n\n"
             "- target_role: Target job title extracted from JD in English, or null.\n"
             "- company_name: Company name extracted from JD in English, or null.\n\n"
             "Be candid, constructive, and output ONLY valid JSON."
@@ -147,16 +146,70 @@ def build_cv_analysis_prompt(
         '    * "Weak": Nhắc đến mơ hồ, không có bằng chứng thực tế.\n'
         '    * "Missing": Hoàn toàn không tìm thấy bằng chứng nào trong CV.\n'
         '  + comment: Nhận xét ngắn gọn giải thích đánh giá (VD: "Supported by 8M+ MAU metrics", "No leadership evidence found")\n\n'
-        "- block_rewrites: Mảng đề xuất chỉnh sửa cho TỪNG block trong TYPED SOURCE DOCUMENT. "
-        "Trả lại đúng cùng block_id cho mọi block. Chỉ được dùng text cho paragraph/summary, "
-        "bullets cho entry (giữ nguyên số bullet), hoặc skills cho skill_group (chỉ đổi thứ tự). "
-        "Không đổi identity, tên công ty/trường, ngày, loại block; không thêm số liệu hoặc công nghệ "
-        "không có trong CV nguồn. Với block không cần đổi hoặc không thuộc loại được phép sửa, "
-        "trả preserve=true và không gửi text/bullets/skills.\n\n"
         "- target_role: Tên vị trí tuyển dụng (job title) trích xuất hoặc suy luận từ Job Description (JD). Ví dụ: 'Software Engineer' hoặc 'Lập trình viên React'. Trả về null nếu không có hoặc không xác định được.\n"
         "- company_name: Tên công ty tuyển dụng trích xuất hoặc suy luận từ Job Description (JD). Ví dụ: 'Google' hoặc 'Tập đoàn Vingroup'. Trả về null nếu không có hoặc không xác định được.\n\n"
         "Hãy trung thực, mang tính xây dựng và cung cấp kết quả ở định dạng JSON hợp lệ duy nhất."
     )
+
+
+CV_REWRITE_SYSTEM_PROMPT_EN = """You are an expert ATS CV Rewriter. Your job is to improve the phrasing, impact, action verbs, and concision of allowed CV block fields targeted to the provided Job Description.
+
+STRICT CONSTRAINTS (VIOLATIONS WILL BE REJECTED BY SERVER):
+1. EVIDENCE BOUNDARY: Every proposed rewrite MUST be strictly supported by the local evidence in that specific block.
+2. NO FACT INVENTION: Do NOT add new numbers, percentages, metrics, dates, companies, locations, certifications, or technologies not present in that block's local evidence.
+3. NO FACT REMOVAL: Do NOT remove existing numbers, metrics, or factual claims present in the block.
+4. NO INFLATION: Do NOT inflate responsibility (e.g., 'assisted' -> 'led', 'supported' -> 'spearheaded').
+5. NO PLACEHOLDERS: Do NOT include placeholders like '[N users]', '[X%]', '[TODO]', '<...>', or '{{...}}'.
+6. BULLET COUNT: For 'bullets' fields, you MUST return the EXACT SAME number of bullets as the original value.
+7. SKILLS ORDERING: For 'skills' fields, you MUST return the EXACT SAME set of skill strings, reordered for relevance to the JD. Do NOT add or remove skills.
+8. LANGUAGE: Write strictly in the requested source language ({source_language}). Do NOT translate between languages.
+9. SPARSE OUTPUT: Return proposed operations ONLY for blocks you wish to improve. Omit blocks that do not need improvement.
+
+Return a JSON object matching CVRewriteOperationsPayload:
+{{
+  "operations": [
+    {{
+      "block_id": "b1",
+      "field": "bullets",
+      "original_value_hash": "a1b2...",
+      "proposed_value": ["Bullet 1", "Bullet 2"]
+    }}
+  ]
+}}
+"""
+
+CV_REWRITE_SYSTEM_PROMPT_VI = """Bạn là chuyên gia Tối ưu hoá CV chuẩn ATS. Nhiệm vụ của bạn là cải thiện văn phong, từ khóa tác động, động từ hành động và sự súc tích cho các mục trong CV nhằm phù hợp với Job Description (JD).
+
+QUY TẮC BẮT BUỘC (VI PHẠM SẼ BỊ HỆ THỐNG TỪ CHỐI TỰ ĐỘNG):
+1. GIỚI HẠN BẰNG CHỨNG: Mọi câu chữ sửa đổi BẮT BUỘC phải dựa trên bằng chứng thực tế của duy nhất block đó.
+2. KHÔNG TỰ NGHĨ SỐ LIỆU/TỪ KHÓA: KHÔNG THÊM bất kỳ số liệu, phần trăm, ngày tháng, công ty, bằng cấp, hoặc công nghệ mới nào không có trong bằng chứng của block.
+3. KHÔNG XÓA SỐ LIỆU: KHÔNG ĐƯỢC XÓA các số liệu hay thành tựu thực tế đã có sẵn trong block.
+4. KHÔNG NỔ/TĂNG CẤP TRÁCH NHIỆM: Không chuyển 'hỗ trợ' thành 'chủ trì/dẫn dắt', không làm sai lệch quy mô thực tế.
+5. KHÔNG DÙNG PLACEHOLDER: Không đưa các ký tự chờ như '[N người dùng]', '[X%]', '[công ty]', '<...>', '{{...}}'.
+6. SỐ LƯỢNG BULLET: Với trường 'bullets', BẮT BUỘC trả về ĐÚNG SỐ LƯỢNG bullet như gốc.
+7. DANH SÁCH SKILLS: Với trường 'skills', BẮT BUỘC giữ nguyên tập hợp kỹ năng gốc, chỉ được sắp xếp lại thứ tự ưu tiên. Không thêm/xóa kỹ năng.
+8. NGÔN NGỮ: Viết hoàn toàn bằng ngôn ngữ nguồn ({source_language}). KHÔNG dịch thuật.
+9. ĐỀ XUẤT RÚT GỌN: Chỉ trả về operation cho những block thực sự cần cải thiện. Skip các block không cần sửa.
+
+Trả về đối tượng JSON khớp với CVRewriteOperationsPayload:
+{{
+  "operations": [
+    {{
+      "block_id": "b1",
+      "field": "bullets",
+      "original_value_hash": "a1b2...",
+      "proposed_value": ["Bullet 1", "Bullet 2"]
+    }}
+  ]
+}}
+"""
+
+
+def build_cv_rewrite_prompt(source_language: str) -> str:
+    lang_name = "English" if source_language == "en" else "Vietnamese"
+    if source_language == "en":
+        return CV_REWRITE_SYSTEM_PROMPT_EN.format(source_language=lang_name)
+    return CV_REWRITE_SYSTEM_PROMPT_VI.format(source_language=lang_name)
 
 
 CV_ANALYSIS_CONTEXT_WITH_JD = "Nhiệm vụ: Phân tích CV ứng viên dựa trên Mô tả Công việc (JD) được cung cấp và trả về kết quả phân tích."
@@ -421,33 +474,422 @@ def build_job_parser_prompt() -> str:
 
 
 def format_raw_extraction_blocks(raw_extraction: any) -> str:
-    """Format RawExtraction blocks into clean text with explicit block markers."""
+    """Format source blocks with geometry as context, never as output design."""
     parts: list[str] = []
     for page in raw_extraction.pages:
         parts.append(f"=== PAGE {page.page} ===")
         for block in page.blocks:
-            parts.append(f"[BLOCK {block.block_id}]\n{block.text}\n")
+            bbox = (
+                ",".join(f"{value:.1f}" for value in block.bbox)
+                if block.bbox
+                else "none"
+            )
+            parts.append(
+                f"[BLOCK {block.block_id} | order={block.reading_order} | bbox={bbox}]\n"
+                f"{block.text}\n"
+            )
     return "\n".join(parts)
 
 
+def format_source_atoms(atoms: list[any]) -> str:
+    """Format server-owned atom IDs for the experimental v2 mapper."""
+    return "\n".join(
+        f"[ATOM {atom.atom_id} | block={atom.block_id} | page={atom.page} | order={atom.reading_order}]\n{atom.text}"
+        for atom in atoms
+    )
+
+
 def build_block_parsing_prompt() -> str:
-    """Build system prompt for LLM semantic parsing from raw extraction blocks."""
+    """Build system prompt for LLM #1 (CV Mapper) semantic parsing from raw extraction blocks."""
     return (
-        "You are an expert resume parsing engine.\n"
-        "You are provided raw text blocks extracted from a candidate's CV.\n"
-        "The blocks may not be in perfect visual reading order.\n\n"
-        "Your task:\n"
-        "1. Extract all candidate information into structured CV JSON.\n"
-        "2. Use section headings and semantic meaning to associate content with sections.\n"
-        '3. Include source_block_ids: ["block_id"] for every field and section entry.\n'
-        "4. FILTER OUT TEMPLATE PLACEHOLDERS: Do NOT extract generic template guidance text or placeholder instructions "
+        "You are a semantic CV Mapper (LLM #1). You are NOT a recruiter, reviewer, evaluator, or designer.\n"
+        "Your SINGLE responsibility is: Understand what this CV says and organize it into a predictable JSON structure.\n"
+        "DO NOT evaluate candidate fit, judge skills, score ATS readiness, or suggest rewrites.\n"
+        "You receive authoritative source blocks in deterministic reading order.\n\n"
+        "STRICT RULES:\n"
+        "1. Copy candidate wording faithfully. Do not improve, rewrite, paraphrase, translate, correct, summarize, judge, or invent prose.\n"
+        "2. Every textual value must be an exact source substring or an ordered join of its cited blocks after whitespace/bullet/separator normalization. "
+        "The canonical section type may be normalized, but its user-visible title must preserve the source language, wording, and case.\n"
+        "3. Return canonical identity, optional summary, and ordered semantic sections containing typed blocks (education, experience, research, skills, publications, certifications, etc.). Preserve custom and multilingual headings.\n"
+        "4. Every populated identity field must have field_source_block_ids. Every summary, section, and typed block must reference exact known source_block_ids.\n"
+        "5. Do not return server-owned IDs, source text records, page/bbox data, extraction/parser/version/status fields, persisted unmapped text, or template/design instructions.\n"
+        "6. FILTER OUT TEMPLATE PLACEHOLDERS: Do NOT extract generic template guidance text or placeholder instructions "
         "(e.g., 'Your Achievement', 'Describe what you did and the impact it had.', 'Your Strength', 'Explain how it benefits your work.', "
         "'Company Description', 'Powered by Enhancv') as actual candidate sections, achievements, or bullets. "
         "Route all such boilerplate blocks to 'unmapped_references' with reason 'placeholder_content'.\n"
-        "5. Return an array 'unmapped_references' for blocks containing unknown/decorative/placeholder/ambiguous content:\n"
+        "7. Return 'unmapped_references' only for unknown/decorative/placeholder/ambiguous source blocks:\n"
         "   - block_id: exact raw block ID\n"
         "   - reason: one of ['unknown_section', 'decorative_content', 'placeholder_content', 'ambiguous_content']\n"
-        "6. Do NOT invent or fabricate block IDs. Only reference block IDs present in the input.\n"
-        "7. Do NOT omit genuine candidate information merely because it appears in an unusual block order.\n"
-        "8. Output ONLY valid JSON matching the schema."
+        "8. Never invent, duplicate within one provenance list, or alter block IDs.\n"
+        "9. Do not omit genuine candidate information merely because it appears in an unusual order.\n"
+        "10. DATE ASSOCIATIONS: When parsing entries (certifications, education, experience, publications), associate date blocks (e.g., 'Mar 2026', '2024 – 2026') as the 'date' property of their parent entry. Do NOT create separate entry blocks where the title is merely a date string.\n"
+        "11. ENTRY FIELD SEMANTICS: In experience, education, or research entries:\n"
+        "    - 'title' or 'degree': MUST be the candidate's job position or degree (e.g., 'Graduate Research Assistant', 'AI Engineer', 'B.Sc. in Computer Science').\n"
+        "    - 'organization' or 'institution': MUST be the employer, university, or lab name (e.g., 'Soonchunhyang University', 'IBM').\n"
+        "    - 'location': MUST be the geographic location (e.g., 'Asan, South Korea', 'Ho Chi Minh City, Vietnam', 'Remote', 'San Francisco, CA'). NEVER put a geographic location string into 'title' or 'organization'.\n"
+        "12. BLOCK DISCRIMINATOR: EVERY object in sections[].blocks MUST include a required 'type' field. Use exactly one of: 'entry', 'bullet', 'paragraph', 'skill_group', 'publication', 'education', or 'unknown'. Never omit 'type', including for certifications.\n"
+        "13. Output only strict JSON matching the supplied response schema."
+    )
+
+
+def build_block_plan_prompt() -> str:
+    """Prompt for experimental LLM #1 v2: IDs and semantics only."""
+    return (
+        "You are the experimental CV structure planner (LLM #1 v2). You are not a recruiter or writer.\n"
+        "You receive server-owned source ATOM records. Return a strict JSON plan that classifies and groups atom IDs only.\n"
+        "You MUST NOT output candidate wording, copied text, substrings, summaries, explanations, page data, or block text.\n\n"
+        "RULES:\n"
+        "1. Use only atom IDs visibly supplied in the input. Never guess a next/hidden ID. If uncertain, omit it; the server audits coverage.\n"
+        "2. Use canonical section `type` only for classification. For every user-visible field, return the source atom IDs that provide it.\n"
+        "3. Preserve source reading order inside every atom-ID list.\n"
+        "4. Use `entry` for jobs, projects, research roles, and certifications; `education` for degrees; `skill_group` for skills; `publication` for papers; `unknown` only when content cannot be classified.\n"
+        "5. For experience/research/education, distinguish role or degree, organization/institution, geographic location, and date.\n"
+        "6. Do not evaluate, rewrite, translate, correct, infer facts, or judge quality.\n"
+        "7. Output JSON only, matching the supplied response schema."
+    )
+
+
+def build_section_block_plan_prompt(
+    section_type: str, section_title: str | None = None
+) -> str:
+    """Strict compact prompt for one deterministic CV section range."""
+    title_context = (
+        f" Its source heading is `{section_title}`." if section_title else ""
+    )
+    section_rules = {
+        "education": (
+            "Use `education` blocks only. `institution` is university/school/lab; "
+            "`degree` is qualification; `field` is major; `location` is geography; `date` is date."
+        ),
+        "skills": "Use `skill_group` blocks only. A label is a category; its skills are items in that category.",
+        "publications": "Use `publication` blocks only. Keep title, authors, venue, date, and status separate.",
+        "certifications": "Use `entry` blocks only. `title` is certification name; `organization` is issuer; `date` is date.",
+        "experience": (
+            "Use `entry` blocks for each role/project and `bullet` only for standalone bullets. "
+            "For employment/research: `title` is candidate role, `organization` is employer/lab, "
+            "`location` is geography, `date` is date. For projects: `title` is project name and "
+            "`organization` may contain candidate role/team."
+        ),
+        "projects": (
+            "Use `entry` blocks for projects and `bullet` only for standalone bullets. "
+            "`title` is project name; `organization` may contain candidate role/team; `date` is date."
+        ),
+    }.get(section_type, "Use the smallest faithful block type for every source atom.")
+    return (
+        "You are the experimental CV section planner (LLM #1 v2). You are not a recruiter or writer.\n"
+        f"The server already classified this range as `{section_type}`.{title_context}\n"
+        "Return only a JSON object with `coverage_atom_ids` and `blocks`. Each block contains source atom IDs only; do not output candidate text.\n\n"
+        "RULES:\n"
+        "1. Every supplied content atom ID is REQUIRED exactly once in exactly one `blocks` field. Never omit, repeat, or invent IDs.\n"
+        "2. `coverage_atom_ids` MUST echo every supplied atom ID exactly once in the supplied reading order. It is audit-only; do not place it in a block.\n"
+        "3. Preserve source order inside every field and bullet group. Do not merge multiple roles/projects into one entry.\n"
+        f"4. {section_rules}\n"
+        "5. Do not evaluate, rewrite, translate, infer, or output prose. Output JSON only."
+    )
+
+
+def build_section_block_plan_repair_prompt(
+    section_type: str,
+    *,
+    section_title: str | None,
+    missing_atom_ids: list[str],
+    repeated_atom_ids: list[str],
+    invalid_block_types: list[str],
+) -> str:
+    """Request one exact-ownership repair for an already-small section plan."""
+    return (
+        f"{build_section_block_plan_prompt(section_type, section_title)}\n\n"
+        "REPAIR REQUIRED: Your previous plan failed server ownership checks. Return a COMPLETE replacement section plan, not a patch.\n"
+        f"- Missing from semantic blocks: {missing_atom_ids or 'none'}\n"
+        f"- Repeated in semantic blocks: {repeated_atom_ids or 'none'}\n"
+        f"- Forbidden block types for this section: {invalid_block_types or 'none'}\n"
+        "Before responding, verify every input atom appears once in `coverage_atom_ids` and once in exactly one semantic block field."
+    )
+
+
+def build_section_range_plan_prompt(
+    section_type: str,
+    section_title: str | None = None,
+    *,
+    atom_count: int | None = None,
+    has_visual_entry_header: bool = False,
+) -> str:
+    """Prompt for v3.1 cursor segments: compact structure, never source text."""
+    title_context = (
+        f" Its source heading is `{section_title}`." if section_title else ""
+    )
+    atom_desc = (
+        f"Input contains {atom_count} ordered source atoms (indexes 0 to {atom_count - 1})."
+        if atom_count
+        else "Input contains ordered source atoms."
+    )
+    total_rule = (
+        f"5. Segment counts across all blocks MUST total exactly {atom_count} atoms."
+        if atom_count
+        else "5. Segment counts across all blocks MUST total exactly the number of supplied atoms."
+    )
+    section_config = {
+        "education": (
+            '{"b":[{"k":"d","s":[["i",1],["t",1],["d",1],["n",1]]},{"k":"d","s":[["i",1],["t",1],["d",1]]}]}',
+            "Must use education blocks (kind 'd') with ONE block per university/degree. NEVER merge multiple schools/degrees into one block. institution ('i')=university/school; degree/title ('t')=degree/qualification; major/field ('m')=major; location ('l')=geography; date ('d')=date range; detail ('n')=GPA/coursework/honors.",
+        ),
+        "skills": (
+            '{"b":[{"k":"s","s":[["g",1],["k",1]]},{"k":"s","s":[["g",1],["k",1]]}]}',
+            "Must use skill_group blocks (kind 's') with ONE block per skill category line. label ('g')=skill category name; skill ('k')=skills listed under that category.",
+        ),
+        "publications": (
+            '{"b":[{"k":"u","s":[["t",1],["a",1],["v",1],["d",1]]},{"k":"u","s":[["t",1],["a",1],["v",1],["d",1]]}]}',
+            "Must use publication blocks (kind 'u') with one block per paper/publication. title ('t')=paper title; authors ('a')=author list; venue ('v')=journal/conference; date ('d')=year/date; status ('q')=status.",
+        ),
+        "certifications": (
+            '{"b":[{"k":"e","s":[["t",1],["o",1],["d",1]]},{"k":"e","s":[["t",1],["o",1],["d",1]]}]}',
+            "Must use entry blocks (kind 'e') with one block per certification. title ('t')=credential name; organization ('o')=issuer; date ('d')=date.",
+        ),
+        "experience": (
+            '{"b":[{"k":"e","s":[["o",1],["t",1],["d",1],["b",3]]},{"k":"e","s":[["t",1],["o",1],["d",1],["b",3]]}]}',
+            "Must use entry blocks (kind 'e') with ONE block per job/role. If company appears before job title, map company as 'o' (organization) and role as 't' (title). Never map bullet points or descriptions as date ('d'). title ('t')=job role/title; organization ('o')=company/employer/lab; location ('l')=geography; date ('d')=dates; bullet ('b')=achievements.",
+        ),
+        "projects": (
+            '{"b":[{"k":"e","s":[["t",1],["o",1],["d",1],["b",2]]},{"k":"e","s":[["t",1],["o",1],["d",1],["b",2]]}]}',
+            "Must use entry blocks (kind 'e') with one block per project. title ('t')=project name; organization/role ('o')=role/team; date ('d')=date; bullet ('b')=details.",
+        ),
+    }
+    example_shape, section_rules = section_config.get(
+        section_type,
+        (
+            '{"b":[{"k":"e","s":[["t",1],["o",1],["b",3]]}]}',
+            "Use smallest faithful block type. Use unknown ('x') with line ('u') only when classification is impossible.",
+        ),
+    )
+    geometry_rule = (
+        "8. Atoms marked `[ENTRY HEADER row=N col=L/R]` form one visual entry header. "
+        "Read their visual rows left-to-right, not only input order. In an experience header, company/lab and location may be on row 1 while role/project and date are on row 2. Map them as organization, location, title, date.\n"
+        if has_visual_entry_header
+        else ""
+    )
+    return (
+        "You are CV structure planner LLM #1 v3.1. You are not a writer or reviewer."
+        f" The server classified this section as `{section_type}`.{title_context}\n"
+        f"{atom_desc} Do NOT return their positions. The server cursor begins at the first atom and advances through every segment.\n"
+        "Return ONLY compact JSON with ONE block per item/record in this exact shape:\n"
+        f"{example_shape}\n\n"
+        "HARD RULES:\n"
+        "1. `b`=blocks. Create a separate block in `b` for EACH job, project, degree, certification, publication, or skill category in this section.\n"
+        "2. Every segment is exactly `[role_code, positive_atom_count]`. It consumes that many next source atoms.\n"
+        "3. Role: t=title/degree/project, s=subtitle, o=organization/role/team, l=location, d=date, b=bullet, x=text, g=skill label, k=skill, a=authors, v=venue, q=status, i=institution, m=field, n=education detail, u=unknown line.\n"
+        '4. Role codes must be one letter. Never put CV wording in any JSON value. In each block, combine all consecutive bullet/detail atoms into ONE segment (e.g. ["b", 11] or ["n", 2]). Do NOT emit repeated consecutive ["b", 1] segments.\n'
+        f"{total_rule} Never add positions, ranges, confidence, source IDs, prose, or explanations.\n"
+        "6. Preserve source order. Do not evaluate, rewrite, translate, infer, or correct.\n"
+        f"7. {section_rules}\n"
+        f"{geometry_rule}"
+        "9. Output strict JSON only."
+    )
+
+
+def build_visual_entry_header_prompt(section_title: str) -> str:
+    """Bounded semantic labeling for one geometry-grouped entry header."""
+    return (
+        "You label one visual CV entry header, not a whole CV. "
+        f"Section heading: `{section_title}`.\n"
+        'Return only JSON like {"r":["o","l","t","d"]}. '
+        "`r` has exactly one role code for every input atom in the same order.\n"
+        "Codes: o=organization/employer/lab, l=geographic location, "
+        "t=candidate role or project title, d=date, s=subtitle, u=unknown.\n"
+        "Use row/column layout. In experience, left/right cells on each row are related; "
+        "company and location may be on row 1 while role and date are on row 2. "
+        "Never label a company as title when a candidate role exists. "
+        "Use d for dates and l for geographic text. Do not output any wording, positions, or explanation."
+    )
+
+
+def format_visual_entry_header(atoms) -> str:
+    """Serialize one small visual header without durable source identifiers."""
+    rows: list[float] = []
+    for atom in atoms:
+        assert atom.bbox is not None
+        if not any(abs(atom.bbox[1] - row) <= 4.0 for row in rows):
+            rows.append(atom.bbox[1])
+    result: list[str] = []
+    for position, atom in enumerate(atoms):
+        assert atom.bbox is not None
+        row_index = min(
+            range(len(rows)), key=lambda index: abs(atom.bbox[1] - rows[index])
+        )
+        row_atoms = [
+            candidate
+            for candidate in atoms
+            if candidate.bbox is not None
+            and min(
+                range(len(rows)), key=lambda index: abs(candidate.bbox[1] - rows[index])
+            )
+            == row_index
+        ]
+        midpoint = (
+            min(candidate.bbox[0] for candidate in row_atoms if candidate.bbox)
+            + max(candidate.bbox[2] for candidate in row_atoms if candidate.bbox)
+        ) / 2.0
+        column = "L" if atom.bbox[0] <= midpoint else "R"
+        result.append(f"{position}: [row={row_index + 1} col={column}] {atom.text}")
+    return "\n".join(result)
+
+
+def build_section_range_plan_repair_prompt(
+    section_type: str,
+    section_title: str | None,
+    error: str,
+) -> str:
+    """Legacy helper retained for callers outside V3.1's no-full-repair path."""
+    return (
+        f"{build_section_range_plan_prompt(section_type, section_title)}\n\n"
+        "REPAIR REQUIRED: Previous plan failed server validation. Return a complete replacement, not a patch.\n"
+        f"Validation error: {error}\n"
+        "Before responding, check every local position is assigned once and only once."
+    )
+
+
+def format_source_ledger(
+    atoms,
+    *,
+    visual_entry_header_positions: set[int] | None = None,
+) -> str:
+    """Serialize local positions plus only useful, non-durable layout grouping."""
+    header_positions = visual_entry_header_positions or set()
+    header_rows: list[float] = []
+    for position in sorted(header_positions):
+        bbox = atoms[position].bbox
+        if bbox is not None and not any(
+            abs(bbox[1] - row) <= 4.0 for row in header_rows
+        ):
+            header_rows.append(bbox[1])
+    lines: list[str] = []
+    for position, atom in enumerate(atoms):
+        prefix = f"{position}:"
+        if position in header_positions and atom.bbox is not None:
+            row = (
+                min(
+                    range(len(header_rows)),
+                    key=lambda index: abs(atom.bbox[1] - header_rows[index]),
+                )
+                + 1
+            )
+            column = "L" if atom.bbox[0] <= 0.5 * (atom.bbox[0] + atom.bbox[2]) else "R"
+            # Page midpoint is unavailable here; relative x within header row
+            # is enough to preserve the left/right visual relationship.
+            row_atoms = [
+                atoms[index]
+                for index in header_positions
+                if atoms[index].bbox
+                and min(
+                    range(len(header_rows)),
+                    key=lambda row_index: abs(
+                        atoms[index].bbox[1] - header_rows[row_index]
+                    ),
+                )
+                == row - 1
+            ]
+            if row_atoms:
+                left_edge = min(item.bbox[0] for item in row_atoms if item.bbox)
+                right_edge = max(item.bbox[2] for item in row_atoms if item.bbox)
+                midpoint = (left_edge + right_edge) / 2.0
+                column = "L" if atom.bbox[0] <= midpoint else "R"
+            prefix = f"[ENTRY HEADER row={row} col={column}] {position}:"
+        lines.append(f"{prefix} {atom.text}")
+    return "\n".join(lines)
+
+
+def build_block_parsing_grounding_repair_prompt(field_path: str) -> str:
+    """Request a corrected full mapper response after an exact-source failure."""
+    return (
+        f"{build_block_parsing_prompt()}\n\n"
+        "GROUNDING REPAIR:\n"
+        "A previous candidate JSON failed exact-source validation at "
+        f"`{field_path}`. You will receive the authoritative source blocks and "
+        "that previous candidate JSON. Return a corrected COMPLETE JSON response.\n"
+        "- Audit EVERY populated text field, not only the named field.\n"
+        "- Every value must be copied verbatim from the source blocks after only "
+        "whitespace/bullet/separator normalization.\n"
+        "- Never paraphrase, complete, correct, combine unrelated text, or infer text.\n"
+        "- Cite every block that contributes to a value; use only the supplied IDs.\n"
+        "- Output JSON only."
+    )
+
+
+def build_cv_evaluator_prompt(has_jd: bool = True) -> str:
+    """Build system prompt for LLM #2 (CV Evaluator & Judge).
+
+    Supports two evaluation modes:
+    - has_jd=True: Target Job Description fit analysis (JOB_FIT mode).
+    - has_jd=False: Standalone CV quality audit & health check (GENERAL_AUDIT mode).
+    """
+    if has_jd:
+        return (
+            "You are an objective Senior Tech Recruiter and Technical Hiring Manager (LLM #2 — CV Fit Evaluator).\n"
+            "Your responsibility is to evaluate a candidate's Canonical CV JSON against a specific Job Description (JD).\n"
+            "Set evaluation_mode to 'JOB_FIT'.\n\n"
+            "EVALUATION DIRECTIVES:\n"
+            "1. Compare candidate experience, education, skills, projects, and achievements strictly against the JD requirements.\n"
+            "2. Be fair, objective, evidence-based, and precise. Base scores strictly on verifiable evidence in the CV JSON.\n"
+            "3. Assign an overall_fit_score from 0 to 100:\n"
+            "   - 85-100: STRONG_FIT (Exceeds or fully matches key technical & experience requirements)\n"
+            "   - 60-84:  MODERATE_FIT (Good foundational fit, matches core needs, but has minor skill or experience gaps)\n"
+            "   - 0-59:   WEAK_FIT (Missing major required skills, domain mismatch, or insufficient experience depth)\n"
+            "4. Assign sub-scores (0-100) for CategoryScores: technical_skills, experience_level, domain_fit, education_fit.\n"
+            "5. Provide 3-5 key_strengths backed by direct CV evidence.\n"
+            "6. Provide 2-4 critical_gaps explaining exact missing tools, skills, or experience depth required by the JD.\n"
+            "7. Build a skill_matrix evaluating each core requirement in the JD: status ('matched', 'partial', 'missing'), cv_evidence, and gap_explanation.\n"
+            "8. Provide 3-5 actionable_recommendations for the candidate to address gaps and strengthen their application.\n"
+            "9. Output strictly valid JSON matching the LLMEvaluationReport schema."
+        )
+
+    return (
+        "You are an expert CV Strategist and Resume Coach (LLM #2 — General CV Auditor).\n"
+        "Your responsibility is to perform a standalone CV Quality Audit & Health Check on a candidate's Canonical CV JSON without a target Job Description.\n"
+        "Set evaluation_mode to 'GENERAL_AUDIT'.\n\n"
+        "AUDIT DIRECTIVES:\n"
+        "1. Evaluate overall CV completeness, structure, readability, impact metrics (quantifiable results like %, $, time saved), bullet clarity, and technical skills presentation.\n"
+        "2. Assign overall_fit_score from 0 to 100 representing general CV excellence:\n"
+        "   - 85-100: EXCELLENT (High-impact bullet points, quantifiable metrics, clear structure, complete contact details)\n"
+        "   - 60-84:  STRONG_FIT (Solid foundation, good projects, but needs more metric-driven impacts or section polishing)\n"
+        "   - 0-59:   NEEDS_IMPROVEMENT (Weak bullet structure, missing key contact/links, passive descriptions, or major structural gaps)\n"
+        "3. Assign CategoryScores (0-100):\n"
+        "   - technical_skills: Depth & organization of listed tools/languages\n"
+        "   - experience_level: Clarity & progression of work/research history\n"
+        "   - domain_fit: Quality of project impact and technical execution\n"
+        "   - education_fit: Academic background, honors, and degree clarity\n"
+        "4. Provide 3-5 key_strengths highlighting the strongest elements of the CV.\n"
+        "5. Provide 2-4 critical_gaps detailing areas needing improvement (e.g. lack of metric numbers, vague bullet points, missing links).\n"
+        "6. Leave skill_matrix as an empty list [].\n"
+        "7. Provide 3-5 actionable_recommendations to help the candidate polish their CV for high impact.\n"
+        "8. Output strictly valid JSON matching the LLMEvaluationReport schema."
+    )
+
+
+def build_cv_tailor_prompt(has_jd: bool = True) -> str:
+    """Build the evidence-preserving system prompt for LLM #3.
+
+    With a JD, LLM #3 tailors existing evidence toward that role. Without one,
+    it performs a general clarity and ATS-readiness enhancement only.
+    """
+    mode_instruction = (
+        "Identify 1-2 bullet points in `projects`, `experience`, or `research_experience` that are most relevant to the target Job Description. "
+        "Rewrite each selected bullet to sharpen impact, bring relevant technical skills and achievements to the front, and improve ATS keyword alignment."
+        if has_jd
+        else "No Job Description is supplied. Improve general clarity, readability, "
+        "ATS readiness, and evidence visibility without assuming a target role. "
+        "Identify 1-2 bullet points in `projects`, `experience`, or `research_experience` that have formatting flaws, awkward sentence breaks, or weak action verbs."
+    )
+    return (
+        "You are LLM #3 — CV Tailor & Bullet Enhancer.\n"
+        "Your goal is to improve a Canonical CV JSON using only facts already present in the CV.\n"
+        f"{mode_instruction}\n"
+        "You may use the optional LLM #2 evaluation report to prioritize content, but never add new candidate facts.\n\n"
+        "NON-NEGOTIABLE RULES:\n"
+        "1. Never invent, infer, upgrade, or fabricate candidate facts: employers, roles, dates, skills, credentials, metrics, tools, outcomes, or seniority.\n"
+        "2. Never add a skill merely because it appears in the JD. A JD gap stays a gap.\n"
+        "3. Preserve all numbers, metrics, and quantitative facts exactly as written (e.g. `15+`, `30%`, `200GB`, `1,431,212`). You must not introduce new numbers.\n"
+        "4. Preserve the CV's source language unless the source itself is multilingual; do not translate it.\n"
+        "5. Do NOT repeat the CV in your response. Return at most 2 safe bullet rewrite operations; return [] if none are needed.\n"
+        "6. Allowed paths are `projects[i].bullets[j].text`, `experience[i].bullets[j].text`, and `research_experience[i].bullets[j].text` only.\n"
+        "7. Each proposed_text must be a single bullet of at most 320 characters; each rationale at most 120 characters.\n"
+        '8. Return strictly JSON matching this structure: {"change_log":[{"path":"projects[0].bullets[0].text","proposed_text":"...","rationale":"..."}],"tailoring_summary":"..."}.'
     )

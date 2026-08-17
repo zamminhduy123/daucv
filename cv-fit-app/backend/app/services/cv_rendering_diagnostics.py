@@ -1,65 +1,36 @@
-"""Content-neutral rendering diagnostics for typed CV documents."""
+"""Rendering diagnostics for Phase 6 template layouts."""
 
-from app.models.cv_document_v2 import (
-    CVDocumentV2,
-    CVEducationBlock,
-    CVEntryBlock,
-    CVParagraphBlock,
-    CVPublicationBlock,
-    CVSkillGroupBlock,
-    CVUnknownBlock,
-)
+from app.models.cv_document_v2 import CVDocumentV2
 
 COMPACT_ONE_PAGE_LINE_BUDGET = 62
 COMPACT_OVERFLOW_WARNING = "compact_template_content_exceeds_one_page"
 
 
 def compact_rendering_warnings(document: CVDocumentV2) -> list[str]:
-    """Report when the compact design should paginate instead of hiding content."""
+    """Report when compact design will paginate across multiple pages."""
+    estimated_lines = _estimated_render_lines(document)
     return (
         [COMPACT_OVERFLOW_WARNING]
-        if _estimated_render_lines(document) > COMPACT_ONE_PAGE_LINE_BUDGET
+        if estimated_lines > COMPACT_ONE_PAGE_LINE_BUDGET
         else []
     )
 
 
 def _estimated_render_lines(document: CVDocumentV2) -> int:
-    lines = 2 + len(document.identity.contact_lines)
-    if document.summary is not None:
-        lines += 2 + _wrapped_lines(document.summary.text)
+    contacts = (
+        document.identity.canonical_contact_lines() or document.identity.contact_lines
+    )
+    lines = 2 + len(contacts)
+    if document.summary is not None and document.summary.text:
+        lines += 2 + max(1, len(document.summary.text) // 80)
     for section in document.sections:
         lines += 2
         for block in section.blocks:
-            if isinstance(block, CVEntryBlock):
-                lines += 1 + bool(block.subtitle or block.organization)
-                lines += bool(block.location or block.date)
-                lines += sum(_wrapped_lines(bullet) for bullet in block.bullets)
-            elif isinstance(block, CVSkillGroupBlock):
-                lines += _wrapped_lines(", ".join(block.skills), width=72)
-            elif isinstance(block, CVPublicationBlock):
-                lines += _wrapped_lines(
-                    " ".join(
-                        value
-                        for value in (
-                            block.authors,
-                            block.title,
-                            block.venue,
-                            block.date,
-                            block.status,
-                        )
-                        if value
-                    ),
-                )
-            elif isinstance(block, CVEducationBlock):
-                lines += 2 + sum(_wrapped_lines(item) for item in block.details)
-            elif isinstance(block, CVUnknownBlock):
-                lines += sum(_wrapped_lines(item) for item in block.lines)
-            elif isinstance(block, CVParagraphBlock):
-                lines += _wrapped_lines(block.text)
-            else:
-                lines += _wrapped_lines(block.text)
-    return int(lines)
-
-
-def _wrapped_lines(text: str, *, width: int = 88) -> int:
-    return max(1, (len(text.strip()) + width - 1) // width)
+            bullets = getattr(block, "bullets", [])
+            lines += sum(max(1, len(b) // 80) for b in bullets)
+            details = getattr(block, "details", [])
+            lines += sum(max(1, len(d) // 80) for d in details)
+            text_str = str(getattr(block, "text", getattr(block, "title", "")))
+            if text_str:
+                lines += max(1, len(text_str) // 80)
+    return lines

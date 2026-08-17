@@ -23,7 +23,7 @@ class TestResponse(BaseModel):
 async def test_qwen():
     # Setup local environment defaults for testing
     # These can be overridden by your actual .env file
-    endpoint = os.getenv("QWEN_ENDPOINT", "http://localhost:8000/v1/chat/completions")
+    endpoint = os.getenv("QWEN_ENDPOINT", "http://127.0.0.1:8000/v1/chat/completions")
     api_key = os.getenv("QWEN_API_KEY", "not-needed")
     model = os.getenv("QWEN_MODEL", "qwen2.5-7b-instruct")
 
@@ -36,7 +36,14 @@ async def test_qwen():
     print(f"🤖 Model:    {model}")
     print("-" * 50)
 
-    provider = QwenCustomProvider("test", model, api_key, endpoint)
+    provider = QwenCustomProvider(
+        "test",
+        model,
+        api_key,
+        endpoint,
+        timeout=float(os.getenv("REMOTE_QWEN_TIMEOUT", "1200")),
+        max_output_tokens=int(os.getenv("QWEN_MAX_OUTPUT_TOKENS", "100000")),
+    )
 
     system_prompt = "You are a helpful assistant. Return ONLY a JSON object."
     user_content = "Identify yourself. Return a JSON with 'summary', 'score' (100), and 'is_qwen' (true)."

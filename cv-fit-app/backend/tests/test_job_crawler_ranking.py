@@ -45,7 +45,7 @@ def test_rank_jobs_removes_closed_listings_and_limits_stretch_results() -> None:
     )
 
     assert [job["id"] for job in ranked if job["match_label"] == "good_match"] == [
-        "good"
+        "good",
     ]
     assert len([job for job in ranked if job["match_label"] == "stretch"]) == 3
     assert all(job["match_score"] >= 50 for job in ranked)
@@ -58,7 +58,8 @@ def test_company_logo_urls_are_normalized_and_reject_unsafe_schemes() -> None:
     )
     assert (
         _safe_company_logo_url(
-            "https://cdn.topcv.vn/media/acme.png", "https://topcv.vn"
+            "https://cdn.topcv.vn/media/acme.png",
+            "https://topcv.vn",
         )
         == "https://cdn.topcv.vn/media/acme.png"
     )

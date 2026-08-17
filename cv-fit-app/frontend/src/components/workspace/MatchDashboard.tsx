@@ -1,6 +1,6 @@
 "use client";
 
-import type { CVAnalysisResponse, PrioritizedKeyword } from "@/types";
+import type { CVAnalysisResponse, CVEvaluationReport, PrioritizedKeyword } from "@/types";
 import { motion } from "framer-motion";
 import {
   Code2,
@@ -15,7 +15,9 @@ import {
   XCircle,
   HelpCircle,
   ClipboardCheck,
-  UserCheck,
+  Award,
+  UserRound,
+  ArrowUpRight,
 } from "lucide-react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 
@@ -117,84 +119,316 @@ const PRIORITY_BADGE_STYLE: Record<PrioritizedKeyword["priority"], string> = {
   Low: "bg-green-50 text-green-600",
 };
 
-// SVG circular progress ring — color tracks score severity
-function CircularScore({
+// Compact circular progress gauge matching HTML mockup
+function CompactCircularScore({
   score,
   label,
-  sublabel,
-  icon: Icon,
-  evaluationLabel,
+  color,
 }: {
   score: number;
   label: string;
-  sublabel?: string;
-  icon: React.ElementType;
-  evaluationLabel: string;
+  color: string;
 }) {
   const safeScore = typeof score === "number" && !isNaN(score) ? Math.round(score) : 0;
-  const radius = 57;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDash = (safeScore / 100) * circumference;
-
-  // Color tracks severity: green (good) → amber (ok) → red (bad)
-  const strokeColor =
-    safeScore >= 70 ? "#059669" : safeScore >= 45 ? "#d97706" : "#dc2626";
+  const radius = 27;
+  const circumference = 2 * Math.PI * radius; // ~169.64
+  const strokeDashoffset = circumference - (safeScore / 100) * circumference;
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative w-[140px] h-[140px]">
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-          {/* Background ring */}
+    <div className="text-center flex flex-col items-center">
+      <div className="relative w-[64px] h-[64px]">
+        <svg width="64" height="64" viewBox="0 0 64 64" className="-rotate-90">
           <circle
-            cx="60"
-            cy="60"
+            cx="32"
+            cy="32"
             r={radius}
-            strokeWidth="5"
             fill="none"
-            className="stroke-gray-100"
+            stroke="#e5e7eb"
+            strokeWidth="6"
           />
-          {/* Progress ring */}
           <circle
-            cx="60"
-            cy="60"
+            cx="32"
+            cy="32"
             r={radius}
-            strokeWidth="5"
             fill="none"
-            stroke={strokeColor}
+            stroke={color}
+            strokeWidth="6"
             strokeLinecap="round"
-            strokeDasharray={`${strokeDash} ${circumference}`}
-            style={{ transition: "stroke-dasharray 1s ease" }}
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            style={{ transition: "stroke-dashoffset 1s ease" }}
           />
         </svg>
-        {/* Center text */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0">
-          <div className="flex items-baseline gap-0.5">
-            <span className="text-4xl font-semibold text-[#1F2E2E] leading-none">{safeScore}</span>
-            <span className="text-lg font-bold text-[#1F2E2E] leading-none">%</span>
-          </div>
-          <span className="text-[10px] font-semibold text-gray-400 tracking-wide mt-0.5">
-            {label}
-          </span>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-lg font-medium text-gray-800">{safeScore}%</span>
         </div>
       </div>
-      {/* Sublabel below gauge */}
-      {sublabel && (
-        <p className="text-[10px] text-gray-500 text-center leading-tight max-w-[140px]">
-          {sublabel}
-        </p>
-      )}
-      {/* Bottom icon indicator */}
-      <div className="flex items-center gap-1.5">
-        <Icon size={14} className={safeScore >= 70 ? "text-green-600" : safeScore >= 45 ? "text-yellow-600" : "text-red-600"} />
-        <span className="text-xs font-semibold text-gray-500">
-          {evaluationLabel}
-        </span>
+      <p className="text-xs text-gray-500 mt-1 font-medium">{label}</p>
+    </div>
+  );
+}
+
+const PIPELINE_CARD_COPY = {
+  technical_skills: {
+    label: "Kỹ năng chuyên môn",
+    description: "Nội dung chuyên môn phù hợp và thể hiện năng lực tốt.",
+    icon: Code2,
+    accent: "#12a873",
+    iconBackground: "#e3f7ee",
+    badgeBackground: "#e1f7ec",
+  },
+  experience_level: {
+    label: "Kinh nghiệm",
+    description: "Kinh nghiệm phù hợp và được trình bày rõ ràng.",
+    icon: Briefcase,
+    accent: "#1769e8",
+    iconBackground: "#e7efff",
+    badgeBackground: "#e5edff",
+  },
+  domain_fit: {
+    label: "Phỏng vấn học",
+    description: "Khả năng trả lời và tư duy giải quyết vấn đề rất tốt.",
+    icon: Award,
+    accent: "#d96b00",
+    iconBackground: "#fff1e1",
+    badgeBackground: "#fff1e2",
+  },
+  education_fit: {
+    label: "Học vấn",
+    description: "Nền tảng học vấn nổi bật và phù hợp với vị trí.",
+    icon: UserRound,
+    accent: "#7139dc",
+    iconBackground: "#f0eaff",
+    badgeBackground: "#f1eaff",
+  },
+} as const;
+
+type PipelineScoreKey = keyof typeof PIPELINE_CARD_COPY;
+
+function scoreStrength(score: number) {
+  if (score >= 93) return "Excellent";
+  if (score >= 91) return "Strong";
+  if (score >= 75) return "Good";
+  return "Needs work";
+}
+
+function displayGrade(grade: CVEvaluationReport["match_grade"], score: number) {
+  if (grade) return grade.replaceAll("_", " ");
+  if (score >= 90) return "EXCELLENT";
+  if (score >= 75) return "STRONG";
+  if (score >= 60) return "MODERATE";
+  return "NEEDS IMPROVEMENT";
+}
+
+function LargeScoreRing({ score }: { score: number }) {
+  const safeScore = Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : 0;
+  const radius = 113;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (safeScore / 100) * circumference;
+
+  return (
+    <div className="relative mx-auto h-[180px] w-[180px]">
+      <svg viewBox="0 0 280 280" className="h-full w-full -rotate-90" aria-label={`${safeScore} trên 100`}>
+        <circle cx="140" cy="140" r={radius} fill="none" stroke="#edf0f4" strokeWidth="17" />
+        <circle
+          cx="140"
+          cy="140"
+          r={radius}
+          fill="none"
+          stroke="#12b67a"
+          strokeWidth="17"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          className="transition-[stroke-dashoffset] duration-1000 ease-out"
+        />
+      </svg>
+      <Sparkles className="absolute right-[13px] top-[3px] h-7 w-7 text-[#66dcae]" strokeWidth={1.5} />
+      <Sparkles className="absolute right-[0px] top-[0px] h-3 w-3 text-[#66dcae]" strokeWidth={1.5} />
+      <div className="absolute inset-0 flex flex-col items-center justify-center pt-1">
+        <span className="text-[3rem] font-bold leading-none tracking-[-0.07em] text-[#101d38]">{safeScore}</span>
+        <span className="mt-1 text-[1rem] font-semibold tracking-[-0.03em] text-[#64708a]">/100</span>
       </div>
     </div>
   );
 }
 
-export default function MatchDashboard({ result }: { result: CVAnalysisResponse }) {
+function PipelineMetricCard({
+  score,
+  metric,
+}: {
+  score: number;
+  metric: (typeof PIPELINE_CARD_COPY)[PipelineScoreKey];
+}) {
+  const safeScore = Number.isFinite(score) ? Math.round(score) : 0;
+  const Icon = metric.icon;
+
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col rounded-[15px] border border-[#e3e8ef] bg-white p-4 shadow-[0_2px_4px_rgba(20,42,75,0.015)]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div
+          className="flex h-11 w-11 items-center justify-center rounded-full"
+          style={{ backgroundColor: metric.iconBackground }}
+        >
+          <Icon className="h-6 w-6" style={{ color: metric.accent }} strokeWidth={2.1} />
+        </div>
+        <span
+          className="rounded-md px-2.5 py-1 text-[0.68rem] font-semibold whitespace-nowrap"
+          style={{ color: metric.accent, backgroundColor: metric.badgeBackground }}
+        >
+          Strength: {scoreStrength(safeScore)}
+        </span>
+      </div>
+
+      <div className="mt-2">
+        <p className="text-[1.65rem] font-bold leading-none tracking-[-0.05em] text-[#101d38]">{safeScore}%</p>
+        <h3 className="mt-1 text-[0.86rem] font-semibold tracking-[-0.02em] text-[#101d38]">{metric.label}</h3>
+      </div>
+
+      <div className="mt-2.5 h-1 rounded-full bg-[#e5e9ef]">
+        <div
+          className="h-full rounded-full transition-[width] duration-1000 ease-out"
+          style={{ width: `${Math.max(0, Math.min(100, safeScore))}%`, backgroundColor: metric.accent }}
+        />
+      </div>
+      <p className="mt-2 max-w-[31rem] text-[0.72rem] leading-[1.35] text-[#71809a]">{metric.description}</p>
+    </motion.article>
+  );
+}
+
+function PipelineMatchDashboard({ report }: { report: CVEvaluationReport }) {
+  const score = Number.isFinite(report.overall_fit_score) ? Math.round(report.overall_fit_score) : 0;
+  const grade = displayGrade(report.match_grade, score);
+  const overview = report.key_strengths[0] ?? "CV của bạn nổi bật ở nhiều tiêu chí quan trọng. Hãy tiếp tục phát huy thế mạnh và tinh chỉnh thêm các điểm nhỏ để hoàn thiện hơn nữa.";
+  const metrics = (Object.keys(PIPELINE_CARD_COPY) as PipelineScoreKey[]).map((key) => ({
+    key,
+    metric: PIPELINE_CARD_COPY[key],
+    score: report.category_scores[key],
+  }));
+
+  return (
+    <div className="-m-1 min-h-full rounded-[22px] bg-[#f4f8ff] p-1 sm:-m-2 sm:p-2">
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mx-auto max-w-[1660px] rounded-[22px] border border-[#e8edf4] bg-white px-4 py-5 text-[#101d38] shadow-[0_10px_26px_rgba(63,94,143,0.08)] sm:px-6 lg:px-8 lg:py-5"
+      >
+        <header className="mb-4">
+          <h1 className="text-[1.5rem] font-bold leading-tight tracking-[-0.04em] text-[#132957] sm:text-[1.75rem]">Overall Score</h1>
+          <p className="mt-1 text-[0.76rem] leading-4 text-[#68758f] sm:text-[0.84rem]">
+            {report.executive_summary ?? "General CV Audit: Candidate receives a complete quality assessment."}
+          </p>
+        </header>
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(290px,0.92fr)_minmax(0,1.58fr)] lg:gap-5">
+          <motion.div
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex  flex-col rounded-[16px] border border-[#e3e8ef] bg-white px-4 py-4 sm:px-5"
+          >
+            <div className="flex flex-col flex-1 items-center justify-center">
+              <LargeScoreRing score={score} />
+              <div className="mt-0 text-center">
+                <p className="text-[1rem] font-bold uppercase tracking-[-0.03em] text-[#0eaa70]">{grade}</p>
+                <p className="mt-0.5 text-[0.76rem] text-[#6d7992]">CV quality</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 rounded-[11px] bg-[#effaf5] px-3 py-2.5 text-[#12213f]">
+              <CheckCircle className="h-6 w-6 shrink-0 text-[#159b6e]" strokeWidth={1.8} />
+              <p className="text-[0.72rem] leading-4">
+                Your CV is strong and well-optimized.<br />
+                Keep up the great work!
+              </p>
+            </div>
+          </motion.div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {metrics.map(({ key, metric, score: metricScore }) => (
+              <PipelineMetricCard key={key} metric={metric} score={metricScore} />
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-center gap-2.5 rounded-[12px] bg-[#f1f6ff] px-4 py-2.5 text-[#132957] sm:px-5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#3d7fe8] text-white shadow-[0_3px_8px_rgba(61,127,232,0.2)]">
+            <ArrowUpRight className="h-4 w-4" strokeWidth={2.2} />
+          </span>
+          <span className="text-[0.78rem] font-semibold">Tổng quan</span>
+          <span className="hidden h-4 w-px bg-[#d4deef] sm:block" />
+          <span className="text-[0.72rem] leading-4 text-[#62718d]">{overview}</span>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <CompactInsightPanel
+            title="Điểm mạnh"
+            items={report.key_strengths}
+            icon={CheckCircle}
+            accent="#159b6e"
+            background="#effaf5"
+          />
+          <CompactInsightPanel
+            title="Điểm yếu cần cải thiện"
+            items={report.critical_gaps}
+            icon={AlertTriangle}
+            accent="#c97900"
+            background="#fff7e9"
+            emptyText="Chưa phát hiện khoảng trống nghiêm trọng trong phạm vi đánh giá."
+          />
+        </div>
+      </motion.section>
+    </div>
+  );
+}
+
+function CompactInsightPanel({
+  title,
+  items,
+  icon: Icon,
+  accent,
+  background,
+  emptyText,
+}: {
+  title: string;
+  items: string[];
+  icon: typeof CheckCircle;
+  accent: string;
+  background: string;
+  emptyText?: string;
+}) {
+  const visibleItems = items.length > 0 ? items.slice(0, 3) : [emptyText ?? "Chưa có dữ liệu."];
+
+  return (
+    <section className="rounded-[13px] border border-[#e7ebf1] bg-white px-4 py-3.5">
+      <h2 className="flex items-center gap-2 text-[0.82rem] font-semibold text-[#132957]">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ color: accent, backgroundColor: background }}>
+          <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+        </span>
+        {title}
+      </h2>
+      <ul className="mt-2.5 space-y-1.5">
+        {visibleItems.map((item) => (
+          <li key={item} className="flex items-start gap-2 text-[0.72rem] leading-4 text-[#6f7d95]">
+            <span className="mt-[0.4rem] h-1 w-1 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export default function MatchDashboard({ result }: { result: CVAnalysisResponse | CVEvaluationReport }) {
+  if ("evaluation_mode" in result) {
+    return <PipelineMatchDashboard report={result} />;
+  }
+  return <LegacyMatchDashboard result={result} />;
+}
+
+function LegacyMatchDashboard({ result }: { result: CVAnalysisResponse }) {
   const { jdText } = useWorkspace();
   const language = result.source_language ?? "vi";
   const copy = ANALYSIS_COPY[language];
@@ -209,7 +443,7 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
   const penaltyGap = roleFitScore - matchScore;
   const showPenaltyContext = !isGeneral && penaltyGap >= 8;
 
-  // Penalty reason sublabel for CV Match gauge
+  // Penalty reason sublabel
   const penaltyReason = _getPenaltyReason(result, language);
 
   return (
@@ -231,86 +465,64 @@ export default function MatchDashboard({ result }: { result: CVAnalysisResponse 
         </p>
       </motion.div>
 
-      {/* Main Card */}
+      {/* Main Card — Structured after Sửa các lỗi sau.html */}
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white border border-gray-100 rounded-[2rem] p-6 md:p-8 shadow-sm flex flex-col xl:flex-row gap-8 w-full mb-8"
+        className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-sm mb-8"
       >
-        {/* LEFT — Gauges column */}
-        <div className="flex xl:flex-col flex-row xl:items-center justify-center gap-8 xl:gap-6 flex-shrink-0">
-          {/* Role Fit gauge */}
-          <CircularScore
-            score={roleFitScore}
-            label="Role Fit"
-            icon={UserCheck}
-            evaluationLabel={copy.overallAssessment}
-          />
+        {/* Card Header: Headline + Subtitle */}
+        <h2 className="text-xl font-bold text-gray-900 mb-1">
+          {result.match_headline || copy.title}
+        </h2>
+        <p className="text-xs text-gray-500 mb-5">
+          {isGeneral ? copy.generalSubtitle : copy.jdSubtitle}
+        </p>
 
-          {/* CV Match gauge (only when JD provided) */}
-          {!isGeneral && (
-            <CircularScore
-              score={matchScore}
-              label="CV Match"
-              sublabel={showPenaltyContext ? penaltyReason : undefined}
-              icon={AlertTriangle}
-              evaluationLabel={copy.keywordAssessment}
-            />
-          )}
-        </div>
-
-        {/* RIGHT — Headline + 6 sub-score cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 flex-1 text-justify">
-          {/* Summary + penalty context */}
-          <div className="flex flex-col gap-2 items-center">
-            <h2 className="text-xl lg:max-w-[90%] font-bold text-[#2F4F4F] leading-tight">
-              {result.match_headline}
-            </h2>
-            <p className="text-xs text-gray-500 leading-relaxed flex-shrink-0 text-justify lg:max-w-[90%]">
-              {result.match_summary}
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6 items-start">
+          {/* Left Column (280px): Side-by-side Gauges + Explanation */}
+          <div>
+            <div className="flex items-center gap-5 mb-4">
+              <CompactCircularScore
+                score={roleFitScore}
+                label="Role fit"
+                color="#378ADD"
+              />
+              {!isGeneral && (
+                <CompactCircularScore
+                  score={matchScore}
+                  label="CV match"
+                  color={matchScore >= 70 ? "#059669" : matchScore >= 45 ? "#d97706" : "#D85A30"}
+                />
+              )}
+            </div>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              {showPenaltyContext
+                ? (language === "vi"
+                  ? `Điểm giảm ${penaltyGap} điểm ${penaltyReason ? `do thiếu ${penaltyReason.replace(/^Bị trừ \d+ điểm vì còn thiếu /, "")}` : ""}. Xem chi tiết ở mục "Từ khóa cần bổ sung" bên dưới.`
+                  : `Score reduced by ${penaltyGap} points ${penaltyReason ? `due to missing ${penaltyReason.replace(/^\d+-point deduction for /, "")}` : ""}. See "Keywords to Add" below for details.`)
+                : result.match_summary}
             </p>
-
-            {/* Penalty explanation card */}
-            {showPenaltyContext && (
-              <div className="mt-3 w-full lg:max-w-[90%] rounded-2xl border border-orange-100 bg-orange-50/70 px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-orange-700">
-                      {copy.penaltyTitle}
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-orange-800">
-                      {copy.penaltyText(roleFitScore, penaltyGap)}
-                    </p>
-                  </div>
-                  <div className="flex-shrink-0 text-right">
-                    <p className="text-[11px] text-orange-700">Role Fit</p>
-                    <p className="text-xl font-bold text-orange-800">{roleFitScore}%</p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* 6 mini-score cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 mt-4 lg:mt-0 gap-3 flex-1 w-full">
-            {SUB_SCORES.map(({ key, label, icon: Icon, iconBg, iconColor }, i) => (
+          {/* Right Column (1fr): 3x2 Grid for 6 Sub-scores */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {SUB_SCORES.map(({ key, label, icon: Icon }, i) => (
               <motion.div
                 key={key}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 + i * 0.05 }}
-                className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-sm"
+                className="bg-gray-50/80 border border-gray-100 rounded-xl p-3.5 flex flex-col justify-between"
               >
-                <div className="flex items-center gap-2 w-full justify-center">
-                  <div className={`${iconBg} rounded-lg p-1.5 flex-shrink-0`}>
-                    <Icon size={14} className={iconColor} />
-                  </div>
-                  <span className="text-xl font-bold text-[#2F4F4F] leading-none">
+                <Icon size={18} className="text-gray-500 mb-2" />
+                <div>
+                  <p className="text-2xl font-medium text-gray-900 leading-tight">
                     {result[key] ?? 0}%
-                  </span>
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">{label[language]}</p>
                 </div>
-                <p className="text-xs text-gray-500 text-center font-medium leading-tight">{label[language]}</p>
               </motion.div>
             ))}
           </div>

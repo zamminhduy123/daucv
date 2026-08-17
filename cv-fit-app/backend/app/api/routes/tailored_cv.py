@@ -3,14 +3,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response
 
 from app.dependencies import get_current_user
+from app.models.cv_template import CVTemplateDefinition
 from app.schemas.tailored_cv import (
+    CVPreviewResponse,
+    TailoredCVTemplateUpdateRequest,
     TailoredCVVersionCreate,
     TailoredCVVersionListResponse,
     TailoredCVVersionResponse,
     TailoredCVVersionUpdate,
 )
-from app.services import tailored_cv_service
-from app.services.tailored_cv_pdf import generate_tailored_cv_pdf
+from app.services import cv_export_service, tailored_cv_service
+from app.services.cv_template_registry import list_templates
 from app.services.tailored_cv_service import (
     CVPersistenceMigrationRequiredError,
     TailoredCVEntitlementError,
@@ -31,6 +34,14 @@ def _version_id(value: str) -> UUID:
 
 def _user_id(user: dict) -> UUID:
     return UUID(str(user["id"]))
+
+
+@router.get("/templates", response_model=list[CVTemplateDefinition])
+async def list_cv_templates(
+    user: dict = Depends(get_current_user),
+) -> list[CVTemplateDefinition]:
+    """Return list of all registered server-owned templates."""
+    return list_templates()
 
 
 @router.get("", response_model=TailoredCVVersionListResponse)
@@ -76,15 +87,21 @@ async def create_tailored_cv_version(
         ) from exc
 
 
-@router.get("/{version_id}/pdf")
-async def download_tailored_cv_pdf(
+@router.get("/{version_id}/preview", response_model=CVPreviewResponse)
+async def preview_tailored_cv(
     version_id: str,
+    translation_variant_id: str | None = None,
     user: dict = Depends(get_current_user),
-) -> Response:
+) -> CVPreviewResponse:
+    """Return canonical server-rendered HTML preview payload."""
     try:
-        version = await tailored_cv_service.get_version(
+        variant_uuid = (
+            _version_id(translation_variant_id) if translation_variant_id else None
+        )
+        return await cv_export_service.get_preview(
             _version_id(version_id),
             _user_id(user),
+            translation_variant_id=variant_uuid,
         )
     except TailoredCVNotFoundError:
         raise HTTPException(
@@ -93,18 +110,70 @@ async def download_tailored_cv_pdf(
         )
     except UnsupportedCVSchemaVersionError as exc:
         raise _unsupported_schema(exc) from exc
-    pdf = await generate_tailored_cv_pdf(
-        tailored_cv=version.tailored_cv,
-        design=version.selected_design,
-        document_v2=version.document_v2,
-        language=version.source_language,
-    )
-    filename = f"tailored-cv-{version.id}.pdf"
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/{version_id}/pdf")
+async def download_tailored_cv_pdf(
+    version_id: str,
+    translation_variant_id: str | None = None,
+    user: dict = Depends(get_current_user),
+) -> Response:
+    """Download PDF for original or translated CV version."""
+    ver_uuid = _version_id(version_id)
+    try:
+        variant_uuid = (
+            _version_id(translation_variant_id) if translation_variant_id else None
+        )
+        pdf = await cv_export_service.generate_pdf(
+            ver_uuid,
+            _user_id(user),
+            translation_variant_id=variant_uuid,
+        )
+    except TailoredCVNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy CV đã tối ưu hoặc bạn không có quyền truy cập.",
+        )
+    except UnsupportedCVSchemaVersionError as exc:
+        raise _unsupported_schema(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Tạo file PDF thất bại: {exc}",
+        ) from exc
+
+    filename = f"tailored-cv-{version_id}.pdf"
     return Response(
         content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.patch("/{version_id}/template", response_model=TailoredCVVersionResponse)
+async def update_tailored_cv_template(
+    version_id: str,
+    req: TailoredCVTemplateUpdateRequest,
+    user: dict = Depends(get_current_user),
+) -> TailoredCVVersionResponse:
+    """Update selected template ID; server resolves and pins template version."""
+    try:
+        return await tailored_cv_service.update_template(
+            _version_id(version_id),
+            _user_id(user),
+            req.template_id,
+        )
+    except TailoredCVNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy CV đã tối ưu hoặc bạn không có quyền truy cập.",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.patch("/{version_id}", response_model=TailoredCVVersionResponse)
@@ -113,11 +182,16 @@ async def update_tailored_cv_design(
     req: TailoredCVVersionUpdate,
     user: dict = Depends(get_current_user),
 ) -> TailoredCVVersionResponse:
+    target_design = req.template_id or req.selected_design
+    if not target_design:
+        raise HTTPException(
+            status_code=400, detail="Cần chọn template_id hoặc selected_design."
+        )
     try:
-        return await tailored_cv_service.update_design(
+        return await tailored_cv_service.update_template(
             _version_id(version_id),
             _user_id(user),
-            req.selected_design,
+            target_design,
         )
     except TailoredCVNotFoundError:
         raise HTTPException(
@@ -126,6 +200,8 @@ async def update_tailored_cv_design(
         )
     except UnsupportedCVSchemaVersionError as exc:
         raise _unsupported_schema(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.delete("/{version_id}")

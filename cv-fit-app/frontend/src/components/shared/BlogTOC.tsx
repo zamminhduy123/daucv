@@ -9,7 +9,7 @@ interface Heading {
 }
 
 export function BlogTOC({ headings }: { headings: Heading[] }) {
-  const [activeId, setActiveId] = useState<string>("");
+  const [activeId, setActiveId] = useState<string>(() => headings[0]?.id || "");
 
   useEffect(() => {
     // If no headings, do nothing
@@ -34,11 +34,6 @@ export function BlogTOC({ headings }: { headings: Heading[] }) {
       const el = document.getElementById(heading.id);
       if (el) observer.observe(el);
     });
-
-    // Set initial active id if none is set and headings exist
-    if (!activeId && headings.length > 0) {
-      setActiveId(headings[0].id);
-    }
 
     return () => observer.disconnect();
   }, [headings]);

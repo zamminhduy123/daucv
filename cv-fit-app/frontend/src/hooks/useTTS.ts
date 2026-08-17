@@ -53,7 +53,9 @@ export function useTTS() {
   // Stop audio if voice is disabled mid-speech
   useEffect(() => {
     if (!voiceEnabled) {
-      stopSpeaking();
+      Promise.resolve().then(() => {
+        stopSpeaking();
+      });
     }
   }, [voiceEnabled]);
 

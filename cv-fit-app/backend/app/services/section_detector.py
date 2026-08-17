@@ -93,21 +93,37 @@ def _detect_identity(lines: list[ExtractedLine]) -> CVIdentity:
     # Name: short, mostly alpha words
     if first_text and _looks_like_name(first_text):
         identity.name = first_text
-        # Check if second line is a headline (contains role keywords or | separator)
         if len(content_lines) > 1:
             second = content_lines[1]
             second_text = (second.normalized_text or second.text).strip()
-            if second_text and _looks_like_headline(second_text):
+            headline_end_idx = 1
+            if (
+                second_text
+                and _looks_like_headline(second_text)
+                and not classify_heading(second_text)
+            ):
+                if (
+                    second_text.rstrip().endswith(("/", "|", "-", ","))
+                    and len(content_lines) > 2
+                ):
+                    third_text = (
+                        content_lines[2].normalized_text or content_lines[2].text
+                    ).strip()
+                    if _looks_like_headline(third_text):
+                        second_text = f"{second_text} {third_text}".strip()
+                        headline_end_idx = 2
                 identity.headline = second_text
-                # Remaining content lines up to the first section are contact or preamble
-                for line in content_lines[2:4]:
+
+                for line in content_lines[headline_end_idx + 1 : 5]:
                     ct = (line.normalized_text or line.text).strip()
                     if ct and _looks_like_contact(ct):
                         identity.contact_lines.append(ct)
                 return identity
             # Second line might be contact
-            if second_text and _looks_like_contact(second_text):
-                identity.contact_lines.append(second_text)
+            for line in content_lines[1:5]:
+                ct = (line.normalized_text or line.text).strip()
+                if ct and _looks_like_contact(ct):
+                    identity.contact_lines.append(ct)
             return identity
         return identity
 
@@ -545,7 +561,7 @@ def _detect_summary(lines: list[ExtractedLine]) -> CVParagraphBlock | None:
     * Not an entry or bullet pattern
     """
     content = [
-        (index, (line.normalized_text or line.text).strip())
+        (index, line, (line.normalized_text or line.text).strip())
         for index, line in enumerate(lines)
         if (line.normalized_text or line.text).strip()
         and not line.is_layout_artifact
@@ -554,16 +570,23 @@ def _detect_summary(lines: list[ExtractedLine]) -> CVParagraphBlock | None:
     if not content:
         return None
 
-    for position, (_index, text) in enumerate(content):
+    for position, (_index, _line, text) in enumerate(content):
         heading = classify_heading(text)
         if heading and heading[0] == "summary":
-            summary_texts: list[str] = []
-            for _next_index, next_text in content[position + 1 :]:
+            summary_lines: list[tuple[ExtractedLine, str]] = []
+            for _next_index, next_line, next_text in content[position + 1 :]:
                 if classify_heading(next_text) is not None:
                     break
-                summary_texts.append(next_text)
-            if summary_texts:
-                return CVParagraphBlock(text=" ".join(summary_texts))
+                summary_lines.append((next_line, next_text))
+            if summary_lines:
+                return CVParagraphBlock(
+                    text=" ".join(text for _line, text in summary_lines),
+                    source_line_ids=[
+                        line.source_line_id
+                        for line, _text in summary_lines
+                        if line.source_line_id
+                    ],
+                )
             return None
 
     identity = _detect_identity(lines)
@@ -572,18 +595,25 @@ def _detect_summary(lines: list[ExtractedLine]) -> CVParagraphBlock | None:
         identity.headline,
         *identity.contact_lines,
     }
-    summary_texts = []
-    for _index, text in content:
+    summary_lines: list[tuple[ExtractedLine, str]] = []
+    for _index, line, text in content:
         if classify_heading(text) is not None:
             break
         if text not in identity_texts:
-            summary_texts.append(text)
+            summary_lines.append((line, text))
 
-    if len(summary_texts) >= 2 and any(
+    if len(summary_lines) >= 2 and any(
         len(text.split()) >= 6 or text.endswith((".", "!", "?"))
-        for text in summary_texts
+        for _line, text in summary_lines
     ):
-        return CVParagraphBlock(text=" ".join(summary_texts))
+        return CVParagraphBlock(
+            text=" ".join(text for _line, text in summary_lines),
+            source_line_ids=[
+                line.source_line_id
+                for line, _text in summary_lines
+                if line.source_line_id
+            ],
+        )
 
     return None
 
@@ -631,7 +661,7 @@ def detect_sections(lines: list[ExtractedLine]) -> CVDocumentV2:
     doc_claimed_line_ids: set[str] = set()
 
     # Step 1: Identity
-    doc.identity = _detect_identity(lines)
+    doc.identity = _detect_identity(lines).canonicalized()
 
     # Step 2: Summary
     doc.summary = _detect_summary(lines)
@@ -813,6 +843,66 @@ def _finalize_diagnostics(
             columns_by_page.setdefault(line.page, set()).add(line.column_id)
     if any(len(columns) > 1 for columns in columns_by_page.values()):
         warnings.append("possible_column_order_problem")
+
+    # Identity check: contact/email present in source lines but identity name is missing
+    if (
+        not doc.identity
+        or not doc.identity.name
+        or doc.identity.name.strip() in ("", "Candidate")
+    ):
+        has_contact_signal = any(
+            re.search(r"[\w\.-]+@[\w\.-]+\.\w+", _get_line_text(line))
+            or re.search(r"\+?\d[\d\s-]{7,}\d", _get_line_text(line))
+            for line in lines
+        )
+        if has_contact_signal:
+            warnings.append("identity_candidate_unparsed")
+
+    # Summary ownership check
+    all_line_ids = {line.source_line_id for line in lines if line.source_line_id}
+    summary_line_ids = set(doc.summary.source_line_ids) if doc.summary else set()
+    if all_line_ids and (len(summary_line_ids) / len(all_line_ids)) > 0.60:
+        warnings.append("summary_ownership_excessive")
+
+    # Embedded headings check inside composite summary lines
+    heading_patterns = [
+        r"\bCAREER OBJECTIVE\b",
+        r"\bWORK EXPERIENCE\b",
+        r"\bTECHNICAL SKILLS\b",
+        r"\bEDUCATION\b",
+        r"\bEXPERIENCE\b",
+        r"\bSKILLS\b",
+        r"\bPROJECTS\b",
+        r"\bACTIVITIES\b",
+        r"\bCERTIFICATIONS\b",
+    ]
+    if doc.summary:
+        summary_lines = [
+            _get_line_text(line)
+            for line in lines
+            if line.source_line_id in summary_line_ids
+        ]
+        has_embedded = False
+        for text in summary_lines:
+            for pat in heading_patterns:
+                m = re.search(pat, text, re.IGNORECASE)
+                if m:
+                    matched_heading = m.group(0)
+                    if m.start() > 3 and not matched_heading.isupper():
+                        continue
+                    remainder = (text[: m.start()] + text[m.end() :]).strip()
+                    if len(remainder) >= 10:
+                        has_embedded = True
+                        break
+            if has_embedded:
+                break
+        if has_embedded:
+            warnings.append("summary_contains_embedded_headings")
+
+    # Classified section collapse check
+    known_sections = [s for s in doc.sections if s.type not in ("custom", "unknown")]
+    if not doc.sections or not known_sections:
+        warnings.append("classified_section_collapse")
 
     doc.reconstruction_warnings = list(dict.fromkeys(warnings))
     return doc

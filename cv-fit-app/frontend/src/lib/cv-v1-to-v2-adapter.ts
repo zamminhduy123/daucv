@@ -22,6 +22,7 @@ import type {
   CVSection,
   CVIdentity,
 } from "@/types";
+import { parseLegacyContactLines } from "./cv-identity-compat.js";
 
 // ---------------------------------------------------------------------------
 // Section-type heuristics
@@ -300,6 +301,35 @@ function splitBullets(lines: string[]): [string[], string[]] {
 // Public adapter
 // ---------------------------------------------------------------------------
 
+function legacyIdentity(name: string, headline?: string, contactLines?: string[]): CVIdentity {
+  const contacts = (contactLines || []).map((line) => line.trim()).filter(Boolean);
+  const parsed = parseLegacyContactLines(contacts);
+  const normalizedContacts = [parsed.email, parsed.phone, ...parsed.links, ...parsed.residual]
+    .filter((value): value is string => Boolean(value))
+    .filter((value, index, all) => all.indexOf(value) === index);
+  const fullName = name.trim() || null;
+
+  return {
+    full_name: fullName,
+    headline: headline?.trim() || null,
+    email: parsed.email,
+    phone: parsed.phone,
+    location: null,
+    links: parsed.links,
+    source_block_ids: [],
+    field_source_block_ids: {
+      full_name: [],
+      headline: [],
+      email: [],
+      phone: [],
+      location: [],
+      links: {},
+    },
+    name: fullName ?? "",
+    contact_lines: normalizedContacts,
+  };
+}
+
 export function v1ToV2(
   name: string,
   headline?: string,
@@ -310,11 +340,7 @@ export function v1ToV2(
   skills?: string[],
   education?: string,
 ): CVDocumentV2 {
-  const identity: CVIdentity = {
-    name: name || "",
-    headline: headline || "",
-    contact_lines: (contactLines || []).filter((l) => l.trim()),
-  };
+  const identity = legacyIdentity(name, headline, contactLines);
 
   const summaryParts = summary?.trim() ? [summary.trim()] : [];
   for (const section of sections || []) {
@@ -332,7 +358,14 @@ export function v1ToV2(
     const type = classifySection(section.title);
     if (type === "summary") continue;
     const blocks = _sectionToBlocks(section, type);
-    cvSections.push({ id: "", type, title: section.title, blocks });
+    cvSections.push({
+      id: "",
+      type,
+      title: section.title,
+      confidence: 1,
+      source_block_ids: [],
+      blocks,
+    });
   }
 
   // Fallback: derive from legacy fields
@@ -342,6 +375,8 @@ export function v1ToV2(
         id: "experience",
         type: "experience",
         title: "Experience",
+        confidence: 1,
+        source_block_ids: [],
         blocks: experience.map((exp) => ({
           type: "entry" as const,
           block_id: "",
@@ -355,6 +390,8 @@ export function v1ToV2(
         id: "skills",
         type: "skills",
         title: "Skills",
+        confidence: 1,
+        source_block_ids: [],
         blocks: [{ type: "skill_group" as const, block_id: "", skills }],
       });
     }
@@ -363,6 +400,8 @@ export function v1ToV2(
         id: "education",
         type: "education",
         title: "Education",
+        confidence: 1,
+        source_block_ids: [],
         blocks: [{ type: "education" as const, block_id: "", details: [education.trim()] }],
       });
     }
@@ -375,7 +414,20 @@ export function v1ToV2(
     });
   });
 
-  return { schema_version: 2, identity, summary: summaryBlock, sections: cvSections };
+  return {
+    raw_extraction_id: null,
+    schema_version: 2,
+    extraction_version: "2.0",
+    parser_version: "2.0",
+    reconstruction_version: 1,
+    requires_reprocessing: true,
+    source_hash: null,
+    identity,
+    summary: summaryBlock ?? null,
+    sections: cvSections,
+    unmapped_content: [],
+    reconstruction_warnings: [],
+  };
 }
 
 function _sectionToBlocks(section: { title: string; items: string[] }, type: string): CVBlockType[] {

@@ -7,7 +7,15 @@ This is the single source of truth for the ``app`` object.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, health, jobs, tailored_cv, user
+from app.api.routes import (
+    admin,
+    cv_pipeline,
+    cv_translation,
+    health,
+    jobs,
+    tailored_cv,
+    user,
+)
 
 try:
     from app.api.routes import billing
@@ -80,7 +88,9 @@ def create_app() -> FastAPI:
     # --- Routers -----------------------------------------------------------
     application.include_router(health.router)
     application.include_router(user.router)
+    application.include_router(cv_pipeline.router)
     application.include_router(tailored_cv.router)
+    application.include_router(cv_translation.router)
     application.include_router(jobs.router)
     application.include_router(admin.router)
     if billing:

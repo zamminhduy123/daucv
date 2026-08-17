@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS public.tailored_cv_versions (
     jd_text TEXT NOT NULL DEFAULT '',
     tailored_cv JSONB NOT NULL,
     analysis_key TEXT NOT NULL,
-    selected_design TEXT NOT NULL DEFAULT 'classic_ats' CHECK (selected_design IN ('classic_ats', 'modern_professional', 'compact_one_page')),
+    selected_design TEXT NOT NULL DEFAULT 'classic_ats' CHECK (selected_design IN ('classic_ats', 'modern_professional', 'compact_one_page', 'compact')),
     document_schema_version INTEGER DEFAULT 1,
     reconstruction_version INTEGER DEFAULT 1,
     source_hash TEXT,
@@ -63,9 +63,15 @@ CREATE TABLE IF NOT EXISTS public.tailored_cv_versions (
     document_v2 JSONB DEFAULT 'null'::jsonb,
     reconstruction_warnings TEXT[] DEFAULT ARRAY[]::TEXT[],
     source_document_v2 JSONB DEFAULT 'null'::jsonb,
+    tailoring_diagnostics JSONB,
+    template_id TEXT,
+    template_version INTEGER,
+    render_version INTEGER,
+    last_render_diagnostics JSONB,
     source_pdf_reference TEXT,
     source_raw_text TEXT,
     source_normalized_text TEXT,
+    tailoring_pipeline_version INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -85,3 +91,26 @@ CREATE TABLE IF NOT EXISTS public.files (
 );
 CREATE INDEX IF NOT EXISTS idx_files_user_id ON public.files(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_files_bucket_path ON public.files(bucket, object_path);
+
+-- Create cv_translation_variants table
+CREATE TABLE IF NOT EXISTS public.cv_translation_variants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    tailored_cv_version_id UUID NOT NULL REFERENCES public.tailored_cv_versions(id) ON DELETE CASCADE,
+    source_document_hash TEXT NOT NULL,
+    translated_document_hash TEXT NOT NULL,
+    source_language VARCHAR(10) NOT NULL,
+    target_language VARCHAR(10) NOT NULL,
+    translation_version INTEGER NOT NULL DEFAULT 1,
+    translator_version VARCHAR(50) NOT NULL DEFAULT 'v1_llm_constrained',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    operation_id VARCHAR(64) NOT NULL,
+    translated_document JSONB NOT NULL,
+    translation_diagnostics JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_translation_variant UNIQUE (user_id, tailored_cv_version_id, source_document_hash, target_language, translation_version)
+);
+CREATE INDEX IF NOT EXISTS idx_translation_variants_version ON public.cv_translation_variants(tailored_cv_version_id);
+CREATE INDEX IF NOT EXISTS idx_translation_variants_op ON public.cv_translation_variants(operation_id);
+

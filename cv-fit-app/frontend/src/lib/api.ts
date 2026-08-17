@@ -1,9 +1,11 @@
 import { getSession } from "next-auth/react";
-import type { FileInfo, CVAnalysisEnvelope, CVAnalysisResponse, CVDesign, LayoutLine, SuggestedEdit, TailoredCV, TailoredCVVersion } from "@/types";
+import type { CanonicalCV, CVAnalysisEnvelope, CVAnalysisResponse, CVDesign, CVDocumentV2, CVEvaluationReport, CVPreviewResponse, CVTailoringDiagnostics, CVTailoringResponse, CVTemplateDefinition, FileInfo, LayoutLine, RawExtractionReference, SuggestedEdit, TailoredCV, TailoredCVVersion } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const TTS_API_URL = process.env.NEXT_PUBLIC_TTS_SERVICE_URL || "http://127.0.0.1:8000";
-const CV_ANALYSIS_TIMEOUT_MS = 315_000;
+const CV_ANALYSIS_TIMEOUT_MS = Number(
+  process.env.NEXT_PUBLIC_CV_ANALYSIS_TIMEOUT_MS || 9_999_000,
+);
 
 // Helper wrapper that automatically attaches the NextAuth accessToken to outgoing request headers
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
@@ -27,18 +29,30 @@ export async function pingAPI() {
 export interface PdfExtractResult {
   text: string;
   layout_data: LayoutLine[];
+  raw_extraction_ref?: RawExtractionReference;
+  pending_raw_extraction_cleanup_ids?: string[];
   file_info?: FileInfo;
   error?: string;
 }
 
-export async function extractPdfAPI(file: File) {
+export async function extractPdfAPI(
+  file: File,
+  purpose: "cv" | "jd",
+  replacesRawExtractionId?: string,
+) {
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("purpose", purpose);
+  if (replacesRawExtractionId) {
+    formData.append("replaces_raw_extraction_id", replacesRawExtractionId);
+  }
 
   const res = await fetchWithAuth(`${API_URL}/api/extract-pdf`, {
     method: "POST",
     body: formData,
   });
+
+  console.log("extract pdf", res);
 
   if (!res.ok) {
     throw await parseApiError(res);
@@ -46,13 +60,122 @@ export async function extractPdfAPI(file: File) {
   return res.json() as Promise<PdfExtractResult>;
 }
 
-export async function analyzeCVAPI(cvText: string, jdText: string, layoutData: LayoutLine[] | null = null) {
+export async function deleteRawExtractionAPI(fileId: string): Promise<void> {
+  const res = await fetchWithAuth(`${API_URL}/api/raw-extractions/${fileId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok && res.status !== 404) {
+    throw await parseApiError(res);
+  }
+}
+
+export async function parseCVAPI(
+  cvText: string,
+  rawExtractionRefId?: string,
+  signal?: AbortSignal,
+): Promise<{
+  canonical_cv: CanonicalCV;
+  source_document_v2: CVDocumentV2;
+  source_ticket: string;
+}> {
+  const res = await fetchWithAuth(`${API_URL}/api/cv/parse`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      cv_text: cvText,
+      raw_extraction_ref_id: rawExtractionRefId,
+    }),
+    signal,
+  });
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<{
+    canonical_cv: CanonicalCV;
+    source_document_v2: CVDocumentV2;
+    source_ticket: string;
+  }>;
+}
+
+export async function evaluateCVAPI(
+  canonicalCV: CanonicalCV,
+  jobDescription?: string,
+  signal?: AbortSignal,
+): Promise<CVEvaluationReport> {
+  const res = await fetchWithAuth(`${API_URL}/api/cv/evaluate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      canonical_cv: canonicalCV,
+      job_description: jobDescription?.trim() || undefined,
+    }),
+    signal,
+  });
+  if (!res.ok) throw await parseApiError(res);
+  return (await res.json() as { evaluation: CVEvaluationReport }).evaluation;
+}
+
+export async function tailorCVAPI(
+  canonicalCV: CanonicalCV,
+  jobDescription?: string,
+  evaluation?: CVEvaluationReport,
+  signal?: AbortSignal,
+): Promise<CVTailoringResponse> {
+  const res = await fetchWithAuth(`${API_URL}/api/cv/tailor`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      canonical_cv: canonicalCV,
+      job_description: jobDescription?.trim() || undefined,
+      evaluation,
+    }),
+    signal,
+  });
+  if (!res.ok) throw await parseApiError(res);
+  return (await res.json() as { tailoring: CVTailoringResponse }).tailoring;
+}
+
+export async function savePipelineTailoredCVAPI(
+  cvText: string,
+  rawExtractionRefId: string | undefined,
+  jobDescription: string | undefined,
+  sourceDocument: CVDocumentV2,
+  sourceTicket: string,
+  tailoring: CVTailoringResponse,
+  selectedDesign: CVDesign = "classic_ats",
+  signal?: AbortSignal,
+): Promise<TailoredCVVersion> {
+  const res = await fetchWithAuth(`${API_URL}/api/cv/tailor-and-save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      cv_text: cvText,
+      raw_extraction_ref_id: rawExtractionRefId,
+      job_description: jobDescription?.trim() || undefined,
+      source_document_v2: sourceDocument,
+      source_ticket: sourceTicket,
+      tailoring,
+      selected_design: selectedDesign,
+    }),
+    signal,
+  });
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<TailoredCVVersion>;
+}
+
+export async function analyzeCVAPI(
+  cvText: string,
+  jdText: string,
+  rawExtractionRefId?: string,
+) {
   let res: Response;
   try {
     res = await fetchWithAuth(`${API_URL}/api/analyze-cv`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cv_text: cvText, jd_text: jdText, layout_data: layoutData }),
+      body: JSON.stringify({
+        cv_text: cvText,
+        jd_text: jdText,
+        raw_extraction_ref_id: rawExtractionRefId,
+      }),
       signal: AbortSignal.timeout(CV_ANALYSIS_TIMEOUT_MS),
     });
   } catch (err: unknown) {
@@ -78,9 +201,9 @@ export async function analyzeCVAPI(cvText: string, jdText: string, layoutData: L
 
 export interface CVAnalysisProgressEvent {
   type: "progress";
-  stage: "queued" | "validating" | "reconstructing" | "analyzing" | "retrying" | "finalizing";
+  stage: "queued" | "validating" | "structuring" | "reconstructing" | "analyzing" | "retrying" | "finalizing";
   message: string;
-  details?: { attempt?: number; total_attempts?: number };
+  details?: { attempt?: number; total_attempts?: number; operation?: "structuring" | "analysis" };
 }
 
 type CVAnalysisStreamEvent =
@@ -96,6 +219,7 @@ function mapCVAnalysisEnvelope(payload: CVAnalysisEnvelope): CVAnalysisResponse 
     source_document_v2: payload.source_document_v2,
     reconstruction_diagnostics: payload.reconstruction_diagnostics,
     tailoring_entitlement: payload.tailoring_entitlement,
+    tailoring_diagnostics: payload.tailoring_diagnostics,
   } satisfies CVAnalysisResponse;
 }
 
@@ -110,7 +234,7 @@ function streamError(status: number, message: string): ApiError {
 export async function analyzeCVStreamAPI(
   cvText: string,
   jdText: string,
-  layoutData: LayoutLine[] | null,
+  rawExtractionRefId: string | undefined,
   onProgress: (event: CVAnalysisProgressEvent) => void,
   signal?: AbortSignal,
 ): Promise<CVAnalysisResponse> {
@@ -119,7 +243,11 @@ export async function analyzeCVStreamAPI(
     res = await fetchWithAuth(`${API_URL}/api/analyze-cv/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cv_text: cvText, jd_text: jdText, layout_data: layoutData }),
+      body: JSON.stringify({
+        cv_text: cvText,
+        jd_text: jdText,
+        raw_extraction_ref_id: rawExtractionRefId,
+      }),
       signal,
     });
   } catch (err: unknown) {
@@ -320,7 +448,7 @@ export async function listUserCVsAPI() {
   return res.json();
 }
 
-export async function createTailoredCVVersionAPI(payload: { tailored_cv: TailoredCV; source_cv_text: string; suggested_edits: SuggestedEdit[]; jd_text: string; target_role?: string; company_name?: string; selected_design: CVDesign; tailoring_entitlement: string; document_v2?: import("@/types").CVDocumentV2 | null; source_document_v2?: import("@/types").CVDocumentV2 | null }) {
+export async function createTailoredCVVersionAPI(payload: { tailored_cv: TailoredCV; source_cv_text: string; suggested_edits: SuggestedEdit[]; jd_text: string; target_role?: string; company_name?: string; selected_design: CVDesign; tailoring_entitlement: string; document_v2?: CVDocumentV2 | null; source_document_v2?: CVDocumentV2 | null; tailoring_diagnostics?: CVTailoringDiagnostics | null }) {
   const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   if (!res.ok) throw await parseApiError(res);
   return res.json() as Promise<TailoredCVVersion>;
@@ -344,10 +472,46 @@ export async function deleteTailoredCVVersionAPI(id: string) {
   return res.json() as Promise<{ success: boolean }>;
 }
 
-export async function downloadTailoredCVPDFAPI(id: string) {
-  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs/${id}/pdf`);
+export async function fetchCVTemplatesAPI() {
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs/templates`);
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<CVTemplateDefinition[]>;
+}
+
+export async function fetchTailoredCVPreviewAPI(id: string, translationVariantId?: string) {
+  const query = translationVariantId ? `?translation_variant_id=${encodeURIComponent(translationVariantId)}` : "";
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs/${id}/preview${query}`);
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<CVPreviewResponse>;
+}
+
+export async function updateTailoredCVTemplateAPI(id: string, template_id: string) {
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs/${id}/template`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ template_id }) });
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<TailoredCVVersion>;
+}
+
+export async function downloadTailoredCVPDFAPI(id: string, translationVariantId?: string) {
+  const query = translationVariantId ? `?translation_variant_id=${encodeURIComponent(translationVariantId)}` : "";
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs/${id}/pdf${query}`);
   if (!res.ok) throw await parseApiError(res);
   return res.blob();
+}
+
+export async function createTranslationAPI(id: string, targetLanguage: "vi" | "en") {
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs/${id}/translations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target_language: targetLanguage }),
+  });
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<import("@/types").CVTranslationVariant>;
+}
+
+export async function listTranslationsAPI(id: string) {
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs/${id}/translations`);
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<import("@/types").CVTranslationVariant[]>;
 }
 
 export async function buyCreditsAPI(packageId: string) {
@@ -447,6 +611,7 @@ export async function parseApiError(res: Response): Promise<ApiError> {
   const message = await res.text().catch(() => "Không thể đọc phản hồi từ server");
   const status = res.status;
 
+
   if (status === 503 && message.toLowerCase().includes("overload")) {
     return { type: "ai_overloaded", message, status };
   }
@@ -486,4 +651,29 @@ export interface ApiError {
     | "unknown";
   message: string;
   status: number;
+}
+
+export async function verifyUserEditAPI(payload: {
+  source_cv_text: string;
+  jd_text: string;
+  source_document_v2: CVDocumentV2;
+  current_tailored_document_v2: CVDocumentV2;
+  edited_document_v2: CVDocumentV2;
+  tailoring_diagnostics: CVTailoringDiagnostics;
+  tailoring_entitlement: string;
+}): Promise<{
+  edited_document_v2: CVDocumentV2;
+  tailoring_diagnostics: CVTailoringDiagnostics;
+  tailoring_entitlement: string;
+}> {
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cv/verify-edit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
 }

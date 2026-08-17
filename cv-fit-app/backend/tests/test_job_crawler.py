@@ -51,7 +51,7 @@ async def test_search_jobs_falls_back_when_browser_cannot_start(
     assert result["total"] == 1
     assert result["jobs"][0]["url"] == fallback_job["url"]
     assert result["sourceStatus"] == [
-        {"source": "itviec", "status": "success", "count": 1, "error": None}
+        {"source": "itviec", "status": "success", "count": 1, "error": None},
     ]
     fallback.assert_awaited_once()
 

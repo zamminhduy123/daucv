@@ -1,9 +1,17 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import type { CVAnalysisResponse, LayoutLine } from "@/types";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import type { CVPipelineAnalysis, LayoutLine } from "@/types";
 import { useAuth } from "./AuthContext";
-import { uploadUserCVAPI, updateActiveCVTextAPI, deactivateUserCVAPI } from "@/lib/api";
+import { deleteRawExtractionAPI, uploadUserCVAPI, updateActiveCVTextAPI, deactivateUserCVAPI } from "@/lib/api";
+import {
+  acceptRawExtractionReference,
+  completeRawExtractionCleanup,
+  invalidateRawExtraction,
+  normalizeRawExtractionLifecycle,
+  queueRawExtractionCleanup,
+  type RawExtractionLifecycleState,
+} from "@/lib/raw-extraction-lifecycle";
 
 // ── Cache types ──────────────────────────────────────────────────────────────
 
@@ -14,7 +22,7 @@ interface WriterResult {
 }
 
 interface WorkspaceCache {
-  analyzerResult: CVAnalysisResponse | null;
+  analyzerResult: CVPipelineAnalysis | null;
   interviewState: unknown;
   writerResults: Record<string, WriterResult>;
 }
@@ -27,7 +35,7 @@ const EMPTY_CACHE: WorkspaceCache = {
 
 // ── Core state ───────────────────────────────────────────────────────────────
 
-interface WorkspaceState {
+interface WorkspaceState extends RawExtractionLifecycleState {
   cvText: string;
   cvFileName: string;
   jdText: string;
@@ -41,6 +49,7 @@ interface WorkspaceContextType extends WorkspaceState {
   setJdText: (text: string) => void;
   setLayoutData: (data: LayoutLine[] | null) => void;
   updateWorkspace: (data: Partial<WorkspaceState>) => void;
+  queueRawExtractionCleanupIds: (ids: string[]) => void;
   uploadFileCV: (text: string, filename: string) => Promise<void>;
   deleteActiveCV: () => Promise<void>;
   hasData: boolean;
@@ -51,7 +60,7 @@ interface WorkspaceContextType extends WorkspaceState {
 
   // Cache accessors
   cache: WorkspaceCache;
-  setCachedAnalysis: (result: CVAnalysisResponse) => void;
+  setCachedAnalysis: (result: CVPipelineAnalysis) => void;
   setCachedInterview: (state: unknown) => void;
   setCachedWriter: (key: string, result: WriterResult) => void;
   clearCache: () => void;
@@ -63,13 +72,26 @@ const STORAGE_KEY = "dau_workspace";
 const CACHE_KEY = "dau_workspace_cache";
 const DEFAULT_CV_FILENAME = "CV của tôi";
 
+function isPipelineAnalysis(value: unknown): value is CVPipelineAnalysis {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<CVPipelineAnalysis>;
+  return Boolean(
+    candidate.canonical_cv
+      && candidate.source_document_v2
+      && !candidate.source_document_v2.requires_reprocessing
+      && candidate.source_ticket
+      && candidate.evaluation,
+  );
+}
+
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { activeCV, refreshProfile, status, userId } = useAuth();
-  const [state, setState] = useState<WorkspaceState>({ cvText: "", cvFileName: DEFAULT_CV_FILENAME, jdText: "", layoutData: null });
+  const [state, setState] = useState<WorkspaceState>({ cvText: "", cvFileName: DEFAULT_CV_FILENAME, jdText: "", layoutData: null, rawExtractionRef: null, pendingRawExtractionCleanupIds: [] });
   const [cache, setCache] = useState<WorkspaceCache>({ ...EMPTY_CACHE });
   const [isFeedbackOpen, setFeedbackOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadedStorageKey, setLoadedStorageKey] = useState<string | null>(null);
+  const cleanupInFlight = useRef(new Set<string>());
   const scopedStorageSuffix = userId || "anonymous";
   const stateStorageKey = `${STORAGE_KEY}:${scopedStorageSuffix}`;
   const cacheStorageKey = `${CACHE_KEY}:${scopedStorageSuffix}`;
@@ -85,10 +107,15 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
 
     const rawState = sessionStorage.getItem(stateStorageKey);
-    let nextState: WorkspaceState = { cvText: "", cvFileName: DEFAULT_CV_FILENAME, jdText: "", layoutData: null };
+    let nextState: WorkspaceState = { cvText: "", cvFileName: DEFAULT_CV_FILENAME, jdText: "", layoutData: null, rawExtractionRef: null, pendingRawExtractionCleanupIds: [] };
     if (rawState) {
       try {
-        nextState = JSON.parse(rawState);
+        const parsed = JSON.parse(rawState) as Partial<WorkspaceState>;
+        nextState = {
+          ...nextState,
+          ...parsed,
+          ...normalizeRawExtractionLifecycle(parsed),
+        };
       } catch {}
     }
 
@@ -96,7 +123,14 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     let nextCache: WorkspaceCache = { ...EMPTY_CACHE };
     if (rawCache) {
       try {
-        nextCache = JSON.parse(rawCache);
+        const parsed = JSON.parse(rawCache) as Partial<WorkspaceCache>;
+        nextCache = {
+          ...nextCache,
+          ...parsed,
+          analyzerResult: isPipelineAnalysis(parsed.analyzerResult)
+            ? parsed.analyzerResult
+            : null,
+        };
       } catch {}
     }
 
@@ -113,6 +147,36 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     if (!isLoaded || loadedStorageKey !== stateStorageKey) return;
     sessionStorage.setItem(stateStorageKey, JSON.stringify(state));
   }, [state, isLoaded, loadedStorageKey, stateStorageKey]);
+
+  // Process one persisted cleanup at a time. A failure leaves the ID in
+  // sessionStorage so a reload can retry without making stale raw data usable.
+  useEffect(() => {
+    if (!isLoaded || loadedStorageKey !== stateStorageKey) return;
+    const pendingId = state.pendingRawExtractionCleanupIds[0];
+    if (!pendingId) return;
+    const requestKey = `${stateStorageKey}:${pendingId}`;
+    if (cleanupInFlight.current.has(requestKey)) return;
+    cleanupInFlight.current.add(requestKey);
+
+    deleteRawExtractionAPI(pendingId)
+      .then(() => {
+        setState((current) => ({
+          ...current,
+          ...completeRawExtractionCleanup(current, pendingId),
+        }));
+      })
+      .catch((cleanupError) => {
+        console.error("Failed to clean up raw extraction; retry is queued:", cleanupError);
+      })
+      .finally(() => {
+        cleanupInFlight.current.delete(requestKey);
+      });
+  }, [
+    isLoaded,
+    loadedStorageKey,
+    state.pendingRawExtractionCleanupIds,
+    stateStorageKey,
+  ]);
 
   // Sync cache to sessionStorage
   useEffect(() => {
@@ -139,11 +203,16 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     if (isLoaded && loadedStorageKey === stateStorageKey && status === "authenticated" && activeCV) {
       if (!state.cvText.trim()) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setState((s) => ({
-          ...s,
-          cvText: activeCV.cv_text,
-          cvFileName: activeCV.cv_filename,
-        }));
+        setState((s) => {
+          const invalidated = invalidateRawExtraction(s);
+          return {
+            ...s,
+            ...invalidated,
+            cvText: activeCV.cv_text,
+            cvFileName: activeCV.cv_filename,
+            layoutData: null,
+          };
+        });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -207,16 +276,33 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   const updateWorkspace = useCallback((data: Partial<WorkspaceState>) => {
     setState((s) => {
-      const next = { ...s, ...data };
+      let next = { ...s, ...data };
+      if (data.rawExtractionRef === null) {
+        next = { ...next, ...invalidateRawExtraction(s) };
+      } else if (data.rawExtractionRef) {
+        next = {
+          ...next,
+          ...acceptRawExtractionReference(s, data.rawExtractionRef),
+        };
+      }
       if (
         next.cvText !== s.cvText ||
         next.jdText !== s.jdText ||
-        next.layoutData !== s.layoutData
+        next.layoutData !== s.layoutData ||
+        next.rawExtractionRef !== s.rawExtractionRef
       ) {
         setCache({ ...EMPTY_CACHE });
       }
       return next;
     });
+  }, []);
+
+  const queueRawExtractionCleanupIds = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    setState((s) => ({
+      ...s,
+      ...queueRawExtractionCleanup(s, ids),
+    }));
   }, []);
 
   // Explicit new file upload save (creates a new historical row)
@@ -233,6 +319,20 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [status, refreshProfile]);
 
   const deleteActiveCV = useCallback(async () => {
+    // Invalidate immediately. The centralized queue owns deletion/retry and
+    // retains the ID until the server confirms deletion or reports 404.
+    setState((s) => {
+      const invalidated = invalidateRawExtraction(s);
+      return {
+        ...s,
+        ...invalidated,
+        cvText: "",
+        cvFileName: DEFAULT_CV_FILENAME,
+        layoutData: null,
+      };
+    });
+    setCache({ ...EMPTY_CACHE });
+
     if (status === "authenticated" && activeCV) {
       try {
         await deactivateUserCVAPI(activeCV.id);
@@ -241,18 +341,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         console.error("Failed to delete active CV:", err);
       }
     }
-
-    setState((s) => ({
-      ...s,
-      cvText: "",
-      cvFileName: DEFAULT_CV_FILENAME,
-      layoutData: null,
-    }));
-    setCache({ ...EMPTY_CACHE });
   }, [status, activeCV, refreshProfile]);
 
   const setCachedAnalysis = useCallback(
-    (result: CVAnalysisResponse) => setCache((c) => ({ ...c, analyzerResult: result })),
+    (result: CVPipelineAnalysis) => setCache((c) => ({ ...c, analyzerResult: result })),
     []
   );
   const setCachedInterview = useCallback(
@@ -277,6 +369,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         setJdText,
         setLayoutData,
         updateWorkspace,
+        queueRawExtractionCleanupIds,
         uploadFileCV,
         deleteActiveCV,
         hasData,

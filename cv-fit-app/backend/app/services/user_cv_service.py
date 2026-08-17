@@ -1,4 +1,6 @@
+import asyncio
 import logging
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -12,31 +14,32 @@ logger = logging.getLogger(__name__)
 async def get_profile_with_stats(user: dict) -> UserProfileResponse:
     user_id = user["id"]
 
-    # Query active CV
-    active_cv_row = await Database.fetch_one(
+    # Concurrent fetch of active CV and total CV count
+    active_cv_task = Database.fetch_one(
         "SELECT id, cv_filename, cv_text, is_active, created_at FROM public.user_cvs WHERE user_id = $1 AND is_active = TRUE LIMIT 1",
         user_id,
     )
+    count_task = Database.fetch_one(
+        "SELECT COUNT(*) as total FROM public.user_cvs WHERE user_id = $1",
+        user_id,
+    )
+
+    active_cv_row, count_row = await asyncio.gather(active_cv_task, count_task)
 
     active_cv = None
     active_cv_age_days = None
 
     if active_cv_row:
         active_cv = CVResponse.model_validate(dict(active_cv_row))
+        created_at = active_cv_row.get("created_at")
+        if created_at:
+            if isinstance(created_at, str):
+                created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            active_cv_age_days = max(0, (now - created_at).days)
 
-        # Calculate CV age in days
-        age_row = await Database.fetch_one(
-            "SELECT EXTRACT(DAY FROM now() - created_at) as age_days FROM public.user_cvs WHERE id = $1",
-            active_cv_row["id"],
-        )
-        if age_row and age_row["age_days"] is not None:
-            active_cv_age_days = int(age_row["age_days"])
-
-    # Calculate total CVs count
-    count_row = await Database.fetch_one(
-        "SELECT COUNT(*) as total FROM public.user_cvs WHERE user_id = $1",
-        user_id,
-    )
     total_cvs = count_row["total"] if count_row else 0
 
     return UserProfileResponse(

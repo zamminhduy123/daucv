@@ -8,9 +8,11 @@ Error messages are sanitized through the PII sanitizer before being written
 to prevent accidental leakage of identifiable data.
 """
 
+import json
 import logging
 import threading
 from datetime import datetime, timezone
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -21,6 +23,9 @@ _logger = logging.getLogger("app.llm_logger")
 
 # A single lock shared by all threads writing to JSONL files.
 _write_lock = threading.Lock()
+
+PROMPTS_DIR = LOGS_DIR / "prompts"
+PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -131,3 +136,84 @@ def log_llm_request(record: LLMLogRecord) -> None:
                 "status_code": 500,
             },
         )
+
+
+def log_llm_input(
+    feature: str,
+    provider: str,
+    model: str,
+    system_prompt: str,
+    user_content: Any,
+    prompt_version: str = "1.0.0",
+    response_model: type[BaseModel] | None = None,
+) -> str:
+    """Save raw LLM system prompt, user input, and expected JSON schema to file BEFORE sending request.
+
+    Saves to:
+    1. Daily JSONL file: logs/YYYY-MM-DD-llm-inputs.jsonl
+    2. Readable text file: logs/prompts/YYYYMMDD_HHMMSS_{feature}_{provider}.txt
+    """
+    now = datetime.now(timezone.utc)
+    timestamp_str = now.isoformat()
+    date_str = now.strftime("%Y-%m-%d")
+    time_file_str = now.strftime("%Y%m%d_%H%M%S_%f")[:19]
+
+    user_str = str(user_content)
+
+    schema_dict = None
+    schema_str = ""
+    if response_model is not None:
+        try:
+            if hasattr(response_model, "model_json_schema"):
+                schema_dict = response_model.model_json_schema()
+            schema_str = (
+                json.dumps(schema_dict, indent=2, ensure_ascii=False)
+                if schema_dict
+                else str(response_model)
+            )
+        except Exception:
+            schema_str = str(response_model)
+
+    record = {
+        "timestamp": timestamp_str,
+        "feature": feature,
+        "provider": provider,
+        "model": model,
+        "prompt_version": prompt_version,
+        "response_schema": schema_dict,
+        "system_prompt": system_prompt,
+        "user_content": user_str,
+    }
+
+    # 1. Append to daily JSONL file
+    jsonl_path = LOGS_DIR / f"{date_str}-llm-inputs.jsonl"
+    line = json.dumps(record, ensure_ascii=False) + "\n"
+
+    # 2. Write human-readable prompt text file
+    txt_filename = f"{time_file_str}_{feature}_{provider}.txt"
+    txt_path = PROMPTS_DIR / txt_filename
+
+    schema_section = (
+        f"--- EXPECTED RESPONSE JSON SCHEMA ---\n{schema_str}\n\n" if schema_str else ""
+    )
+
+    readable_content = (
+        f"=== TIMESTAMP: {timestamp_str} ===\n"
+        f"=== FEATURE: {feature} | PROVIDER: {provider} | MODEL: {model} ===\n"
+        f"=== PROMPT VERSION: {prompt_version} ===\n\n"
+        f"{schema_section}"
+        f"--- SYSTEM PROMPT ---\n{system_prompt}\n\n"
+        f"--- USER CONTENT ---\n{user_str}\n"
+    )
+
+    try:
+        with _write_lock:
+            with open(jsonl_path, "a", encoding="utf-8") as fh:
+                fh.write(line)
+            with open(txt_path, "w", encoding="utf-8") as fh:
+                fh.write(readable_content)
+        _logger.info("Saved LLM input prompt to %s", txt_path)
+    except Exception as err:
+        _logger.error("Failed to write LLM input log: %s", err)
+
+    return str(txt_path)
