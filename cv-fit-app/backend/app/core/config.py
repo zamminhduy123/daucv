@@ -55,7 +55,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY", os.getenv("SUPABASE_SERVICE_ROLE_KEY", 
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "cv")
 # Must be provisioned as a private Supabase bucket. Raw CV text must never be
 # stored in the public source-PDF bucket.
-RAW_EXTRACTION_BUCKET = os.getenv("RAW_EXTRACTION_BUCKET", "cv")
+RAW_EXTRACTION_BUCKET = os.getenv("RAW_EXTRACTION_BUCKET", "cv-raw-private")
 is_testing = "pytest" in sys.modules or (len(sys.argv) > 0 and "pytest" in sys.argv[0])
 default_skip = (ENV == "development") and not is_testing
 SKIP_RAW_EXTRACTION_UPLOAD = (

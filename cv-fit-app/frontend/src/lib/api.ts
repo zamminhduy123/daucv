@@ -7,18 +7,105 @@ const CV_ANALYSIS_TIMEOUT_MS = Number(
   process.env.NEXT_PUBLIC_CV_ANALYSIS_TIMEOUT_MS || 9_999_000,
 );
 
-// Helper wrapper that automatically attaches the NextAuth accessToken to outgoing request headers
-async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const session = await getSession();
-  const token = (session as { accessToken?: string })?.accessToken;
+// In-memory cached token to avoid redundant /api/auth/session requests on every API call
+let cachedAccessToken: string | null = null;
+let tokenExpiresAt: number = 0;
+let inFlightSessionPromise: Promise<string | null> | null = null;
 
-  const headers = new Headers(options.headers || {});
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+const IN_MEMORY_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes max in-memory cache
+
+function parseJwtExp(token: string): number | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length === 3) {
+      const base64Url = parts[1];
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      );
+      const parsed = JSON.parse(jsonPayload);
+      if (typeof parsed.exp === "number") {
+        return parsed.exp * 1000;
+      }
+    }
+  } catch {
+    // Ignore decode errors
   }
-  options.headers = headers;
+  return null;
+}
 
-  return fetch(url, options);
+export function setAuthToken(token: string | null): void {
+  cachedAccessToken = token;
+  if (token) {
+    const jwtExp = parseJwtExp(token);
+    // Expire 60s before actual JWT exp, or fallback to 15m TTL
+    tokenExpiresAt = jwtExp
+      ? Math.min(jwtExp - 60_000, Date.now() + IN_MEMORY_TOKEN_TTL_MS)
+      : Date.now() + IN_MEMORY_TOKEN_TTL_MS;
+  } else {
+    tokenExpiresAt = 0;
+  }
+}
+
+export function clearAuthToken(): void {
+  setAuthToken(null);
+}
+
+async function getAccessToken(forceRefresh: boolean = false): Promise<string | null> {
+  if (!forceRefresh && cachedAccessToken && Date.now() < tokenExpiresAt) {
+    return cachedAccessToken;
+  }
+
+  // Deduplicate in-flight getSession requests
+  if (inFlightSessionPromise) {
+    return inFlightSessionPromise;
+  }
+
+  inFlightSessionPromise = (async () => {
+    try {
+      const session = await getSession();
+      const token = (session as { accessToken?: string })?.accessToken || null;
+      setAuthToken(token);
+      return token;
+    } catch {
+      setAuthToken(null);
+      return null;
+    } finally {
+      inFlightSessionPromise = null;
+    }
+  })();
+
+  return inFlightSessionPromise;
+}
+
+// Helper wrapper that automatically attaches the NextAuth accessToken to outgoing request headers
+// with automatic 401 token refresh and single retry
+async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  const token = await getAccessToken();
+
+  const makeRequest = (authToken: string | null) => {
+    const headers = new Headers(options.headers || {});
+    if (authToken) {
+      headers.set("Authorization", `Bearer ${authToken}`);
+    }
+    return fetch(url, { ...options, headers });
+  };
+
+  let res = await makeRequest(token);
+
+  // If unauthorized, token may have expired or been revoked; attempt one silent refresh and retry
+  if (res.status === 401 && token) {
+    clearAuthToken();
+    const freshToken = await getAccessToken(true);
+    if (freshToken && freshToken !== token) {
+      res = await makeRequest(freshToken);
+    }
+  }
+
+  return res;
 }
 
 export async function pingAPI() {

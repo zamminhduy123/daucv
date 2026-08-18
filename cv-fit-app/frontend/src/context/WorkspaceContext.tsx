@@ -92,6 +92,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadedStorageKey, setLoadedStorageKey] = useState<string | null>(null);
   const cleanupInFlight = useRef(new Set<string>());
+  const lastSavedCV = useRef<{ text: string; filename: string } | null>(null);
   const scopedStorageSuffix = userId || "anonymous";
   const stateStorageKey = `${STORAGE_KEY}:${scopedStorageSuffix}`;
   const cacheStorageKey = `${CACHE_KEY}:${scopedStorageSuffix}`;
@@ -202,6 +203,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoaded && loadedStorageKey === stateStorageKey && status === "authenticated" && activeCV) {
       if (!state.cvText.trim()) {
+        lastSavedCV.current = { text: activeCV.cv_text, filename: activeCV.cv_filename };
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setState((s) => {
           const invalidated = invalidateRawExtraction(s);
@@ -213,10 +215,15 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             layoutData: null,
           };
         });
+      } else if (
+        state.cvText === activeCV.cv_text &&
+        state.cvFileName === activeCV.cv_filename
+      ) {
+        lastSavedCV.current = { text: activeCV.cv_text, filename: activeCV.cv_filename };
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCV, isLoaded, loadedStorageKey, stateStorageKey, status]);
+  }, [activeCV?.id, isLoaded, loadedStorageKey, stateStorageKey, status]);
 
   // Debounced auto-save for text modifications (updates active CV in place)
   useEffect(() => {
@@ -230,32 +237,39 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Prevent double-saving if local state matches the DB active CV
+    // Prevent double-saving if local state has already been persisted or matches active CV
     if (
-      activeCV &&
-      state.cvText === activeCV.cv_text &&
-      state.cvFileName === activeCV.cv_filename
+      (lastSavedCV.current?.text === state.cvText && lastSavedCV.current?.filename === state.cvFileName) ||
+      (activeCV && state.cvText === activeCV.cv_text && state.cvFileName === activeCV.cv_filename)
     ) {
       return;
     }
 
     const timer = setTimeout(() => {
+      const textToSave = state.cvText;
+      const fileToSave = state.cvFileName;
       if (activeCV) {
         // Update active CV in place
-        updateActiveCVTextAPI(state.cvText, state.cvFileName)
-          .then(() => refreshProfile())
+        updateActiveCVTextAPI(textToSave, fileToSave)
+          .then(() => {
+            lastSavedCV.current = { text: textToSave, filename: fileToSave };
+            return refreshProfile(true);
+          })
           .catch((err) => console.error("Failed to auto-save active CV draft:", err));
       } else {
         // Create new active CV
-        uploadUserCVAPI(state.cvText, state.cvFileName)
-          .then(() => refreshProfile())
+        uploadUserCVAPI(textToSave, fileToSave)
+          .then(() => {
+            lastSavedCV.current = { text: textToSave, filename: fileToSave };
+            return refreshProfile(true);
+          })
           .catch((err) => console.error("Failed to auto-save new CV:", err));
       }
-    }, 1000); // 1-second debounce
+    }, 1500); // 1.5-second debounce
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.cvText, state.cvFileName, activeCV, status, isLoaded, userId, loadedStorageKey, stateStorageKey]);
+  }, [state.cvText, state.cvFileName, activeCV?.id, status, isLoaded, userId, loadedStorageKey, stateStorageKey]);
 
   const setCvText = useCallback((cvText: string) => {
     setState((s) => ({ ...s, cvText }));
@@ -307,11 +321,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   // Explicit new file upload save (creates a new historical row)
   const uploadFileCV = useCallback(async (text: string, filename: string) => {
+    lastSavedCV.current = { text, filename };
     setState((s) => ({ ...s, cvText: text, cvFileName: filename }));
     if (status === "authenticated" && text.trim()) {
       try {
         await uploadUserCVAPI(text, filename);
-        await refreshProfile();
+        await refreshProfile(true);
       } catch (err) {
         console.error("Failed to save uploaded CV file:", err);
       }
@@ -319,6 +334,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [status, refreshProfile]);
 
   const deleteActiveCV = useCallback(async () => {
+    lastSavedCV.current = null;
     // Invalidate immediately. The centralized queue owns deletion/retry and
     // retains the ID until the server confirms deletion or reports 404.
     setState((s) => {
@@ -336,7 +352,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     if (status === "authenticated" && activeCV) {
       try {
         await deactivateUserCVAPI(activeCV.id);
-        await refreshProfile();
+        await refreshProfile(true);
       } catch (err) {
         console.error("Failed to delete active CV:", err);
       }

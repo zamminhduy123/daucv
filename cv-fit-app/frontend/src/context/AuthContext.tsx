@@ -1,9 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
-import { getUserProfileAPI } from "@/lib/api";
+import { clearAuthToken, getUserProfileAPI, setAuthToken } from "@/lib/api";
 
 export interface UserCV {
   id: string;
@@ -28,6 +28,60 @@ interface ExtendedSession extends Session {
   accessToken?: string;
 }
 
+interface CachedProfile {
+  data: UserProfile;
+  timestamp: number;
+  userId: string;
+}
+
+const PROFILE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes TTL
+const PROFILE_CACHE_PREFIX = "cv_fit_user_profile_";
+
+function getCacheKey(userId: string): string {
+  return `${PROFILE_CACHE_PREFIX}${userId}`;
+}
+
+function readCachedProfile(userId: string): CachedProfile | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(getCacheKey(userId));
+    if (!raw) return null;
+    const parsed: CachedProfile = JSON.parse(raw);
+    if (parsed.userId === userId && parsed.data && typeof parsed.timestamp === "number") {
+      return parsed;
+    }
+  } catch {
+    // Ignore JSON parse or localStorage access errors
+  }
+  return null;
+}
+
+function writeCachedProfile(userId: string, data: UserProfile): void {
+  if (typeof window === "undefined") return;
+  try {
+    const record: CachedProfile = {
+      data,
+      timestamp: Date.now(),
+      userId,
+    };
+    localStorage.setItem(getCacheKey(userId), JSON.stringify(record));
+  } catch {
+    // Ignore quota or storage errors
+  }
+}
+
+function clearCachedProfile(userId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(getCacheKey(userId));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+// In-flight request deduplication across simultaneous callers
+let inFlightProfilePromise: Promise<UserProfile | null> | null = null;
+
 interface AuthContextType {
   user: Session["user"] | null;
   userId: string | null;
@@ -35,8 +89,8 @@ interface AuthContextType {
   credits: number | null;
   creditsLoading: boolean;
   activeCV: UserCV | null;
-  refreshProfile: () => Promise<UserProfile | null>;
-  refreshCredits: () => Promise<number | null>;
+  refreshProfile: (force?: boolean) => Promise<UserProfile | null>;
+  refreshCredits: (force?: boolean) => Promise<number | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,50 +101,141 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [activeCV, setActiveCV] = useState<UserCV | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
 
-  const refreshProfile = async (): Promise<UserProfile | null> => {
-    if (status !== "authenticated" || !(session as ExtendedSession)?.accessToken) {
-      setCredits(null);
-      setActiveCV(null);
-      return null;
-    }
-
-    setCreditsLoading(true);
-    try {
-      const data = await getUserProfileAPI() as UserProfile;
-      setCredits(data.credits);
-      setActiveCV(data.active_cv);
-      return data;
-    } catch (err) {
-      console.error("Failed to fetch user profile:", err);
-      setCredits(null);
-      setActiveCV(null);
-      return null;
-    } finally {
-      setCreditsLoading(false);
-    }
-  };
-
-  const refreshCredits = async (): Promise<number | null> => {
-    const profile = await refreshProfile();
-    return profile ? profile.credits : null;
-  };
-
+  const isMountedRef = useRef(true);
   useEffect(() => {
-    if (status === "authenticated" && (session as ExtendedSession)?.accessToken) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      refreshProfile();
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const currentUserId = (session?.user as { id?: string } | undefined)?.id || null;
+  const accessToken = (session as ExtendedSession)?.accessToken;
+
+  const refreshProfile = useCallback(
+    async (force: boolean = false): Promise<UserProfile | null> => {
+      if (status !== "authenticated" || !accessToken || !currentUserId) {
+        if (isMountedRef.current) {
+          setCredits(null);
+          setActiveCV(null);
+        }
+        return null;
+      }
+
+      // 1. If not forcing a refresh, return fresh cached data if still within TTL
+      if (!force) {
+        const cached = readCachedProfile(currentUserId);
+        if (cached && Date.now() - cached.timestamp < PROFILE_CACHE_TTL_MS) {
+          if (isMountedRef.current) {
+            setCredits(cached.data.credits);
+            setActiveCV(cached.data.active_cv);
+          }
+          return cached.data;
+        }
+      }
+
+      // 2. Request deduplication: share active in-flight fetch
+      if (inFlightProfilePromise) {
+        return inFlightProfilePromise;
+      }
+
+      if (isMountedRef.current) {
+        setCreditsLoading(true);
+      }
+
+      inFlightProfilePromise = (async () => {
+        try {
+          const data = (await getUserProfileAPI()) as UserProfile;
+          writeCachedProfile(currentUserId, data);
+          if (isMountedRef.current) {
+            setCredits(data.credits);
+            setActiveCV(data.active_cv);
+          }
+          return data;
+        } catch (err) {
+          console.error("Failed to fetch user profile:", err);
+          // Fall back to stale cache if available on network failure
+          const fallback = readCachedProfile(currentUserId);
+          if (!fallback && isMountedRef.current) {
+            setCredits(null);
+            setActiveCV(null);
+          }
+          return fallback ? fallback.data : null;
+        } finally {
+          if (isMountedRef.current) {
+            setCreditsLoading(false);
+          }
+          inFlightProfilePromise = null;
+        }
+      })();
+
+      return inFlightProfilePromise;
+    },
+    [accessToken, currentUserId, status]
+  );
+
+  const refreshCredits = useCallback(
+    async (force: boolean = true): Promise<number | null> => {
+      const profile = await refreshProfile(force);
+      return profile ? profile.credits : null;
+    },
+    [refreshProfile]
+  );
+
+  // Instant hydration from localStorage + background revalidation if expired
+  useEffect(() => {
+    if (status === "authenticated" && currentUserId && accessToken) {
+      setAuthToken(accessToken);
+      const cached = readCachedProfile(currentUserId);
+      if (cached && isMountedRef.current) {
+        setCredits(cached.data.credits);
+        setActiveCV(cached.data.active_cv);
+      }
+
+      // Revalidate in background if cache is missing or older than TTL
+      const isStale = !cached || Date.now() - cached.timestamp >= PROFILE_CACHE_TTL_MS;
+      if (isStale) {
+        refreshProfile(true);
+      }
     } else if (status === "unauthenticated") {
-      setCredits(null);
-      setActiveCV(null);
+      clearAuthToken();
+      if (currentUserId) {
+        clearCachedProfile(currentUserId);
+      }
+      if (isMountedRef.current) {
+        setCredits(null);
+        setActiveCV(null);
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, session]);
+  }, [status, currentUserId, accessToken, refreshProfile]);
+
+  // Cross-tab synchronization via storage events
+  useEffect(() => {
+    if (status !== "authenticated" || !currentUserId) return;
+
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === getCacheKey(currentUserId) && event.newValue) {
+        try {
+          const parsed: CachedProfile = JSON.parse(event.newValue);
+          if (parsed.userId === currentUserId && parsed.data) {
+            setCredits(parsed.data.credits);
+            setActiveCV(parsed.data.active_cv);
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [status, currentUserId]);
 
   return (
     <AuthContext.Provider
       value={{
         user: session?.user || null,
-        userId: (session?.user as { id?: string } | undefined)?.id || null,
+        userId: currentUserId,
         status,
         credits,
         creditsLoading,
