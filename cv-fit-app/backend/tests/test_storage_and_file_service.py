@@ -139,3 +139,51 @@ async def test_file_service_delete():
     assert len(mock_storage.deleted) == 1
     assert mock_storage.deleted[0] == ("user-files", f"{user_id}/resume.pdf")
     mock_repo.delete_file.assert_called_once_with(file_id)
+
+
+@pytest.mark.asyncio
+async def test_file_service_upload_with_custom_original_filename():
+    """Test FileService preserves separate original_filename and storage filename."""
+    mock_storage = DummyStorage()
+    mock_repo = AsyncMock(spec=FileRepository)
+
+    test_file_id = uuid.uuid4()
+    user_id = str(uuid.uuid4())
+    stored_filename = "20260818_013227_my_cv.pdf"
+    original_filename = "my_cv.pdf"
+
+    mock_repo.create_file.return_value = {
+        "id": test_file_id,
+        "user_id": user_id,
+        "bucket": "cv",
+        "object_path": f"{user_id}/{stored_filename}",
+        "original_filename": original_filename,
+        "content_type": "application/pdf",
+    }
+
+    service = FileService(storage=mock_storage, repository=mock_repo)
+
+    result = await service.upload_file(
+        user_id=user_id,
+        filename=stored_filename,
+        data=b"%PDF-test-data",
+        content_type="application/pdf",
+        bucket="cv",
+        original_filename=original_filename,
+    )
+
+    assert len(mock_storage.uploaded) == 1
+    bucket, path, data, content_type = mock_storage.uploaded[0]
+    assert bucket == "cv"
+    assert path == f"{user_id}/{stored_filename}"
+
+    mock_repo.create_file.assert_called_once_with(
+        user_id=user_id,
+        bucket="cv",
+        object_path=f"{user_id}/{stored_filename}",
+        original_filename=original_filename,
+        content_type="application/pdf",
+    )
+
+    assert result["id"] == test_file_id
+    assert result["original_filename"] == original_filename

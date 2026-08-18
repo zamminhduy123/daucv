@@ -10,6 +10,7 @@ import tempfile
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from dataclasses import asdict
+from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
@@ -277,12 +278,16 @@ async def extract_pdf(
         # Source PDFs keep their existing public-file behavior.
         file_info = None
         try:
+            original_filename = file.filename or "uploaded_cv.pdf"
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            stored_filename = f"{timestamp}_{original_filename}"
             file_info = await file_service.upload_file(
                 user_id=user_id,
-                filename=file.filename or "uploaded_cv.pdf",
+                filename=stored_filename,
                 data=file_bytes,
                 content_type="application/pdf",
                 bucket="cv",
+                original_filename=original_filename,
             )
         except Exception as upload_err:
             _logger.warning(

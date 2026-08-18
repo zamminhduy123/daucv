@@ -34,9 +34,11 @@ class FileService:
         content_type: str,
         bucket: str = "user-files",
         include_url: bool = True,
+        original_filename: str | None = None,
     ) -> dict[str, Any]:
         """Upload file content to object storage and record neutral metadata in DB."""
         path = f"{user_id}/{filename}"
+        persisted_original_filename = original_filename or filename
 
         # 1. Upload to storage provider
         await self.storage.upload(
@@ -54,7 +56,7 @@ class FileService:
                 user_id=user_id,
                 bucket=bucket,
                 object_path=path,
-                original_filename=filename,
+                original_filename=persisted_original_filename,
                 content_type=content_type,
             )
             if (
@@ -63,7 +65,7 @@ class FileService:
                 or str(record.get("user_id")) != str(user_id)
                 or record.get("bucket") != bucket
                 or record.get("object_path") != path
-                or record.get("original_filename") != filename
+                or record.get("original_filename") != persisted_original_filename
                 or record.get("content_type") != content_type
             ):
                 raise RuntimeError("File metadata could not be persisted.")

@@ -588,6 +588,8 @@ def test_extract_pdf_jd_purpose_does_not_persist_raw_artifact(
     upload_file.assert_awaited_once()
     assert upload_file.await_args.kwargs["bucket"] == "cv"
     assert upload_file.await_args.kwargs["content_type"] == "application/pdf"
+    assert upload_file.await_args.kwargs["original_filename"] == "synthetic.pdf"
+    assert upload_file.await_args.kwargs["filename"].endswith("_synthetic.pdf")
 
 
 def test_extract_pdf_rejects_oversize_before_extraction(client: TestClient) -> None:
