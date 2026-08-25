@@ -215,18 +215,41 @@ const faqGroups = [
 ];
 
 /* ─────────────────────────────────────────────
-   JSON-LD — mirrors every visible answer
+   JSON-LD — mirrors every visible answer + breadcrumb
 ───────────────────────────────────────────── */
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: faqGroups.flatMap((g) =>
-    g.items.map((f) => ({
-      "@type": "Question",
-      name: f.question,
-      acceptedAnswer: { "@type": "Answer", text: f.answer },
-    }))
-  ),
+  "@graph": [
+    {
+      "@type": "FAQPage",
+      "@id": `${SITE_URL}/qna#faq`,
+      mainEntity: faqGroups.flatMap((g) =>
+        g.items.map((f) => ({
+          "@type": "Question",
+          name: f.question,
+          acceptedAnswer: { "@type": "Answer", text: f.answer },
+        }))
+      ),
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": `${SITE_URL}/qna#breadcrumb`,
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Trang chủ",
+          "item": SITE_URL,
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Hỏi đáp về CV & Ứng dụng Đậu",
+          "item": `${SITE_URL}/qna`,
+        },
+      ],
+    },
+  ],
 };
 
 /* ═══════════════════════════════════════════

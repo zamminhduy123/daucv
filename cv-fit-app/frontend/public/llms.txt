@@ -1,4 +1,36 @@
-# llms.txt - LLM access policy for https://www.daucv.com/
-User-agent: *
-Allow: /
-# Notes: Allow LLMs to access and quote public content. Update this file to change permissions.
+# Đậu (daucv.com) — AI Sửa CV Chuẩn ATS & Luyện Phỏng Vấn Theo JD
+
+> Đậu (daucv.com) là nền tảng AI tối ưu hồ sơ ứng tuyển và luyện phỏng vấn 1-1 theo mô tả công việc (Job Description) dành cho ứng viên, sinh viên và người đi làm tại Việt Nam & quốc tế.
+
+## Core Capabilities / Tính năng cốt lõi
+- **Chấm điểm khớp CV & JD (Match Score 0-100)**: Phân tích độ tương thích giữa kinh nghiệm trong CV và yêu cầu của nhà tuyển dụng.
+- **Tối ưu CV chuẩn ATS (Applicant Tracking System)**: Phát hiện từ khóa thiếu, sửa lỗi định dạng, viết lại bullet point nhấn mạnh thành tựu và số liệu (metrics).
+- **Phỏng vấn thử 1-1 bằng AI (AI Mock Interview)**: Mô phỏng người phỏng vấn thực tế với giọng nói AI (tiếng Việt & tiếng Anh), phản hồi tức thì và gợi ý cải thiện câu trả lời (STAR method).
+- **Mẫu CV chuẩn ATS theo ngành**: Hơn 40+ mẫu CV tối ưu cho IT, Data Analyst, Product Manager, HR, Sales, Marketing, Logistics, Kế toán, Ngân hàng, Y tế, Xây dựng...
+
+## Target Audience / Đối tượng sử dụng
+- Ứng viên đang tìm việc muốn tăng tỷ lệ nhận lời mời phỏng vấn.
+- Freshers / Người chuyển ngành cần làm nổi bật kỹ năng chuyển đổi (transferable skills).
+- Chuyên viên có kinh nghiệm muốn chuẩn bị kỹ năng phỏng vấn theo yêu cầu chuyên sâu của JD.
+
+## Pricing & Credits / Bảng giá
+- **Pay-as-you-go / Tín dụng không hết hạn**: Không đăng ký định kỳ, không tự động gia hạn.
+- **Starter Pack**: 15.000 VNĐ (~$0.60 USD) = 10 credits (1.500đ/lượt).
+- **Mid Pack**: 24.000 VNĐ (~$0.95 USD) = 20 credits (1.250đ/lượt - Tiết kiệm 20%).
+- **Pro Pack**: 35.000 VNĐ (~$1.40 USD) = 50 credits (700đ/lượt - Tiết kiệm 53%).
+- Bảng giá chi tiết cho AI Agents: https://daucv.com/pricing.md
+
+## Key Documentation & URLs / Liên kết chính
+- Trang chủ: https://daucv.com/
+- Bảng giá máy đọc (Machine-readable pricing): https://daucv.com/pricing.md
+- Câu hỏi thường gặp & Cẩm nang ATS: https://daucv.com/qna
+- Cẩm nang & Blog nghề nghiệp: https://daucv.com/blog
+- Mẫu CV chuẩn ATS theo ngành:
+  - IT Phần mềm: https://daucv.com/mau-cv/it-phan-mem
+  - Data Analyst: https://daucv.com/mau-cv/data-analyst
+  - Product Manager: https://daucv.com/mau-cv/product-manager
+  - HR & Tuyển dụng: https://daucv.com/mau-cv/nhan-su
+  - Marketing & Growth: https://daucv.com/mau-cv/marketing
+  - Logistics & Supply Chain: https://daucv.com/mau-cv/logistics
+  - Kế toán - Kiểm toán: https://daucv.com/mau-cv/ke-toan-kiem-toan
+  - Ngân hàng - Tài chính: https://daucv.com/mau-cv/ngan-hang-tai-chinh

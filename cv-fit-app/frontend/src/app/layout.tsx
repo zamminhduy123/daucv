@@ -56,6 +56,7 @@ export default function RootLayout({
         "@type": "Organization",
         "name": "Đậu",
         "url": `${SITE_URL}/`,
+        "logo": `${SITE_URL}/apple-icon.png`,
         "description":
           "Tải CV và Job Description để Đậu phân tích độ phù hợp, gợi ý sửa CV chuẩn ATS, tìm kỹ năng còn thiếu và luyện phỏng vấn 1-1 bằng AI.",
       },
@@ -70,16 +71,42 @@ export default function RootLayout({
       },
       {
         "@type": "SoftwareApplication",
-        "name": "Đậu (daucv.com)",
-        "applicationCategory": "EducationalApplication",
+        "name": "Đậu — AI Sửa CV Chuẩn ATS & Luyện Phỏng Vấn",
+        "url": `${SITE_URL}/`,
+        "applicationCategory": "BusinessApplication",
+        "applicationSubCategory": "CareerApplication",
         "operatingSystem": "Web",
         "description":
           "Tải CV và Job Description để Đậu phân tích độ phù hợp, gợi ý sửa CV chuẩn ATS, tìm kỹ năng còn thiếu và luyện phỏng vấn 1-1 bằng AI.",
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "VND",
-        },
+        "featureList": [
+          "Chấm điểm khớp CV & JD (ATS Match Score)",
+          "Phát hiện từ khóa và kỹ năng còn thiếu theo yêu cầu tuyển dụng",
+          "Tối ưu và viết lại nội dung CV chuẩn ATS",
+          "Luyện phỏng vấn thử 1-1 bằng giọng nói AI tương tác hai chiều"
+        ],
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Starter Pack",
+            "price": "15000",
+            "priceCurrency": "VND",
+            "description": "10 credits phân tích CV và luyện phỏng vấn AI"
+          },
+          {
+            "@type": "Offer",
+            "name": "Mid Pack",
+            "price": "24000",
+            "priceCurrency": "VND",
+            "description": "20 credits phân tích CV và luyện phỏng vấn AI"
+          },
+          {
+            "@type": "Offer",
+            "name": "Pro Pack",
+            "price": "35000",
+            "priceCurrency": "VND",
+            "description": "50 credits phân tích CV và luyện phỏng vấn AI"
+          }
+        ],
       },
     ],
   };
