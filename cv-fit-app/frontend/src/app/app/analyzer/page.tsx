@@ -20,6 +20,7 @@ import {
 } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
 import { useWorkspace } from "@/context/WorkspaceContext";
+import { useAuth } from "@/context/AuthContext";
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({
@@ -88,6 +89,7 @@ export default function AnalyzerPage() {
     clearCache,
     rawExtractionRef,
   } = useWorkspace();
+  const { refreshCredits } = useAuth();
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<CVPipelineAnalysis | null>(
@@ -175,6 +177,7 @@ export default function AnalyzerPage() {
           abortControllerRef.current = null;
         }
         setIsAnalyzing(false);
+        void refreshCredits().catch(() => null);
       }
     };
 
@@ -187,6 +190,7 @@ export default function AnalyzerPage() {
     analysisResult,
     setCachedAnalysis,
     cache.analyzerResult,
+    refreshCredits,
   ]);
 
   const handleTailorCV = async () => {

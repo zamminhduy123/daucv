@@ -7,13 +7,20 @@ without invoking the legacy monolithic ``/api/analyze-cv`` route.
 
 from __future__ import annotations
 
+import logging
+from contextlib import suppress
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.dependencies import get_current_user, get_file_service
+from app.dependencies import (
+    get_current_user,
+    get_file_service,
+    refund_credits,
+    reserve_credits,
+)
 from app.models.cv_document_v2 import CVDocumentV2
 from app.models.cv_evaluation import LLMEvaluationReport
 from app.models.cv_tailoring import TailoredCVResponse
@@ -39,7 +46,19 @@ from app.services.tailored_cv_metadata import (
     verify_pipeline_source_ticket,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/cv", tags=["cv-pipeline"])
+
+
+async def _refund_reserved_credit(user_id: str, description: str) -> None:
+    with suppress(Exception):
+        await refund_credits(
+            user_id=user_id,
+            amount=1,
+            tx_type="cv_analysis",
+            description=description,
+        )
 
 
 class CVParseRequest(BaseModel):
@@ -108,6 +127,14 @@ async def parse_cv(
     """Run LLM #1 and return canonical CV JSON from authoritative source text."""
     if not payload.cv_text.strip():
         raise HTTPException(status_code=422, detail="Cần cung cấp nội dung CV.")
+
+    await reserve_credits(
+        user_id=user["id"],
+        amount=1,
+        tx_type="cv_analysis",
+        description="Phân tích CV chi tiết",
+    )
+
     try:
         result = await await_while_client_connected(
             request,
@@ -123,11 +150,26 @@ async def parse_cv(
             ),
         )
     except ClientDisconnectedError as exc:
+        await _refund_reserved_credit(
+            str(user["id"]),
+            "Hoàn credit do client ngắt kết nối khi lập bản đồ CV",
+        )
         raise HTTPException(status_code=499, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("CV pipeline parse failed: error_type=%s", type(exc).__name__)
+        await _refund_reserved_credit(
+            str(user["id"]),
+            "Hoàn credit do lỗi khi lập bản đồ CV",
+        )
+        raise
     # A deterministic fallback exists only to preserve source text for an
     # operator retry. It is not a semantic mapper result and must never flow
     # into evaluation, tailoring, or PDF export as though it were one.
     if result.used_fallback:
+        await _refund_reserved_credit(
+            str(user["id"]),
+            "Hoàn credit do lập bản đồ CV dùng fallback tạm thời",
+        )
         raise HTTPException(
             status_code=503,
             detail=(
