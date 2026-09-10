@@ -5,8 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  FileText, Mic, LayoutTemplate, Clock, QrCode, Coffee,
-  PenLine, PenTool, BookOpen, Briefcase, ChevronLeft, ChevronRight, MessageCircle,
+  FileText, Mic, Clock,
+  PenLine, PenTool, Briefcase, ChevronLeft, ChevronRight,
   ChevronDown, LogOut, Gem, MessageSquare,
 } from "lucide-react";
 import { useWorkspace } from "@/context/WorkspaceContext";
@@ -15,20 +15,16 @@ import { signOut } from "next-auth/react";
 import { useAuth } from "@/context/AuthContext";
 
 const NAV_ITEMS = [
-  { label: "Nhập CV & JD", icon: PenLine, href: "/app/setup", requiresCV: false },
-  { label: "Phân tích CV", icon: FileText, href: "/app/analyzer", requiresCV: true },
-  { label: "Tìm việc làm", icon: Briefcase, href: "/app/jobs", requiresCV: true },
-  { label: "Phỏng vấn 1-1", icon: Mic, href: "/app/interview", requiresCV: true },
-  { label: "Trợ lý Viết", icon: PenTool, href: "/app/writer", requiresCV: true },
-  // { label: "Thư viện Mẫu CV", icon: LayoutTemplate, href: "/app/templates", requiresCV: false },
-  // { label: "Blog & Cẩm nang", icon: BookOpen, href: "/blog", requiresCV: false },
-  { label: "CV đã tối ưu", icon: Clock, href: "/app/history", requiresCV: false },
+  { label: "Phân tích CV", icon: PenLine, href: ["/app/setup", "/app/review", "/app/analyzer"], requiresCV: false },
+  { label: "Tìm việc làm", icon: Briefcase, href: ["/app/jobs"], requiresCV: true },
+  { label: "Phỏng vấn 1-1", icon: Mic, href: ["/app/interview"], requiresCV: true },
+  { label: "Trợ lý Viết", icon: PenTool, href: ["/app/writer"], requiresCV: true },
+  { label: "CV đã tối ưu", icon: Clock, href: ["/app/history"], requiresCV: false },
 ];
 
 // ── Collapsible Sidebar ─────────────────────────────────────────────────────
 
 export default function AppSidebar() {
-  const [showQR, setShowQR] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const pathname = usePathname();
@@ -37,11 +33,13 @@ export default function AppSidebar() {
   const { user, credits } = useAuth();
 
   // ── helpers ────────────────────────────────────────────────────────────────
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
-  const isDisabled = (href: string, requiresCV: boolean) =>
+  const isActive = (href: string[]) => {
+    return href.some((h) => pathname === h || pathname.startsWith(h));
+  };
+  const isDisabled = (href: string[], requiresCV: boolean) =>
     isLoaded && requiresCV && !hasCV;
 
-  const handleNavClick = (href: string, requiresCV: boolean) => {
+  const handleNavClick = (href: string[], requiresCV: boolean) => {
     if (isDisabled(href, requiresCV)) {
       toast.error("Vui lòng nhập CV của bạn trước khi sử dụng tính năng này", {
         position: "top-center",
@@ -61,7 +59,7 @@ export default function AppSidebar() {
       <div className="border-b border-gray-50 px-3 py-4 shrink-0">
         <Link
           href="/"
-          onClick={(e) => {
+          onClick={() => {
             if (isCollapsed) setIsCollapsed(false);
           }}
           className="flex items-center gap-2.5 no-underline hover:opacity-80 transition-opacity"
@@ -82,7 +80,7 @@ export default function AppSidebar() {
             <span className="font-heading font-bold text-[#2F4F4F] text-2xl tracking-tight whitespace-nowrap block">
               ĐẬU
             </span>
-            <p className="text-[11px] text-gray-400 ml-[44px] whitespace-nowrap">
+            <p className="text-[11px] text-gray-400 whitespace-nowrap">
               AI Career Companion
             </p>
           </div>
@@ -113,8 +111,8 @@ export default function AppSidebar() {
 
           return (
             <Link
-              key={href}
-              href={disabled ? "#" : href}
+              key={href.reduce((acc, curr) => acc + curr, "")}
+              href={disabled ? "#" : href[0]}
               title={disabled ? "Vui lòng nhập CV của bạn trước" : undefined}
               onClick={(e) => {
                 if (!handleNavClick(href, requiresCV)) {
@@ -128,8 +126,8 @@ export default function AppSidebar() {
                   disabled
                     ? "text-gray-400 cursor-not-allowed bg-gray-50/50"
                     : active
-                    ? "bg-[var(--primary)]/10 text-[var(--primary)] font-semibold"
-                    : "text-gray-500 hover:bg-gray-50 hover:text-[#2F4F4F]"
+                    ? "bg-[#EAF5EC] text-[#2D7A58] font-semibold"
+                    : "text-gray-500 hover:bg-gray-50 hover:text-[#1E293B]"
                 }`}
             >
               <Icon
@@ -138,8 +136,8 @@ export default function AppSidebar() {
                   disabled
                     ? "text-gray-300"
                     : active
-                    ? "text-[var(--primary)]"
-                    : "text-gray-400 group-hover:text-[#2F4F4F]"
+                    ? "text-[#2D7A58]"
+                    : "text-gray-400 group-hover:text-[#1E293B]"
                 }`}
               />
 

@@ -148,8 +148,8 @@ export default function JobsPage() {
       `Mô tả sơ lược:\n${job.descriptionSnippet || "Không có mô tả chi tiết từ nguồn tuyển dụng."}`;
 
     updateWorkspace({ jdText: derivedJd });
-    toast.success("Đang chuyển sang Phân tích AI với CV và JD đã chọn.");
-    router.push("/app/analyzer");
+    toast.success("Đang chuyển sang Xem & Chuẩn hóa CV với JD đã chọn.");
+    router.push("/app/review");
   };
 
   const generateCoverLetter = async (job: RankedJobResult) => {

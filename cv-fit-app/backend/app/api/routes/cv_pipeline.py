@@ -9,11 +9,9 @@ from __future__ import annotations
 
 import logging
 from contextlib import suppress
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, Field
 
 from app.dependencies import (
     get_current_user,
@@ -21,16 +19,28 @@ from app.dependencies import (
     refund_credits,
     reserve_credits,
 )
-from app.models.cv_document_v2 import CVDocumentV2
-from app.models.cv_evaluation import LLMEvaluationReport
-from app.models.cv_tailoring import TailoredCVResponse
-from app.schemas.tailored_cv import CVDesign, TailoredCVVersionResponse
+from app.schemas.cv_pipeline import (
+    CanonicalCVResponse,
+    CVEvaluateRequest,
+    CVEvaluationResponse,
+    CVParseRequest,
+    CVPrefillRequest,
+    CVPrefillResponse,
+    CVSourceTicketRequest,
+    CVSourceTicketResponse,
+    CVTailorAndSaveRequest,
+    CVTailoringResponse,
+    CVTailorRequest,
+)
+from app.schemas.tailored_cv import TailoredCVVersionResponse
+from app.services import user_cv_service
 from app.services.client_request_service import (
     ClientDisconnectedError,
     await_while_client_connected,
 )
 from app.services.cv_evaluator_service import evaluate_cv_fit
 from app.services.cv_pipeline_persistence_service import persist_pipeline_tailoring
+from app.services.cv_prefill_service import build_prefill_document
 from app.services.cv_structuring_service import (
     build_manual_text_extraction,
     structure_cv,
@@ -59,62 +69,6 @@ async def _refund_reserved_credit(user_id: str, description: str) -> None:
             tx_type="cv_analysis",
             description=description,
         )
-
-
-class CVParseRequest(BaseModel):
-    """Text plus an optional server-owned raw-extraction reference for LLM #1."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    cv_text: str = Field(min_length=1)
-    raw_extraction_ref_id: UUID | None = None
-
-
-class CVEvaluateRequest(BaseModel):
-    """Canonical mapper output and optional JD for LLM #2."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    canonical_cv: dict[str, Any]
-    job_description: str | None = None
-
-
-class CVTailorRequest(BaseModel):
-    """Canonical CV, optional JD, and optional LLM #2 report for LLM #3."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    canonical_cv: dict[str, Any]
-    job_description: str | None = None
-    evaluation: LLMEvaluationReport | None = None
-
-
-class CVTailorAndSaveRequest(BaseModel):
-    """Persist a previously shown LLM #3 result as an exportable CV version."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    cv_text: str = Field(min_length=1)
-    raw_extraction_ref_id: UUID | None = None
-    job_description: str | None = None
-    source_document_v2: CVDocumentV2
-    source_ticket: str = Field(min_length=1)
-    tailoring: TailoredCVResponse
-    selected_design: CVDesign = "classic_ats"
-
-
-class CanonicalCVResponse(BaseModel):
-    canonical_cv: dict[str, Any]
-    source_document_v2: CVDocumentV2
-    source_ticket: str
-
-
-class CVEvaluationResponse(BaseModel):
-    evaluation: LLMEvaluationReport
-
-
-class CVTailoringResponse(BaseModel):
-    tailoring: TailoredCVResponse
 
 
 @router.post("/parse", response_model=CanonicalCVResponse)
@@ -189,6 +143,96 @@ async def parse_cv(
             result.document,
             raw_ref_id,
         ),
+    )
+
+
+@router.post("/prefill", response_model=CVPrefillResponse)
+async def prefill_cv(
+    payload: CVPrefillRequest,
+    user: dict = Depends(get_current_user),
+    file_service: FileService = Depends(get_file_service),
+) -> CVPrefillResponse:
+    """Deterministic wizard prefill: layout extraction + rule reconstruction.
+
+    No LLM call, no credit charge. The review wizard binds its forms to the
+    returned document; the human corrects every brick, which is what makes
+    machine classification unnecessary on this path.
+
+    NOTE — LLM #1 bypass: this route deliberately never calls ``structure_cv``
+    (the LLM #1 mapper at ``/api/cv/parse``) and never reserves credits. It
+    reconstructs the source document purely from ``reconstruct_from_lines`` +
+    ``finalize_document_provenance``. The downstream ``/api/cv/source-ticket``
+    + ``/api/cv/tailor-and-save`` path verifies this document against its
+    source-text hash, so it is accepted as ground truth even though it was
+    not produced by LLM #1. Do not route this document through ``/parse``.
+    """
+    # NOTE: `user` is required (payload contains CV PII) and used below.
+    if not payload.cv_text.strip():
+        raise HTTPException(status_code=422, detail="Cần cung cấp nội dung CV.")
+    raw_ref_id = (
+        str(payload.raw_extraction_ref_id) if payload.raw_extraction_ref_id else None
+    )
+    try:
+        document, warnings = await build_prefill_document(
+            cv_text=payload.cv_text,
+            raw_extraction_ref_id=raw_ref_id,
+            user_id=str(user["id"]),
+            file_service=file_service,
+        )
+    except (HTTPException, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    auto_persisted = False
+    if payload.cv_id:
+        try:
+            user_uuid = (
+                user["id"] if isinstance(user["id"], UUID) else UUID(str(user["id"]))
+            )
+            await user_cv_service.save_structured_document(
+                payload.cv_id,
+                user_uuid,
+                document.model_dump_json(),
+            )
+            auto_persisted = True
+        except Exception as exc:
+            logger.warning(
+                "Failed to auto-persist prefill document for cv %s: %s",
+                payload.cv_id,
+                exc,
+            )
+
+    return CVPrefillResponse(
+        prefill_document_v2=document,
+        warnings=warnings,
+        auto_persisted=auto_persisted,
+    )
+
+
+@router.post("/source-ticket", response_model=CVSourceTicketResponse)
+async def mint_source_ticket(
+    payload: CVSourceTicketRequest,
+    user: dict = Depends(get_current_user),
+) -> CVSourceTicketResponse:
+    """Mint a tailor-and-save ticket for a wizard-saved document.
+
+    Lets the review flow reach tailor-and-save without LLM #1: the ticket
+    binds the exact user-corrected document hash, so later verification is
+    as strict as the parse-issued path.
+    """
+    # NOTE: `user` is required (payload contains CV PII) and used below.
+    if not payload.cv_text.strip():
+        raise HTTPException(status_code=422, detail="Cần cung cấp nội dung CV.")
+    raw_ref_id = (
+        str(payload.raw_extraction_ref_id) if payload.raw_extraction_ref_id else None
+    )
+    return CVSourceTicketResponse(
+        source_ticket=issue_pipeline_source_ticket(
+            UUID(str(user["id"])),
+            payload.cv_text,
+            payload.source_document_v2,
+            raw_ref_id,
+        ),
+        canonical_cv=payload.source_document_v2.to_canonical_dict(),
     )
 
 
@@ -280,6 +324,7 @@ async def tailor_and_save_cv(
             tailoring=payload.tailoring,
             selected_design=payload.selected_design,
             analysis_key=analysis_key,
+            source_cv_id=payload.source_cv_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

@@ -90,7 +90,7 @@ ${template.education}`;
           </h1>
           <p className="text-[#5A6D6D] leading-relaxed mb-6 text-sm lg:text-base">{data.subtitle}</p>
           <div className="flex flex-wrap gap-3">
-            <Link href="/app/analyzer">
+            <Link href="/app/setup">
               <button className="group px-6 py-3 bg-[var(--primary)] text-white rounded-xl font-semibold hover:opacity-90 transition-all shadow-md flex items-center gap-2 text-sm">
                 Tùy chỉnh với AI
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -246,7 +246,7 @@ ${template.education}`;
           <p className="font-bold text-white text-base mb-1">Đừng copy máy móc. Hãy để AI làm việc cho bạn.</p>
           <p className="text-white/80 text-sm">Bé Đậu sẽ tinh chỉnh mẫu CV này khớp với Job Description của bạn trong 5 giây.</p>
         </div>
-        <Link href="/app/analyzer" className="flex-shrink-0">
+        <Link href="/app/setup" className="flex-shrink-0">
           <button className="group px-6 py-3 bg-white text-[var(--primary)] rounded-xl font-bold hover:scale-105 transition-all shadow-md flex items-center gap-2 text-sm whitespace-nowrap">
             <Sparkles className="w-4 h-4" />
             Dùng thử Đậu miễn phí

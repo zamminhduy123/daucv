@@ -9,7 +9,7 @@ from app.models.cv_template import CVRenderDiagnostics
 from app.models.domain import SuggestedEdit, TailoredCV
 from app.services.cv_language import CVLanguage
 
-CVDesign = Literal["classic_ats", "modern_professional", "compact_one_page", "compact"]
+CVDesign = Literal["classic_ats", "compact_one_page", "compact"]
 
 
 class TailoredCVVersionCreate(BaseModel):
@@ -26,6 +26,9 @@ class TailoredCVVersionCreate(BaseModel):
     document_v2: CVDocumentV2 | None = None
     source_document_v2: CVDocumentV2 | None = None
     tailoring_diagnostics: CVTailoringDiagnostics | None = None
+    # Explicit source-CV link (multi-CV switcher). When omitted, the server
+    # falls back to best-effort text matching for backward compatibility.
+    source_cv_id: UUID | None = None
 
 
 class TailoredCVVersionUpdate(BaseModel):

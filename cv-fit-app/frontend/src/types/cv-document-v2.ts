@@ -68,6 +68,12 @@ export interface CVBlockMetadata {
   reconstruction_warnings?: string[];
   original_values?: Record<string, string | string[]>;
   tailored_values?: Record<string, string | string[]>;
+  /**
+   * v1 privacy toggle. When true the block is excluded from both the
+   * browser preview (buildCVHtml) and the canonical export. The editor
+   * page sets this; extraction never does.
+   */
+  hidden?: boolean;
 }
 
 export interface CVEntryBlock extends CVBlockMetadata {
@@ -171,6 +177,12 @@ export interface CVIdentity {
   links: string[];
   source_block_ids: string[];
   field_source_block_ids: CVIdentitySourceMap;
+  /**
+   * v1 privacy toggle for identity fields. Each entry is a key on this
+   * object (full_name / headline / email / phone / location / links).
+   * buildCVHtml and canonical export skip any listed field.
+   */
+  hidden_fields?: string[];
 
   /** @deprecated New consumers must use full_name. */
   name: string;

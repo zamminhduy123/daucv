@@ -10,7 +10,7 @@ from app.services.tailored_cv_pdf import generate_tailored_cv_pdf
 
 @pytest.mark.parametrize(
     "design",
-    ["classic_ats", "modern_professional", "compact_one_page"],
+    ["classic_ats", "compact_one_page"],
 )
 def test_pdf_designs_preserve_content(design: str) -> None:
     final_item = "Final preserved experience bullet."

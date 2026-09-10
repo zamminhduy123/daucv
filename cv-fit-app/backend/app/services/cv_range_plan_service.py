@@ -39,7 +39,7 @@ from app.models.cv_range_plan import (
     LLMVisualEntryHeaderResponse,
     SourceLedgerAtom,
 )
-from app.models.cv_raw_extraction import RawExtraction
+from app.models.cv_raw_extraction import RawBlock, RawExtraction
 from app.prompts.system_prompts import (
     build_section_range_plan_prompt,
     build_visual_entry_header_prompt,
@@ -59,7 +59,9 @@ from app.services.cv_structuring_service import (
 )
 from app.services.files import FileService
 from app.services.layout_extraction import (
+    join_logical_blocks,
     raw_extraction_to_text,
+    read_blocks_in_order,
     validate_raw_extraction,
 )
 from app.services.section_vocabulary import classify_heading
@@ -89,7 +91,7 @@ _GEOGRAPHIC_TOKEN_RE = re.compile(
 
 _SECTION_KINDS: dict[str, set[str]] = {
     "education": {"d", "x"},
-    "skills": {"s", "x"},
+    "skills": {"s", "x", "u"},
     "publications": {"u", "x"},
     "certifications": {"e", "x"},
     "experience": {"e", "b", "x"},
@@ -100,13 +102,76 @@ _ROLES_BY_KIND: dict[str, set[str]] = {
     "b": {"x"},
     "p": {"x"},
     "s": {"g", "k"},
-    "u": {"t", "a", "v", "d", "q"},
+    "u": {"t", "a", "v", "d", "q", "u"},
     "d": {"i", "t", "m", "l", "d", "n"},
     "x": {"u"},
 }
 _REPEATABLE_ROLES = {"b", "k", "n", "u"}
 _ENTRY_ANCHOR_BY_KIND = {"e": "t", "d": "i", "u": "t", "s": "g"}
 _BULLET_PREFIX_RE = re.compile(r"^(?:[-–—•▪‣])\s*")
+_NAME_STOP_WORDS = frozenset(
+    {
+        "the",
+        "of",
+        "and",
+        "in",
+        "for",
+        "with",
+        "to",
+        "from",
+        "developer",
+        "engineer",
+        "scientist",
+        "professional",
+        "skills",
+        "experience",
+        "projects",
+        "education",
+        "activities",
+        "awards",
+        "interests",
+        "publications",
+        "summary",
+        "profile",
+        "contact",
+        "certifications",
+        "kỹ",
+        "nghệ",
+        "sư",
+        "nghiem",
+        "nghiệm",
+        "học",
+        "tóm",
+        "tắt",
+        "giới",
+        "thiệu",
+        "mục",
+        "tiêu",
+        "sơ",
+        "lược",
+        "hoạt",
+        "động",
+    }
+)
+_MAX_NAME_WORDS = 4
+
+
+def _looks_like_name(text: str) -> bool:
+    """Conservative classifier: returns True when a preamble atom looks like a
+    person's name. Mirrors the V1 ``_looks_like_name`` heuristic so V3 can
+    recover names that sit at non-zero offsets in a mixed preamble (e.g. when
+    email is sorted above the name line)."""
+    stripped = text.strip()
+    if not stripped:
+        return False
+    words = stripped.split()
+    if len(words) > _MAX_NAME_WORDS:
+        return False
+    if not any(len(word) >= 3 for word in words):
+        return False
+    if any(word.lower() in _NAME_STOP_WORDS for word in words if len(word) > 2):
+        return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -134,30 +199,131 @@ class CVRangePlanResult:
 
 
 def build_source_ledger(raw: RawExtraction) -> list[SourceLedgerAtom]:
-    """Build server-owned offset atoms; no durable IDs are sent to the model."""
+    """Build server-owned offset atoms; no durable IDs are sent to the model.
+
+    Atoms before the first section heading (the identity preamble) keep
+    the PDF's original reading order so contact atoms stay interleaved
+    with the name atom regardless of column placement.  Atoms within
+    sections are emitted in column-major reading order via
+    ``read_blocks_in_order`` so two-column layouts reach the cursor
+    planner correctly.
+
+    The split is determined by ``classify_heading``: every block whose
+    text is a known section heading marks the start of a new section,
+    and every block before the first heading belongs to the preamble.
+
+    Section blocks are first merged via ``join_logical_blocks`` so one
+    visual bullet/citation (possibly wrapped across physical PDF lines)
+    becomes one ledger atom. The preamble is never joined: identity
+    lines must stay separate atoms.
+    """
     validate_raw_extraction(raw)
-    ledger: list[SourceLedgerAtom] = []
+    ordered_blocks = read_blocks_in_order(raw)
+
+    heading_block_ids: set[str] = {
+        block.block_id
+        for page in raw.pages
+        for block in page.blocks
+        if classify_heading(block.text) is not None
+    }
+
+    original_blocks: list[RawBlock] = []
     for page in raw.pages:
-        for block in page.blocks:
-            for match in _FRAGMENT_RE.finditer(block.text):
-                fragment = match.group(0)
-                start = match.start() + len(fragment) - len(fragment.lstrip())
-                end = match.end() - len(fragment) + len(fragment.rstrip())
-                text = normalize_grounding_text(block.text[start:end])
-                if text:
-                    ledger.append(
-                        SourceLedgerAtom(
-                            index=len(ledger),
-                            block_id=block.block_id,
-                            text=text,
-                            page=page.page,
-                            reading_order=block.reading_order,
-                            bbox=block.bbox,
-                            is_bullet=bool(_BULLET_PREFIX_RE.match(block.text)),
-                            start_offset=start,
-                            end_offset=end,
-                        )
+        original_blocks.extend(page.blocks)
+    original_index: dict[str, int] = {
+        block.block_id: index for index, block in enumerate(original_blocks)
+    }
+
+    first_heading_id: str | None = next(
+        (
+            original_blocks[index].block_id
+            for index in sorted(
+                {
+                    original_index[block_id]
+                    for block_id in heading_block_ids
+                    if block_id in original_index
+                }
+            )
+        ),
+        None,
+    )
+    if first_heading_id is not None:
+        first_heading_original_index = original_index[first_heading_id]
+        preamble_ids = {
+            block.block_id for block in original_blocks[:first_heading_original_index]
+        }
+    else:
+        preamble_ids = {block.block_id for block in original_blocks}
+
+    ordered_for_ledger: list[RawBlock] = []
+    seen_ids: set[str] = set()
+    for block in ordered_blocks:
+        if block.block_id in preamble_ids and block.block_id not in seen_ids:
+            ordered_for_ledger.append(block)
+            seen_ids.add(block.block_id)
+    for block in ordered_blocks:
+        if block.block_id not in seen_ids:
+            ordered_for_ledger.append(block)
+            seen_ids.add(block.block_id)
+
+    page_sizes: dict[int, tuple[float | None, float | None]] = {
+        page.page: (page.width, page.height) for page in raw.pages
+    }
+    preamble_blocks = [
+        block for block in ordered_for_ledger if block.block_id in preamble_ids
+    ]
+    section_blocks = [
+        block for block in ordered_for_ledger if block.block_id not in preamble_ids
+    ]
+    joined_sections = join_logical_blocks(
+        section_blocks,
+        heading_block_ids=heading_block_ids,
+        page_sizes=page_sizes,
+    )
+
+    ledger: list[SourceLedgerAtom] = []
+    for block in preamble_blocks:
+        for match in _FRAGMENT_RE.finditer(block.text):
+            fragment = match.group(0)
+            start = match.start() + len(fragment) - len(fragment.lstrip())
+            end = match.end() - len(fragment) + len(fragment.rstrip())
+            text = normalize_grounding_text(block.text[start:end])
+            if text:
+                ledger.append(
+                    SourceLedgerAtom(
+                        index=len(ledger),
+                        block_id=block.block_id,
+                        text=text,
+                        page=block.page,
+                        reading_order=len(ledger),
+                        bbox=block.bbox,
+                        is_bullet=bool(_BULLET_PREFIX_RE.match(block.text)),
+                        start_offset=start,
+                        end_offset=end,
+                        source_block_ids=[block.block_id],
                     )
+                )
+    for block, constituent_ids in joined_sections:
+        for match in _FRAGMENT_RE.finditer(block.text):
+            fragment = match.group(0)
+            start = match.start() + len(fragment) - len(fragment.lstrip())
+            end = match.end() - len(fragment) + len(fragment.rstrip())
+            text = normalize_grounding_text(block.text[start:end])
+            if text:
+                ledger.append(
+                    SourceLedgerAtom(
+                        index=len(ledger),
+                        block_id=block.block_id,
+                        text=text,
+                        page=block.page,
+                        reading_order=len(ledger),
+                        bbox=block.bbox,
+                        is_bullet=bool(_BULLET_PREFIX_RE.match(block.text)),
+                        start_offset=start,
+                        end_offset=end,
+                        source_block_ids=list(constituent_ids),
+                    )
+                )
     if not ledger:
         raise InvalidRangePlanError("Raw extraction contains no usable source atoms")
     return ledger
@@ -193,7 +359,13 @@ def _join(atoms: list[SourceLedgerAtom]) -> str | None:
 
 
 def _block_ids(atoms: list[SourceLedgerAtom]) -> list[str]:
-    return list(dict.fromkeys(atom.block_id for atom in atoms))
+    ids: list[str] = []
+    for atom in atoms:
+        constituents = atom.source_block_ids or [atom.block_id]
+        for block_id in constituents:
+            if block_id not in ids:
+                ids.append(block_id)
+    return ids
 
 
 def _build_identity(preamble: list[SourceLedgerAtom]) -> tuple[CVIdentity, set[int]]:
@@ -202,24 +374,43 @@ def _build_identity(preamble: list[SourceLedgerAtom]) -> tuple[CVIdentity, set[i
         key: None for key in ("name", "email", "phone", "location")
     }
     headline_atoms: list[SourceLedgerAtom] = []
+    name_atoms: list[SourceLedgerAtom] = []
+    prev_was_name = False
     links: list[str] = []
     link_sources: dict[str, list[str]] = {}
-    for offset, atom in enumerate(preamble):
+    for atom in preamble:
         text = atom.text.strip()
         if not text:
             continue
         if _EMAIL_RE.search(text) and values["email"] is None:
             values["email"] = atom
+            prev_was_name = False
         elif _PHONE_RE.search(text) and values["phone"] is None:
             values["phone"] = atom
+            prev_was_name = False
         elif match := _LINK_RE.search(text):
             link = match.group(0).rstrip(".)]")
             links.append(link)
             link_sources[link] = [atom.block_id]
+            prev_was_name = False
         elif _LOCATION_RE.fullmatch(text) and values["location"] is None:
             values["location"] = atom
-        elif offset == 0 and values["name"] is None:
+            prev_was_name = False
+        elif values["name"] is None and _looks_like_name(text):
             values["name"] = atom
+            name_atoms = [atom]
+            prev_was_name = True
+        elif (
+            prev_was_name
+            and not headline_atoms
+            and _looks_like_name(text)
+            and _looks_like_name(f"{name_atoms[0].text} {text}")
+        ):
+            # Multi-line candidate name (first/last name on separate PDF
+            # lines). The combined text must still read as one name so a
+            # headline on the next line never merges in.
+            name_atoms.append(atom)
+            prev_was_name = True
         elif (
             values["name"] is not None
             and not _EMAIL_RE.search(text)
@@ -228,9 +419,22 @@ def _build_identity(preamble: list[SourceLedgerAtom]) -> tuple[CVIdentity, set[i
             and not (_LOCATION_RE.fullmatch(text) and _GEOGRAPHIC_TOKEN_RE.search(text))
         ):
             headline_atoms.append(atom)
+            prev_was_name = False
         else:
+            prev_was_name = False
             continue
         assigned.add(atom.index)
+
+    if len(name_atoms) > 1:
+        combined = " ".join(atom.text.strip() for atom in name_atoms)
+        first = name_atoms[0]
+        values["name"] = first.model_copy(
+            update={
+                "text": combined,
+                "end_offset": first.start_offset + len(combined),
+                "source_block_ids": _block_ids(name_atoms),
+            }
+        )
 
     def value(key: str, pattern: re.Pattern[str] | None = None) -> str | None:
         atom = values[key]
@@ -240,7 +444,10 @@ def _build_identity(preamble: list[SourceLedgerAtom]) -> tuple[CVIdentity, set[i
         return match.group(0).rstrip(".)]") if match else atom.text
 
     def source(key: str) -> list[str]:
-        return [values[key].block_id] if values[key] else []
+        atom = values[key]
+        if atom is None:
+            return []
+        return list(dict.fromkeys(atom.source_block_ids or [atom.block_id]))
 
     headline_text = (
         " / ".join(atom.text for atom in headline_atoms) if headline_atoms else None
@@ -286,10 +493,19 @@ def _split_repeated_anchor(block: _ResolvedBlock) -> list[_ResolvedBlock]:
 
 def compile_section_cursor_plan(
     section: _LedgerSection, plan: LLMSectionCursorPlanResponse
-) -> list[_ResolvedBlock]:
-    """Consume the local ledger exactly once; cursor design prevents overlap."""
+) -> tuple[list[_ResolvedBlock], bool]:
+    """Consume the local ledger exactly once; cursor design prevents overlap.
+
+    Returns ``(blocks, count_mismatch_clamped)``. When the planner's counts
+    do not total exactly ``len(section.content)``, counts are clamped to
+    preserve every atom (partial content beats total loss) and the flag is
+    set so the caller can record a loud ``cursor_plan_count_mismatch_clamped``
+    reconstruction warning instead of failing silently. Only structural
+    violations (forbidden kind/role, repeated scalar role) raise.
+    """
     cursor = 0
     compiled: list[_ResolvedBlock] = []
+    clamped = False
     permitted_kinds = _SECTION_KINDS.get(section.type)
     for block_index, block in enumerate(plan.blocks):
         if permitted_kinds is not None and block.kind not in permitted_kinds:
@@ -304,14 +520,31 @@ def compile_section_cursor_plan(
                     f"forbidden role {segment.role!r} for kind {block.kind}"
                 )
 
-            # If cursor has already reached section end, skip any empty trailing segments
+            # The ledger holds logical atoms (wraps joined upstream). When the
+            # planner's counts overshoot the section end, clamp to preserve
+            # every atom (partial content beats total section loss) and flag
+            # the mismatch so the caller records a loud warning instead of
+            # failing silently or dropping planned roles.
             if cursor >= len(section.content):
+                _logger.warning(
+                    "Cursor plan overrun clamped at segment %d:%d "
+                    "(section %s has %d atoms)",
+                    block_index,
+                    segment_index,
+                    section.type,
+                    len(section.content),
+                )
+                clamped = True
                 break
 
             count = segment.count
-            # For repeatable roles, clamp count so it never over-consumes past the end of section
+            # For repeatable list roles, clamp count so it never over-consumes
+            # past the end of section.
             if segment.role in _REPEATABLE_ROLES:
-                count = min(count, len(section.content) - cursor)
+                clamped_count = min(count, len(section.content) - cursor)
+                if clamped_count != count:
+                    clamped = True
+                count = clamped_count
                 # If this is the final segment of the final block, absorb all remaining section atoms
                 is_final_segment = (
                     block_index == len(plan.blocks) - 1
@@ -322,12 +555,16 @@ def compile_section_cursor_plan(
 
             end = cursor + count
             if end > len(section.content):
-                if len(section.content) - cursor >= 1:
-                    end = len(section.content)
-                else:
-                    raise InvalidRangePlanError(
-                        f"segment {block_index}:{segment_index} consumes past section end"
-                    )
+                _logger.warning(
+                    "Cursor plan scalar overrun clamped at segment %d:%d "
+                    "(section %s has %d atoms)",
+                    block_index,
+                    segment_index,
+                    section.type,
+                    len(section.content),
+                )
+                clamped = True
+                end = len(section.content)
 
             if end > cursor:
                 fields.append((segment.role, section.content[cursor:end]))
@@ -338,6 +575,7 @@ def compile_section_cursor_plan(
 
     # If all blocks finished but some trailing atoms remain, absorb them into the last block
     if cursor < len(section.content) and compiled:
+        clamped = True
         remaining_atoms = section.content[cursor:]
         last_block = compiled[-1]
         last_role = last_block.fields[-1][0] if last_block.fields else None
@@ -374,7 +612,7 @@ def compile_section_cursor_plan(
             raise InvalidRangePlanError(
                 f"repeated scalar role remains in kind {block.kind}"
             )
-    return compiled
+    return compiled, clamped
 
 
 def _render_block(block: _ResolvedBlock, *, block_id: str):
@@ -387,8 +625,9 @@ def _render_block(block: _ResolvedBlock, *, block_id: str):
         return _join(groups[0]) if groups else None
 
     def multiple(role: str) -> list[str]:
-        # For repeatable list roles, each source atom is its own item.
-        # This ensures ["b", 3] → three bullet strings, not one merged string.
+        # Each source atom is already one logical visual line group:
+        # physical PDF wraps are joined upstream in build_source_ledger
+        # via join_logical_blocks, so one atom equals one bullet/detail.
         _per_atom_roles = {"b", "n", "k"}
         groups = fields.get(role, [])
         if role in _per_atom_roles:
@@ -524,26 +763,44 @@ def _visual_entry_header_positions(section: _LedgerSection) -> set[int]:
     adjacent visual rows.  Those four fragments are one entry header, not four
     unrelated sequential fields.  This returns only an annotation for the
     planner; text ownership and rendering remain server-owned.
+
+    Because ``build_source_ledger`` now feeds column-major reading order,
+    the header atoms may be split across stream positions (left column
+    items first, then right column items, with a bullet in between).  We
+    therefore group atoms by Y-band (top-down) and within each band by X
+    (left-to-right), and return the indices of every atom in the header
+    band(s) that appear before the first bullet's Y.
     """
     if section.type not in {"experience", "projects"}:
         return set()
-    first_bullet = next(
+    atoms_with_bbox = [
+        (index, atom)
+        for index, atom in enumerate(section.content)
+        if atom.bbox is not None
+    ]
+    if len(atoms_with_bbox) < 2:
+        return set()
+
+    bullet_y = next(
         (
-            index
-            for index, atom in enumerate(section.content)
+            atom.bbox[1]
+            for atom in section.content
             if atom.is_bullet or _BULLET_PREFIX_RE.match(atom.text)
         ),
-        len(section.content),
+        None,
     )
-    prefix = section.content[:first_bullet]
-    if len(prefix) < 2 or any(atom.bbox is None for atom in prefix):
+
+    prefix = [
+        (index, atom)
+        for index, atom in atoms_with_bbox
+        if bullet_y is None or atom.bbox[1] < bullet_y
+    ]
+    if len(prefix) < 2:
         return set()
-    # Refuse broad prose prefixes. A compact, vertically adjacent group is a
-    # reliable visual record header; later bullet text remains ordinary input.
-    y_values = [atom.bbox[1] for atom in prefix if atom.bbox]
+    y_values = [atom.bbox[1] for _, atom in prefix]
     if max(y_values) - min(y_values) > 36.0:
         return set()
-    return set(range(len(prefix)))
+    return {index for index, _ in prefix}
 
 
 async def _plan_visual_entry_header(
@@ -553,9 +810,26 @@ async def _plan_visual_entry_header(
     background_tasks: BackgroundTasks | None,
     on_retry: ParserRetryReporter | None,
 ) -> dict[int, str] | None:
-    """Classify one small visual header independently from section planning."""
-    ordered_positions = sorted(positions)
-    atoms = [section.content[position] for position in ordered_positions]
+    """Classify one small visual header independently from section planning.
+
+    Header atoms are sorted by visual position (top-to-bottom, left-to-right)
+    before being passed to the model so the response roles map back to the
+    correct stream positions regardless of how ``build_source_ledger`` has
+    ordered atoms.
+    """
+    header_atoms = [
+        (position, section.content[position])
+        for position in positions
+        if section.content[position].bbox is not None
+    ]
+    header_atoms.sort(
+        key=lambda pair: (
+            pair[1].bbox[1] if pair[1].bbox else 0.0,
+            pair[1].bbox[0] if pair[1].bbox else 0.0,
+        )
+    )
+    ordered_positions = [position for position, _ in header_atoms]
+    atoms = [atom for _, atom in header_atoms]
     if not 2 <= len(atoms) <= 6:
         return None
     value = await call_llm_with_fallback(
@@ -563,7 +837,7 @@ async def _plan_visual_entry_header(
         format_visual_entry_header(atoms),
         LLMVisualEntryHeaderResponse,
         feature_name="cv_visual_entry_header",
-        prompt_version="3.2.0-experimental-geometry",
+        prompt_version="3.3.0-logical-blocks",
         background_tasks=background_tasks,
         max_retries=CV_STRUCTURING_MAX_RETRIES,
         max_output_tokens=128,
@@ -637,7 +911,8 @@ async def _plan_section(
     total_sections: int = 1,
     background_tasks: BackgroundTasks | None = None,
     on_retry: ParserRetryReporter | None = None,
-) -> list[_ResolvedBlock]:
+) -> tuple[list[_ResolvedBlock], bool]:
+    """Plan one section; returns ``(blocks, count_mismatch_clamped)``."""
     output_budget = CV_RANGE_PLAN_SECTION_MAX_OUTPUT_TOKENS
     header_positions = _visual_entry_header_positions(section)
     header_roles = (
@@ -675,18 +950,18 @@ async def _plan_section(
         user_content,
         LLMSectionCursorPlanResponse,
         feature_name=f"cv_cursor_plan_{section.type}",
-        prompt_version="3.2.0-experimental-geometry",
+        prompt_version="3.3.0-logical-blocks",
         background_tasks=background_tasks,
         max_retries=CV_STRUCTURING_MAX_RETRIES,
         max_output_tokens=output_budget,
         temperature=0.0,
         on_retry=on_retry,
     )
-    compiled = compile_section_cursor_plan(
+    compiled, clamped = compile_section_cursor_plan(
         section,
         LLMSectionCursorPlanResponse.model_validate(value),
     )
-    return _apply_visual_header_roles(compiled, section, header_roles)
+    return _apply_visual_header_roles(compiled, section, header_roles), clamped
 
 
 _logger = logging.getLogger(__name__)
@@ -796,6 +1071,7 @@ async def structure_cv_range_plan(
         # Atoms in preamble that did not match any identity pattern
         unclassified = [atom for atom in preamble if atom.index not in assigned]
         section_failures: list[str] = []
+        clamped_sections: list[str] = []
 
         # Mark all section heading and content atoms as owned/assigned
         for section in sections:
@@ -808,14 +1084,16 @@ async def structure_cv_range_plan(
         async def _process_section(
             index: int,
             section: _LedgerSection,
-        ) -> tuple[int, _LedgerSection, list[Any], str | None, list[SourceLedgerAtom]]:
+        ) -> tuple[
+            int, _LedgerSection, list[Any], str | None, list[SourceLedgerAtom], bool
+        ]:
             # Summary / Profile sections are handled deterministically without LLM calls
             if section.type == "summary" or not section.content:
-                return index, section, [], None, []
+                return index, section, [], None, [], False
 
             try:
                 # Ask LLM for cursor plan (roles & counts) and compile against local section atoms
-                compiled = await _plan_section(
+                compiled, clamped = await _plan_section(
                     section,
                     index=index,
                     total_sections=len(sections),
@@ -830,7 +1108,7 @@ async def structure_cv_range_plan(
                     )
                     for block_index, block in enumerate(compiled, start=1)
                 ]
-                return index, section, blocks, None, []
+                return index, section, blocks, None, [], clamped
             except (HTTPException, InvalidRangePlanError, ValidationError) as exc:
                 # Section-level fallback: if planning or validation fails for this section,
                 # wrap content in a CVUnknownBlock rather than failing the whole CV.
@@ -841,7 +1119,14 @@ async def structure_cv_range_plan(
                     exc,
                 )
                 blocks = [_unknown_section_block(section)]
-                return index, section, blocks, section.type, list(section.content)
+                return (
+                    index,
+                    section,
+                    blocks,
+                    section.type,
+                    list(section.content),
+                    False,
+                )
 
         # Run all section planners in parallel
         section_results = await asyncio.gather(
@@ -851,7 +1136,14 @@ async def structure_cv_range_plan(
             ]
         )
 
-        for index, section, blocks, failed_type, failed_atoms in section_results:
+        for (
+            index,
+            section,
+            blocks,
+            failed_type,
+            failed_atoms,
+            clamped,
+        ) in section_results:
             # Special case: Summary / Profile sections are rendered deterministically as paragraph
             if section.type == "summary":
                 summary_block = CVParagraphBlock(
@@ -873,6 +1165,14 @@ async def structure_cv_range_plan(
 
             if failed_type:
                 section_failures.append(failed_type)
+
+            if clamped:
+                _logger.warning(
+                    "Section [%d] '%s' cursor plan counts clamped to section atoms",
+                    index,
+                    section.type,
+                )
+                clamped_sections.append(section.type)
 
             rendered_sections.append(
                 CVSection(
@@ -900,7 +1200,7 @@ async def structure_cv_range_plan(
         document = CVDocumentV2(
             raw_extraction_id=raw_extraction_ref_id,
             extraction_version=raw.extraction_version,
-            parser_version="llm-cursor-plan-3.2-experimental-geometry",
+            parser_version="llm-cursor-plan-3.3-logical-blocks",
             source_hash=canonical_cv_hash(source_text),
             identity=identity,
             summary=summary,
@@ -915,6 +1215,18 @@ async def structure_cv_range_plan(
                     [
                         *document.reconstruction_warnings,
                         "cursor_plan_unclassified_source",
+                    ]
+                )
+            )
+
+        # Clamped counts still render partial content, but the mismatch is
+        # recorded loudly so miscounts are visible instead of silent.
+        if clamped_sections:
+            document.reconstruction_warnings = list(
+                dict.fromkeys(
+                    [
+                        *document.reconstruction_warnings,
+                        "cursor_plan_count_mismatch_clamped",
                     ]
                 )
             )

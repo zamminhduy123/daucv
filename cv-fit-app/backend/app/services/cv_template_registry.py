@@ -39,15 +39,6 @@ _TEMPLATE_CATALOG: dict[str, CVTemplateDefinition] = {
         ats_friendly=True,
         supports_multipage=True,
     ),
-    "modern_professional": CVTemplateDefinition(
-        template_id="modern_professional",
-        version=1,
-        label="Modern Professional",
-        description="Clean two-column layout separating skills/education into a sidebar.",
-        layout="sidebar",
-        ats_friendly=True,
-        supports_multipage=True,
-    ),
     "compact": CVTemplateDefinition(
         template_id="compact",
         version=1,
@@ -59,10 +50,12 @@ _TEMPLATE_CATALOG: dict[str, CVTemplateDefinition] = {
     ),
 }
 
-# Legacy template ID mapping for backward compatibility with pre-Phase 6 records
+# Legacy template ID mapping for backward compatibility with pre-Phase 6 records.
+# modern_professional was retired (two-column sidebar is not ATS-safe): old
+# records requesting it resolve to classic_ats so they still open.
 _LEGACY_MAP: dict[str, str] = {
     "classic_ats": "classic_ats",
-    "modern_professional": "modern_professional",
+    "modern_professional": "classic_ats",
     "compact_one_page": "compact",
     "compact": "compact",
 }

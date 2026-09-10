@@ -461,12 +461,31 @@ class TestSkillsParser:
         assert len(blocks) == 1
         assert blocks[0].skills == ["PyTorch", "Transformers GNN"]
 
-    def test_mixed_delimiter_skill_line_falls_back_without_data_loss(self):
-        source = "Backend: Python, FastAPI; Django"
+    def test_bullet_prefixed_skill_groups(self):
+        source = (
+            "• AI Engineering: LLM Applications, RAG, Prompt Engineering\n"
+            "• ML / Deep Learning: PyTorch, Transformers, GNNs\n"
+            "• Languages: Python, TypeScript"
+        )
         blocks = _reconstruct_skills(_lines(source))
-        assert len(blocks) == 1
-        assert blocks[0].type == "paragraph"
-        assert blocks[0].text == source
+        assert len(blocks) == 3
+        assert all(b.type == "skill_group" for b in blocks)
+        assert blocks[0].label == "AI Engineering"
+        assert blocks[0].skills == ["LLM Applications", "RAG", "Prompt Engineering"]
+        assert blocks[1].label == "ML / Deep Learning"
+        assert blocks[2].label == "Languages"
+
+    def test_bullet_skill_with_unpunctuated_wrap(self):
+        source = (
+            "• AI Engineering: LLM Applications, RAG, FAISS, NLP, PDF\n"
+            "Processing\n"
+            "• ML / Deep Learning: PyTorch, scikit-learn"
+        )
+        blocks = _reconstruct_skills(_lines(source))
+        assert len(blocks) == 2
+        assert blocks[0].label == "AI Engineering"
+        assert "PDF Processing" in blocks[0].skills
+        assert blocks[1].label == "ML / Deep Learning"
 
 
 # ===========================================================================
@@ -702,6 +721,25 @@ class TestSimpleSectionParsers:
         )[0]
         assert entry.organization is None
         assert entry.date == "2023"
+
+    def test_certifications_with_date_on_next_line(self):
+        lines = _lines(
+            "IBM – Generative AI Engineering with LLMs Specialization\n"
+            "Mar 2026\n"
+            "Deeplearning.AI – Natural Language Processing Specialization\n"
+            "July 2026\n"
+            "MathWorks – Computer Vision for Engineering and Science\n"
+            "Mar 2026"
+        )
+        blocks = _reconstruct_simple_section(lines, "certifications")
+        assert len(blocks) == 3
+        assert blocks[0].organization == "IBM"
+        assert blocks[0].title == "Generative AI Engineering with LLMs Specialization"
+        assert blocks[0].date == "Mar 2026"
+        assert blocks[1].organization == "Deeplearning.AI"
+        assert blocks[1].date == "July 2026"
+        assert blocks[2].organization == "MathWorks"
+        assert blocks[2].date == "Mar 2026"
 
     def test_languages(self):
         """Languages with proficiency in parentheses."""

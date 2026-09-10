@@ -781,7 +781,13 @@ def detect_sections(lines: list[ExtractedLine]) -> CVDocumentV2:
         if i not in assigned_indices and not line.is_layout_artifact:
             text = (line.normalized_text or line.text).strip()
             line_id = line.source_line_id or f"p{line.page + 1}-l{i + 1}"
-            if text and text not in preamble_texts and line_id not in summary_line_ids:
+            is_contact_line = (
+                text in preamble_texts
+                or bool(doc.identity.email and doc.identity.email in text)
+                or bool(doc.identity.phone and doc.identity.phone in text)
+                or any(p in text or text in p for p in preamble_texts if len(p) > 10)
+            )
+            if text and not is_contact_line and line_id not in summary_line_ids:
                 unassigned.append((i, line, text))
 
     if unassigned:

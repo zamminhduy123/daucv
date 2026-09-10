@@ -124,3 +124,44 @@ class SupabaseStorage(Storage):
         bucket_encoded = quote(bucket, safe="")
         path_encoded = quote(path, safe="/")
         return f"{self.supabase_url}/storage/v1/object/public/{bucket_encoded}/{path_encoded}"
+
+    async def create_signed_url(
+        self,
+        bucket: str,
+        path: str,
+        expires_in: int = 300,
+    ) -> str:
+        """Mint a time-limited URL that works on private buckets.
+
+        Used for thumbnails and other browser-fetched previews where a
+        public bucket would be a privacy regression. Never used for raw
+        extraction artifacts (server-only via download()).
+        """
+        if bucket == RAW_EXTRACTION_BUCKET:
+            raise ValueError("Signed URLs are disabled for raw extraction artifacts.")
+        client = await self._get_client()
+        bucket_encoded = quote(bucket, safe="")
+        path_encoded = quote(path, safe="/")
+        url = f"{self.supabase_url}/storage/v1/object/sign/{bucket_encoded}/{path_encoded}"
+        headers = {
+            "apikey": self.supabase_key,
+            "Authorization": f"Bearer {self.supabase_key}",
+            "Content-Type": "application/json",
+        }
+        response = await client.post(
+            url, json={"expiresIn": expires_in}, headers=headers
+        )
+        if response.is_error:
+            logger.error(
+                f"Supabase sign error [{response.status_code}]: {response.text}"
+            )
+            raise RuntimeError(
+                f"Supabase sign failed ({response.status_code}): {response.text}"
+            )
+        payload = response.json()
+        signed_path = payload.get("signedURL") or payload.get("signedUrl")
+        if not signed_path:
+            raise RuntimeError("Supabase sign returned no signedURL.")
+        if signed_path.startswith("http"):
+            return signed_path
+        return f"{self.supabase_url}/storage/v1{signed_path}"

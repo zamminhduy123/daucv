@@ -29,3 +29,26 @@ export function apiErrorMessage(err: unknown): string {
   }
   return "Đã có lỗi xảy ra. Vui lòng thử lại!";
 }
+
+/** Serialize any thrown value for console logging. Native Error instances
+ * (TypeError from failed fetch, SyntaxError, ...) have non-enumerable
+ * message/stack, so logging them raw prints as "{}" under Turbopack. */
+export function formatCaughtError(err: unknown): string {
+  if (err instanceof Error) {
+    return `${err.name}: ${err.message}${err.stack ? `\n${err.stack}` : ""}`;
+  }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
+}
+
+/** UI message for errors that never got an ApiError shape (most commonly a
+ * fetch-level failure: backend down, restart, or CORS). */
+export function connectivityMessage(err: unknown): string {
+  if (err instanceof TypeError) {
+    return "Mất kết nối mạng. Vui lòng kiểm tra internet và thử lại!";
+  }
+  return apiErrorMessage(err);
+}

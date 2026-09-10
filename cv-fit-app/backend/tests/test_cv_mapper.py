@@ -43,6 +43,35 @@ def test_llm1_prompt_is_strictly_mapper_only():
     )
 
 
+def test_education_block_keeps_planner_labels_unchanged():
+    """No model-validator repair: the cursor planner must label institution
+    and degree correctly. Mislabelled input passes through unchanged so the
+    error is visible instead of silently swapped."""
+    block = CVEducationBlock(
+        institution="Faculty of Information and Technology (2018 - 2022)",
+        degree="VNUHCM - University of Science",
+        details=["GPA: 8.03"],
+    )
+
+    assert block.institution == "Faculty of Information and Technology (2018 - 2022)"
+    assert block.degree == "VNUHCM - University of Science"
+    assert block.date is None
+    assert block.details == ["GPA: 8.03"]
+
+
+def test_education_block_does_not_swap_correct_data():
+    """Correctly labelled education blocks must pass through unchanged."""
+    block = CVEducationBlock(
+        institution="Soonchunhyang University",
+        degree="M.S. in Engineering",
+        date="Mar 2024 – Feb 2026",
+    )
+
+    assert block.institution == "Soonchunhyang University"
+    assert block.degree == "M.S. in Engineering"
+    assert block.date == "Mar 2024 – Feb 2026"
+
+
 def test_cv_document_v2_to_canonical_dict():
     """Test exporting CVDocumentV2 to normalized machine-readable CV JSON."""
     doc = CVDocumentV2(

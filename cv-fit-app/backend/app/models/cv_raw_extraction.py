@@ -34,6 +34,16 @@ class RawBlock(BaseModel):
     extraction_method: ExtractionMethod
     reading_order: int = Field(default=0, ge=0)
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    column_id: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Layout-assigned column lane index. ``None`` means the block "
+            "spans the page width (full-width headers, single-column pages, "
+            "or blocks without a usable bbox). Columnar blocks receive "
+            "1, 2, 3, ... left-to-right."
+        ),
+    )
 
 
 class RawPage(BaseModel):

@@ -12,7 +12,7 @@ from app.services.cv_template_render_service import render_cv_document
 from app.services.tailored_cv_pdf import render_tailored_cv_html
 
 FIXTURE = Path(__file__).parent / "fixtures" / "cv_render_parity.json"
-DESIGNS = ("classic_ats", "modern_professional", "compact_one_page")
+DESIGNS = ("classic_ats", "compact_one_page")
 
 
 @pytest.mark.parametrize("design", DESIGNS)

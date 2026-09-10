@@ -166,3 +166,36 @@ def test_tailor_and_save_uses_authoritative_source_and_allows_no_jd(client):
     assert mock_persist.await_args.kwargs["job_description"] is None
     assert mock_persist.await_args.kwargs["tailoring"] == tailoring
     assert mock_persist.await_args.kwargs["analysis_key"] == "analysis-key"
+
+
+def test_prefill_cv_returns_document_and_persists_when_cv_id_provided(client):
+    document = CVDocumentV2(identity=CVIdentity(full_name="Lan Nguyen"))
+    cv_uuid = UUID("22222222-2222-4222-8222-222222222222")
+
+    with (
+        patch(
+            "app.api.routes.cv_pipeline.build_prefill_document",
+            new_callable=AsyncMock,
+            return_value=(document, ["warning 1"]),
+        ) as mock_build,
+        patch(
+            "app.services.user_cv_service.save_structured_document",
+            new_callable=AsyncMock,
+            return_value="2026-09-09T00:00:00Z",
+        ) as mock_save,
+    ):
+        response = client.post(
+            "/api/cv/prefill",
+            json={
+                "cv_text": "Lan Nguyen",
+                "cv_id": str(cv_uuid),
+            },
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["prefill_document_v2"]["identity"]["full_name"] == "Lan Nguyen"
+    assert data["warnings"] == ["warning 1"]
+    assert data["auto_persisted"] is True
+    mock_build.assert_awaited_once()
+    mock_save.assert_awaited_once()

@@ -18,6 +18,9 @@ import {
   Award,
   UserRound,
   ArrowUpRight,
+  Trophy,
+  Layers,
+  Database,
 } from "lucide-react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 
@@ -186,9 +189,9 @@ const PIPELINE_CARD_COPY = {
     badgeBackground: "#e5edff",
   },
   domain_fit: {
-    label: "Phỏng vấn học",
-    description: "Khả năng trả lời và tư duy giải quyết vấn đề rất tốt.",
-    icon: Award,
+    label: "Độ phù hợp công việc", // hoặc "Phù hợp ngành nghề"
+    description: "Kinh nghiệm nghiệp vụ và bối cảnh dự án phù hợp với ngành của vị trí tuyển dụng.",
+    icon: Award, // hoặc Target / Layers
     accent: "#d96b00",
     iconBackground: "#fff1e1",
     badgeBackground: "#fff1e2",
@@ -363,19 +366,9 @@ function PipelineMatchDashboard({ report }: { report: CVEvaluationReport }) {
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <CompactInsightPanel
-            title="Điểm mạnh"
-            items={report.key_strengths}
-            icon={CheckCircle}
-            accent="#159b6e"
-            background="#effaf5"
-          />
-          <CompactInsightPanel
-            title="Điểm yếu cần cải thiện"
+          <StrengthsPanel items={report.key_strengths} />
+          <WeaknessesPanel
             items={report.critical_gaps}
-            icon={AlertTriangle}
-            accent="#c97900"
-            background="#fff7e9"
             emptyText="Chưa phát hiện khoảng trống nghiêm trọng trong phạm vi đánh giá."
           />
         </div>
@@ -384,39 +377,71 @@ function PipelineMatchDashboard({ report }: { report: CVEvaluationReport }) {
   );
 }
 
-function CompactInsightPanel({
-  title,
-  items,
-  icon: Icon,
-  accent,
-  background,
-  emptyText,
-}: {
-  title: string;
-  items: string[];
-  icon: typeof CheckCircle;
-  accent: string;
-  background: string;
-  emptyText?: string;
-}) {
-  const visibleItems = items.length > 0 ? items.slice(0, 3) : [emptyText ?? "Chưa có dữ liệu."];
+const WEAKNESS_ICONS = [Code2, Layers, Database] as const;
+
+function StrengthsPanel({ items }: { items: string[] }) {
+  const visibleItems = items.length > 0 ? items.slice(0, 5) : ["Chưa có dữ liệu."];
 
   return (
-    <section className="rounded-[13px] border border-[#e7ebf1] bg-white px-4 py-3.5">
-      <h2 className="flex items-center gap-2 text-[0.82rem] font-semibold text-[#132957]">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ color: accent, backgroundColor: background }}>
-          <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+    <section className="rounded-2xl border border-emerald-100 bg-gradient-to-b from-emerald-50/80 via-emerald-50/30 to-white p-5 sm:p-6">
+      <header className="flex items-center gap-4">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-100/80 text-emerald-600">
+          <Trophy className="h-7 w-7" strokeWidth={1.8} />
         </span>
-        {title}
-      </h2>
-      <ul className="mt-2.5 space-y-1.5">
-        {visibleItems.map((item) => (
-          <li key={item} className="flex items-start gap-2 text-[0.72rem] leading-4 text-[#6f7d95]">
-            <span className="mt-[0.4rem] h-1 w-1 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
-            <span>{item}</span>
-          </li>
+        <span>
+          <h2 className="text-lg font-bold tracking-tight text-[#132957]">Điểm mạnh</h2>
+          <span className="mt-1.5 block h-0.5 w-16 rounded-full bg-emerald-500" />
+        </span>
+      </header>
+      <div className="mt-5 space-y-3">
+        {visibleItems.map((item, i) => (
+          <article
+            key={`${i}-${item.slice(0, 24)}`}
+            className="flex items-stretch gap-4 rounded-xl border border-emerald-100/60 bg-white p-4 shadow-[0_1px_3px_rgba(18,168,115,0.06)]"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#12a873] text-[0.8rem] font-bold text-white">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <span className="w-px shrink-0 bg-emerald-100" aria-hidden="true" />
+            <p className="text-[0.82rem] leading-[1.6] text-[#4a5878]">{item}</p>
+          </article>
         ))}
-      </ul>
+      </div>
+    </section>
+  );
+}
+
+function WeaknessesPanel({ items, emptyText }: { items: string[]; emptyText?: string }) {
+  const visibleItems = items.length > 0 ? items.slice(0, 5) : [emptyText ?? "Chưa có dữ liệu."];
+
+  return (
+    <section className="rounded-2xl border border-orange-100 bg-gradient-to-b from-orange-50/80 via-orange-50/30 to-white p-5 sm:p-6">
+      <header className="flex items-center gap-4">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-orange-100/80 text-orange-600">
+          <AlertTriangle className="h-7 w-7" strokeWidth={1.8} />
+        </span>
+        <span>
+          <h2 className="text-lg font-bold tracking-tight text-[#132957]">Điểm yếu cần cải thiện</h2>
+          <span className="mt-1.5 block h-0.5 w-16 rounded-full bg-orange-500" />
+        </span>
+      </header>
+      <div className="mt-5 space-y-3">
+        {visibleItems.map((item, i) => {
+          const Icon = WEAKNESS_ICONS[i % WEAKNESS_ICONS.length];
+          return (
+            <article
+              key={`${i}-${item.slice(0, 24)}`}
+              className="flex items-stretch gap-4 rounded-xl border border-orange-100/60 bg-white p-4 shadow-[0_1px_3px_rgba(217,107,0,0.06)]"
+            > 
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-50 text-orange-600 text-[0.8rem] font-bold">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="w-px shrink-0 bg-orange-100" aria-hidden="true" />
+              <p className="text-[0.82rem] leading-[1.6] text-[#4a5878]">{item}</p>
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
 }

@@ -76,6 +76,10 @@ class CVBlockBase(BaseModel):
     reconstruction_warnings: list[str] = Field(default_factory=list)
     original_values: dict[str, str | list[str]] = Field(default_factory=dict)
     tailored_values: dict[str, str | list[str]] = Field(default_factory=dict)
+    hidden: bool = Field(
+        default=False,
+        description="User-set in the review wizard: hide this brick on export/preview without deleting it.",
+    )
 
 
 _JOB_TITLE_KEYWORDS = re.compile(
@@ -348,6 +352,10 @@ class CVIdentity(BaseModel):
     field_source_block_ids: CVIdentitySourceMap = Field(
         default_factory=CVIdentitySourceMap,
     )
+    hidden_fields: list[str] = Field(
+        default_factory=list,
+        description="Identity field keys hidden on export/preview (subset of email/phone/location/links/headline).",
+    )
 
     # Legacy fields for backward compatibility. New consumers must prefer the
     # structured fields above.
@@ -460,6 +468,10 @@ class CVIdentity(BaseModel):
     def canonicalized(self) -> "CVIdentity":
         """Re-run the bridge after legacy fields were mutated in place."""
         return type(self).model_validate(self.model_dump())
+
+    def is_field_hidden(self, key: str) -> bool:
+        """Whether a wizard-hidden identity field stays out of export/preview."""
+        return key in set(self.hidden_fields or [])
 
     def canonical_contact_lines(self) -> list[str]:
         """Return canonical contacts plus non-conflicting legacy-only rows."""
@@ -606,17 +618,28 @@ class CVDocumentV2(BaseModel):
     reconstruction_diagnostics: CVReconstructionDiagnostics | None = None
 
     def to_canonical_dict(self) -> dict[str, Any]:
-        """Export CVDocumentV2 to clean canonical machine-readable CV JSON."""
+        """Export CVDocumentV2 to clean canonical machine-readable CV JSON.
+
+        Wizard-hidden bricks and identity fields stay out of the export
+        without being deleted from the document.
+        """
+        ident = self.identity
         result: dict[str, Any] = {
             "identity": {
-                "name": self.identity.full_name or self.identity.name or None,
-                "headline": self.identity.headline,
-                "email": self.identity.email,
-                "phone": self.identity.phone,
-                "location": self.identity.location,
-                "links": self.identity.links,
+                "name": ident.full_name or ident.name or None,
+                "headline": None
+                if ident.is_field_hidden("headline")
+                else ident.headline,
+                "email": None if ident.is_field_hidden("email") else ident.email,
+                "phone": None if ident.is_field_hidden("phone") else ident.phone,
+                "location": None
+                if ident.is_field_hidden("location")
+                else ident.location,
+                "links": [] if ident.is_field_hidden("links") else ident.links,
             },
-            "summary": self.summary.text if self.summary else None,
+            "summary": self.summary.text
+            if self.summary and not self.summary.hidden
+            else None,
             "education": [],
             "experience": [],
             "research_experience": [],
@@ -624,6 +647,11 @@ class CVDocumentV2(BaseModel):
             "skills": {},
             "publications": [],
             "certifications": [],
+            "languages": [],
+            "awards": [],
+            "activities": [],
+            "interests": [],
+            "custom": [],
         }
 
         date_only_re = re.compile(
@@ -636,6 +664,10 @@ class CVDocumentV2(BaseModel):
             sec_type = (
                 section.type.lower() if isinstance(section.type, str) else section.type
             )
+            blocks = [block for block in section.blocks if not block.hidden]
+            # Rebind the loop below to visible bricks only. Each branch below
+            # iterates section.blocks; shadow it once here.
+            section = section.model_copy(update={"blocks": blocks})
             if sec_type == "education":
                 for block in section.blocks:
                     if isinstance(block, CVEducationBlock):
@@ -807,6 +839,75 @@ class CVDocumentV2(BaseModel):
                                     "source": block.source_block_ids,
                                 }
                             )
+            elif sec_type in (
+                "languages",
+                "awards",
+                "activities",
+                "interests",
+                "custom",
+            ):
+                # Generic list sections (languages / awards / leadership /
+                # interests / additional info): never drop — flatten every
+                # brick to text so the review wizard + canonical export retain
+                # the full source section.
+                for block in section.blocks:
+                    if isinstance(block, CVEntryBlock):
+                        parts = [
+                            block.title,
+                            block.subtitle,
+                            block.organization,
+                            block.location,
+                            block.date,
+                            *block.bullets,
+                        ]
+                        text = " | ".join(p.strip() for p in parts if p and p.strip())
+                        result[sec_type].append(
+                            {"text": text, "source": block.source_block_ids}
+                        )
+                    elif isinstance(block, CVEducationBlock):
+                        parts = [
+                            block.institution,
+                            block.degree,
+                            block.field,
+                            block.location,
+                            block.date,
+                            *block.details,
+                        ]
+                        text = " | ".join(p.strip() for p in parts if p and p.strip())
+                        result[sec_type].append(
+                            {"text": text, "source": block.source_block_ids}
+                        )
+                    elif isinstance(block, CVSkillGroupBlock):
+                        label = f"{block.label}: " if block.label else ""
+                        result[sec_type].append(
+                            {
+                                "text": f"{label}{', '.join(block.skills)}",
+                                "source": block.source_block_ids,
+                            }
+                        )
+                    elif isinstance(block, CVPublicationBlock):
+                        parts = [
+                            block.authors,
+                            block.title,
+                            block.venue,
+                            block.date,
+                            block.status,
+                        ]
+                        text = " ".join(p.strip() for p in parts if p and p.strip())
+                        result[sec_type].append(
+                            {"text": text, "source": block.source_block_ids}
+                        )
+                    elif isinstance(block, (CVBulletBlock, CVParagraphBlock)):
+                        result[sec_type].append(
+                            {"text": block.text, "source": block.source_block_ids}
+                        )
+                    elif isinstance(block, CVUnknownBlock):
+                        result[sec_type].append(
+                            {
+                                "text": " | ".join(block.lines),
+                                "source": block.source_block_ids,
+                            }
+                        )
 
         return result
 

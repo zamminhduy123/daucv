@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, FileText, X, CheckCircle, AlertTriangle, Sparkles, Mic, Loader2, PenTool, Briefcase } from "lucide-react";
+import { Upload, FileText, X, CheckCircle, AlertTriangle, Sparkles, Mic, Loader2, PenTool, Briefcase, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LayoutLine, RawExtractionReference, WorkspaceInputs } from "@/types";
 import { wordCount } from "@/lib/utils";
@@ -21,6 +21,8 @@ interface InputSectionProps {
   isStartingInterview: boolean;
   isWriting: boolean;
   error: string;
+
+  onBack: () => void;
 }
 
 // ── Sub-component: textarea card shell ────────────────────────────────────────
@@ -76,7 +78,8 @@ export default function InputSection({
   isAnalyzing, 
   isStartingInterview, 
   isWriting,
-  error 
+  error,
+  onBack
 }: InputSectionProps) {
   const cvFileInputRef = useRef<HTMLInputElement>(null);
   const jdFileInputRef = useRef<HTMLInputElement>(null);
@@ -104,6 +107,7 @@ export default function InputSection({
     text?: string,
     layoutData?: LayoutLine[] | null,
     rawExtractionRef?: RawExtractionReference | null,
+    pdfFileId?: string | null,
   ) => {
     if (target === "cv") {
       onChange({
@@ -111,6 +115,7 @@ export default function InputSection({
         ...(text !== undefined ? { cvText: text } : {}),
         ...(layoutData !== undefined ? { layoutData } : {}),
         ...(rawExtractionRef !== undefined ? { rawExtractionRef } : {}),
+        ...(pdfFileId !== undefined ? { cvPdfFileId: pdfFileId } : {}),
       });
     } else {
       onChange({ jdFile: file, ...(text !== undefined ? { jdText: text } : {}) });
@@ -119,8 +124,9 @@ export default function InputSection({
 
   const handleFile = async (file: File, target: "cv" | "jd") => {
     const label = target === "cv" ? "CV" : "JD";
-    const replacedRawExtractionId =
-      target === "cv" ? inputs.rawExtractionRef?.id : undefined;
+    // Multi-CV switcher: a new upload always coexists as its own CV row.
+    // The previous raw extraction still belongs to the previously selected
+    // CV, so it is never sent as replaced/deleted here.
 
     if (file.type !== "application/pdf") {
       updatePdfTarget(target, null, "", null, target === "cv" ? null : undefined);
@@ -149,7 +155,7 @@ export default function InputSection({
       const result = await extractPdfAPI(
         file,
         target,
-        replacedRawExtractionId,
+        undefined,
       ) as PdfExtractResult;
       if (result.error) {
         setExtractError(target, `${label}: Đã có lỗi xảy ra khi trích xuất, vui lòng thử lại.`);
@@ -166,6 +172,7 @@ export default function InputSection({
           result.text || "",
           result.layout_data,
           target === "cv" ? result.raw_extraction_ref : undefined,
+          target === "cv" ? (result.file_info?.id ?? null) : undefined,
         );
         if (
           target === "cv" &&
@@ -242,14 +249,23 @@ export default function InputSection({
     <div className="flex flex-col gap-3 md:gap-4 h-auto md:h-[calc(100vh-100px)]">
 
       {/* ── Compact page header ── */}
-      <div className="shrink-0">
-        <h1 className="font-heading font-bold text-[#2F4F4F] text-xl leading-tight">
-          Không gian làm việc
-        </h1>
-        <p className="text-[#5A6D6D] text-sm mt-0.5">
-          Dán JD và CV của bạn vào đây.{" "}
-          <span className="text-(--primary) font-semibold">Bé Đậu sẽ lo phần còn lại.</span>
-        </p>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-xs text-gray-500 font-medium border border-gray-200 rounded-xl p-4 hover:bg-gray-50 transition-colors bg-white"
+        >
+          <ArrowLeft size={12} />
+        </button>
+        <div className="shrink-0">
+          <h1 className="font-heading font-bold text-[#2F4F4F] text-xl leading-tight">
+            Không gian làm việc
+          </h1>
+          <p className="text-[#5A6D6D] text-sm mt-0.5">
+            Dán JD và CV của bạn vào đây.{" "}
+            <span className="text-(--primary) font-semibold">Bé Đậu sẽ lo phần còn lại.</span>
+          </p>
+        </div>
       </div>
 
       {/* ── 2-col card grid — stacks on mobile, side-by-side on larger screens ── */}

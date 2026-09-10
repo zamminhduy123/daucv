@@ -1039,6 +1039,7 @@ def _reconstruct_skills(lines: list[ExtractedLine]) -> list[CVBlockType]:
     Recognizes:
       Label: item1, item2, item3
       Label2: item4, item5
+      • Label: item1, item2, item3
 
     Handles wrapped continuations: lines that are continuations of the
     previous skill group are joined before splitting.
@@ -1053,9 +1054,11 @@ def _reconstruct_skills(lines: list[ExtractedLine]) -> list[CVBlockType]:
         if not text:
             continue
 
-        m = _SKILL_GROUP_RE.fullmatch(text)
+        clean_text = _strip_bullet(text)
+
+        m = _SKILL_GROUP_RE.fullmatch(clean_text)
         if m:
-            label = text.split(":")[0].strip()
+            label = clean_text.split(":", 1)[0].strip()
             skills_raw = m.group(1)
             skills = [s.strip() for s in skills_raw.split(",") if s.strip()]
             if skills:
@@ -1063,9 +1066,9 @@ def _reconstruct_skills(lines: list[ExtractedLine]) -> list[CVBlockType]:
                 continue
 
         # Fallback: space-separated skills after a colon label
-        m2 = _SKILL_GROUP_SPACE_RE.fullmatch(text)
-        if m2 and "," not in text.split(":", 1)[-1]:
-            label = text.split(":")[0].strip()
+        m2 = _SKILL_GROUP_SPACE_RE.fullmatch(clean_text)
+        if m2 and "," not in clean_text.split(":", 1)[-1]:
+            label = clean_text.split(":", 1)[0].strip()
             skills_raw = m2.group(1)
             skills = [s.strip() for s in skills_raw.split() if s.strip()]
             if skills:
@@ -1087,9 +1090,9 @@ def _join_skill_continuations(
     """Join wrapped continuation lines into the preceding logical line.
 
     A continuation is when:
-    - The previous line has a colon (label: ...) and ends with a comma
-    - The current line starts lowercase or is indented (whitespace-prefixed)
-    - The current line does not start a new skill group pattern
+    - The previous line has a colon (label: ...)
+    - The current line is not a bullet and does not start a new skill group
+    - The current line is either lowercase, indented, or the previous line ended with a comma / unclosed item
 
     Returns new list of lines where continuation text is appended to the
     previous line's ``text`` field.
@@ -1107,28 +1110,32 @@ def _join_skill_continuations(
             prev = result[-1]
             prev_text = _get_text(prev)
 
-            # Check if this is a continuation of a skill group
-            # Criteria:
-            # 1. Previous line has a colon (label: ...)
-            # 2. Previous line ends with comma (incomplete skill list)
-            # 3. Current line starts with lowercase/whitespace (not a new heading)
-            # 4. Current line is not a bullet
-            # 5. Current line is not a new skill group
-            has_colon = ":" in prev_text
-            ends_with_comma = prev_text.rstrip().endswith(",")
+            clean_prev = _strip_bullet(prev_text)
+            clean_curr = _strip_bullet(text)
+
+            has_colon = ":" in clean_prev
+            ends_with_comma = clean_prev.rstrip().endswith(",")
             is_not_bullet = not _is_bullet(line, text)
+            is_not_new_skill_group = not (
+                bool(_SKILL_GROUP_RE.fullmatch(clean_curr))
+                or bool(_SKILL_GROUP_SPACE_RE.fullmatch(clean_curr))
+                or (":" in clean_curr and not clean_curr.startswith("http"))
+            )
             is_physical_continuation = (
                 line.joined_to_prev
                 or _text_has_leading_space(line)
                 or text[0].islower()
             )
-            is_not_new_skill_group = not _SKILL_GROUP_RE.fullmatch(text)
 
             if (
                 has_colon
                 and is_not_bullet
                 and is_not_new_skill_group
-                and (ends_with_comma or is_physical_continuation)
+                and (
+                    ends_with_comma
+                    or is_physical_continuation
+                    or (not ends_with_comma and not _is_bullet(line, text))
+                )
             ):
                 # This is a continuation — append to previous
                 prev_text_modified = prev_text.rstrip() + " " + text.strip()
@@ -1653,19 +1660,33 @@ def _parse_certification(
     if not text:
         return None, 1
 
-    entry = CVEntryBlock(title=text)
+    # Skip standalone date lines so they don't become duplicate dummy entries
+    if _is_primary_date_line(text):
+        return None, 1
 
-    # 1. Extract date if present
+    entry = CVEntryBlock(title=text)
+    consumed = 1
+
+    # 1. Extract date if present on the current line
     date_match = _extract_date(text)
     if date_match:
         entry.date = date_match
         text = text.replace(date_match, "").strip().rstrip("() -–—|")
+    elif start + 1 < len(lines):
+        # Look ahead: if immediate next line is a date line, bind it
+        next_text = _strip_bullet(_get_text(lines[start + 1])).strip()
+        if (_is_primary_date_line(next_text) or _is_date_line(next_text)) and len(
+            next_text
+        ) <= 25:
+            entry.date = next_text
+            consumed = 2
 
     # 2. Extract title and organization separated by dash or pipe
     known_issuers = (
         "ibm",
         "deeplearning.ai",
         "deeplearning",
+        "mathworks",
         "coursera",
         "udemy",
         "edx",
@@ -1675,13 +1696,21 @@ def _parse_certification(
         "cisco",
         "meta",
         "linkedin",
+        "aws",
+        "amazon",
     )
     if "|" in text:
         parts = [p.strip() for p in text.split("|") if p.strip()]
-        if parts:
-            entry.title = parts[0]
-            if len(parts) > 1:
+        if len(parts) > 1:
+            p0_lower = parts[0].lower()
+            if p0_lower in known_issuers:
+                entry.organization = parts[0]
+                entry.title = parts[1]
+            else:
+                entry.title = parts[0]
                 entry.organization = parts[1]
+        elif parts:
+            entry.title = parts[0]
     elif " – " in text or " - " in text or " — " in text:
         parts = [p.strip() for p in re.split(r"\s+[—–-]\s+", text) if p.strip()]
         if len(parts) > 1:
@@ -1705,7 +1734,7 @@ def _parse_certification(
     elif text:
         entry.title = text
 
-    return entry, 1
+    return entry, consumed
 
 
 def _parse_language(
@@ -2095,7 +2124,12 @@ def _block_confidence(block: CVBlockType) -> float:
     if isinstance(block, CVSkillGroupBlock):
         return 0.9 if block.skills else 0.4
     if isinstance(block, CVPublicationBlock):
-        return 0.9 if block.venue and block.date else 0.6
+        return (
+            0.9
+            if (block.venue and block.date)
+            or (block.title and (block.status or block.authors))
+            else 0.6
+        )
     if isinstance(block, CVEducationBlock):
         return 0.9 if block.institution and (block.degree or block.date) else 0.6
     return 0.5

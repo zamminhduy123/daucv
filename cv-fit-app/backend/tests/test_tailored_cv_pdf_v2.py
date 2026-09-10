@@ -157,7 +157,7 @@ def test_all_designs_use_the_same_explicit_block_semantics() -> None:
         ],
     )
 
-    for design in ("classic_ats", "modern_professional", "compact_one_page"):
+    for design in ("classic_ats", "compact_one_page"):
         html = render_tailored_cv_html(TailoredCV(name="Duy"), design, document)
         assert 'data-block-type="unknown"' in html
         assert "Uncertain text" in html

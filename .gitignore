@@ -25,8 +25,10 @@ Thumbs.db
 # cv-fit-app/dataset/golden remain eligible for explicit commits.
 cv-fit-app/dataset/vietnamese_eval/
 cv-fit-app/dataset/
-cv-fit-app/backend/tests/
-cv-fit-app/backend/tests/
+cv-fit-app/backend/tests/__pycache__/
+cv-fit-app/backend/tests/.pytest_cache/
+cv-fit-app/backend/tests/cv_test/
+!cv-fit-app/backend/tests/*.py
 # Project
 .vscode/
 .idea/
@@ -35,3 +37,29 @@ resource/
 cv-fit-app/frontend/package-lock.json
 cv-fit-app/backend/logs/
 cv-fit-app/backend/tests/cv_test/CV_DUYNGUYEN_2pu.pdf
+cv-fit-app/audit_report.json
+cv-fit-app/block_plan_v2.json
+cv-fit-app/canonical_cv_block_plan_v2.json
+cv-fit-app/canonical_cv_qwen35_v1.json
+cv-fit-app/canonical_cv_range_plan_v3.json
+cv-fit-app/canonical_cv.json
+cv-fit-app/cv-audit.json
+cv-fit-app/cv-tailored.json
+cv-fit-app/fit_evaluation_report.json
+cv-fit-app/output_test_cv.json
+cv-fit-app/smoke_canonical_cv.json
+cv-fit-app/.playwright-cli/console-2026-08-11T07-32-07-795Z.log
+cv-fit-app/.playwright-cli/console-2026-08-11T09-07-30-927Z.log
+cv-fit-app/.playwright-cli/console-2026-08-11T09-08-27-703Z.log
+cv-fit-app/.playwright-cli/page-2026-08-11T07-32-08-282Z.yml
+cv-fit-app/.playwright-cli/page-2026-08-11T09-07-31-684Z.yml
+cv-fit-app/.playwright-cli/page-2026-08-11T09-08-28-307Z.yml
+cv-fit-app/QWEN.md
+cv-fit-app/sample_jd_ai_engineer.txt
+cv-fit-app/Sửa các lỗi sau.html
+cv-fit-app/tailored_cv.json
+cv-fit-app/backend/.env.example
+cv-fit-app/backend/canonical_cv_range_plan_v3.json
+cv-fit-app/backend/.env.example
+cv-fit-app/backend/tailored_cv_v3.json
+cv-fit-app/backend/test_tailored_output.json

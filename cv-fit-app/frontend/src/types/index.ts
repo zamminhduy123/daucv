@@ -27,6 +27,17 @@ export interface RawExtractionReference {
   method: "native_blocks" | "word_layout" | "ocr";
 }
 
+export interface UserCV {
+  id: string;
+  cv_filename: string;
+  cv_text: string;
+  is_active: boolean;
+  created_at: string;
+  raw_extraction_ref?: string | null;
+  pdf_file_id?: string | null;
+  pdf_url?: string | null;
+}
+
 
 export type {
   ContentOrigin,
@@ -69,6 +80,7 @@ export interface WorkspaceInputs {
   jdFile: File | null;
   layoutData: _LayoutLine[] | null;
   rawExtractionRef: RawExtractionReference | null;
+  cvPdfFileId: string | null;
 }
 
 // ─── AI Analysis Result ───────────────────────────────────────────────────────
@@ -95,7 +107,7 @@ export interface TailoredCVSection {
   items: string[];
 }
 
-export type CVDesign = "classic_ats" | "modern_professional" | "compact";
+export type CVDesign = "classic_ats" | "compact";
 
 export interface CVTemplateDefinition {
   template_id: string;

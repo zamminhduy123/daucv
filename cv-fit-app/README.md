@@ -10,6 +10,7 @@ cv-fit-app/
 │   └── src/app/
 │       ├── page.tsx         → Landing page
 │       ├── app/page.tsx     → Upload CV + JD
+│       ├── app/review/page.tsx → CV Review & Workspace Editor (live editing & preview)
 │       ├── results/page.tsx → Match score + tailored CV
 │       └── interview/page.tsx → Mock interview chat
 │
@@ -89,6 +90,9 @@ Frontend will be live at **http://127.0.0.1:3000**
 
 ## Features
 
+- 📝 **CV Review & Workspace Editor** — Interactive editor for candidate identity, experience, education, skills, and publications with instant draft saving
+- 👁️ **Live CV Preview & Continuous Pagination** — Real-time iframe preview with dynamic A4 page break calculation (`[ Trang N ]`) and zero double scrollbars
+- 🎛️ **Granular Typography & Spacing** — Proportional golden-ratio font scaling and layout popover (Section Gap, Item Gap, Line Height, Page Margin down to 0)
 - 📊 **Match Score** — 0-100 fit score with missing skills list
 - 📄 **Tailored CV** — AI rewrites your resume to match the JD; exportable as PDF via print
 - 🎤 **Voice Input** — Web Speech API for Vietnamese 🇻🇳 and English 🇺🇸

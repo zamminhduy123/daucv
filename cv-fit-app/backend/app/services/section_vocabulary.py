@@ -12,8 +12,11 @@ form is retained so the detector can report the exact heading text found.
 
 from __future__ import annotations
 
+import logging
 import re
 import unicodedata
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # 1. Canonical section type (mirrors CVSectionType)
@@ -208,6 +211,18 @@ _SECTIONS_INTERESTS: list[str] = [
     "sở thích",
 ]
 
+# Referee lists ("References", "Referees", ...) are their own section so
+# they are never merged into a neighboring skills line or planned as
+# skills/publications. They map to "custom": no canonical export fields
+# exist for referees, matching awards/interests handling.
+_SECTIONS_REFERENCES: list[str] = [
+    "references",
+    "referees",
+    "reference",
+    "nguoi tham khao",
+    "người tham khảo",
+]
+
 _SECTIONS_STRENGTHS: list[str] = [
     "strengths",
     "key strengths",
@@ -277,6 +292,7 @@ _SECTION_GROUPS: list[tuple[SECTION_TYPE, list[str]]] = [
     ("awards", _SECTIONS_AWARDS),
     ("activities", _SECTIONS_ACTIVITIES),
     ("interests", _SECTIONS_INTERESTS),
+    ("custom", _SECTIONS_REFERENCES),
     ("custom", _SECTIONS_STRENGTHS),
     ("custom", _SECTIONS_MOST_PROUD_OF),
     ("other", _SECTIONS_OTHER),  # "other" → "custom" at classification time
@@ -361,4 +377,4 @@ if __name__ == "__main__":
         result = classify_heading(text)
         got = result[0] if result else None
         status = "✓" if got == expected else "✗"
-        print(f"  {status} {text!r:30s} → {got!r:15s} (expected {expected!r})")
+        logger.info("  %s %r → %r (expected %r)", status, text, got, expected)

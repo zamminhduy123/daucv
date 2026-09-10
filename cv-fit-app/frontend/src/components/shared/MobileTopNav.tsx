@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Mic, LayoutTemplate, Clock, Menu, X, Coffee, QrCode, PenLine, PenTool, BookOpen, Briefcase } from "lucide-react";
+import { FileText, Mic, Clock, Menu, X, Coffee, QrCode, PenLine, PenTool, Briefcase } from "lucide-react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -80,7 +80,13 @@ export default function MobileTopNav() {
                 </div>
               )}
               {NAV_ITEMS.map(({ label, icon: Icon, href, requiresCV }) => {
-                const isActive = pathname === href || pathname.startsWith(href + "/");
+                const isActive =
+                  href === "/app/setup"
+                    ? pathname === "/app/setup" ||
+                      pathname.startsWith("/app/setup/") ||
+                      pathname === "/app/review" ||
+                      pathname.startsWith("/app/review/")
+                    : pathname === href || pathname.startsWith(href + "/");
                 const isDisabled = isLoaded && requiresCV && !hasCV;
                 
                 return (

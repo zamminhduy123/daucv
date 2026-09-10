@@ -1,5 +1,5 @@
 import { getSession } from "next-auth/react";
-import type { CanonicalCV, CVAnalysisEnvelope, CVAnalysisResponse, CVDesign, CVDocumentV2, CVEvaluationReport, CVPreviewResponse, CVTailoringDiagnostics, CVTailoringResponse, CVTemplateDefinition, FileInfo, LayoutLine, RawExtractionReference, SuggestedEdit, TailoredCV, TailoredCVVersion } from "@/types";
+import type { CanonicalCV, CVAnalysisEnvelope, CVAnalysisResponse, CVDesign, CVDocumentV2, CVEvaluationReport, CVPreviewResponse, CVTailoringDiagnostics, CVTailoringResponse, CVTemplateDefinition, FileInfo, LayoutLine, RawExtractionReference, SuggestedEdit, TailoredCV, TailoredCVVersion, UserCV } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const TTS_API_URL = process.env.NEXT_PUBLIC_TTS_SERVICE_URL || "http://127.0.0.1:8000";
@@ -109,7 +109,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
 }
 
 export async function pingAPI() {
-  const res = await fetch(`${API_URL}/`);
+  const res = await fetchWithAuth(`${API_URL}/`);
   return res.json();
 }
 
@@ -138,8 +138,6 @@ export async function extractPdfAPI(
     method: "POST",
     body: formData,
   });
-
-  console.log("extract pdf", res);
 
   if (!res.ok) {
     throw await parseApiError(res);
@@ -229,6 +227,7 @@ export async function savePipelineTailoredCVAPI(
   tailoring: CVTailoringResponse,
   selectedDesign: CVDesign = "classic_ats",
   signal?: AbortSignal,
+  sourceCvId?: string,
 ): Promise<TailoredCVVersion> {
   const res = await fetchWithAuth(`${API_URL}/api/cv/tailor-and-save`, {
     method: "POST",
@@ -241,6 +240,7 @@ export async function savePipelineTailoredCVAPI(
       source_ticket: sourceTicket,
       tailoring,
       selected_design: selectedDesign,
+      source_cv_id: sourceCvId,
     }),
     signal,
   });
@@ -493,11 +493,11 @@ export async function getUserProfileAPI() {
   return res.json();
 }
 
-export async function uploadUserCVAPI(cvText: string, cvFilename: string) {
+export async function uploadUserCVAPI(cvText: string, cvFilename: string, rawExtractionRef?: string, pdfFileId?: string): Promise<UserCV> {
   const res = await fetchWithAuth(`${API_URL}/api/user/cv`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cv_text: cvText, cv_filename: cvFilename }),
+    body: JSON.stringify({ cv_text: cvText, cv_filename: cvFilename, raw_extraction_ref: rawExtractionRef ?? null, pdf_file_id: pdfFileId ?? null }),
   });
   if (!res.ok) {
     throw await parseApiError(res);
@@ -517,6 +517,18 @@ export async function updateActiveCVTextAPI(cvText: string, cvFilename: string) 
   return res.json();
 }
 
+export async function updateUserCVAPI(cvId: string, cvText: string, cvFilename: string, rawExtractionRef?: string): Promise<UserCV> {
+  const res = await fetchWithAuth(`${API_URL}/api/user/cv/${cvId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cv_text: cvText, cv_filename: cvFilename, raw_extraction_ref: rawExtractionRef ?? null }),
+  });
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
+}
+
 export async function deactivateUserCVAPI(cvId: string) {
   const res = await fetchWithAuth(`${API_URL}/api/user/cv/${cvId}`, {
     method: "DELETE",
@@ -527,7 +539,19 @@ export async function deactivateUserCVAPI(cvId: string) {
   return res.json();
 }
 
-export async function listUserCVsAPI() {
+export async function deleteUserCVAPI(cvId: string): Promise<{ success: boolean }> {
+  // The server resolves the row's own raw + PDF file ids, so callers never
+  // address stored files directly.
+  const res = await fetchWithAuth(`${API_URL}/api/user/cv/${cvId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json();
+}
+
+export async function listUserCVsAPI(): Promise<{ cvs: UserCV[] }> {
   const res = await fetchWithAuth(`${API_URL}/api/user/cvs`);
   if (!res.ok) {
     throw await parseApiError(res);
@@ -763,4 +787,82 @@ export async function verifyUserEditAPI(payload: {
     throw await parseApiError(res);
   }
   return res.json();
+}
+
+// ── Edit-only wizard API (no LLM, no credits) ──────────────────────────────────
+
+/**
+ * Server-side prefill of a CVDocumentV2 from raw CV text + an existing raw
+ * extraction reference. Used by the edit-only wizard when the user has NOT
+ * yet run the full parse/analyze pipeline. Returns the same document shape
+ * the analyzer would, so the editor can bind forms to it without LLM1.
+ */
+export async function prefillCVAPI(
+  cvText: string,
+  rawExtractionRefId?: string,
+  cvId?: string,
+): Promise<{ prefill_document_v2: CVDocumentV2; warnings: string[]; auto_persisted?: boolean }> {
+  const res = await fetchWithAuth(`${API_URL}/api/cv/prefill`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      cv_text: cvText,
+      raw_extraction_ref_id: rawExtractionRefId,
+      cv_id: cvId,
+    }),
+  });
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<{ prefill_document_v2: CVDocumentV2; warnings: string[]; auto_persisted?: boolean }>;
+}
+
+/**
+ * Mint a source ticket for an already-edited CVDocumentV2 so the analyzer
+ * can skip parseCVAPI / LLM1 / credit. The returned canonical_cv is derived
+ * from the supplied document.
+ */
+export async function mintSourceTicketAPI(
+  cvText: string,
+  sourceDocumentV2: CVDocumentV2,
+  rawExtractionRefId?: string,
+): Promise<{ source_ticket: string; canonical_cv: CanonicalCV }> {
+  const res = await fetchWithAuth(`${API_URL}/api/cv/source-ticket`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      cv_text: cvText,
+      source_document_v2: sourceDocumentV2,
+      raw_extraction_ref_id: rawExtractionRefId,
+    }),
+  });
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<{ source_ticket: string; canonical_cv: CanonicalCV }>;
+}
+
+/**
+ * Persist a structured CVDocumentV2 draft for a user CV row. Edit-only:
+ * no re-parse, no credits, no LLM. Writes to the structured_document column.
+ */
+export async function saveStructuredDocumentAPI(
+  cvId: string,
+  document: CVDocumentV2,
+): Promise<{ success: boolean; updated_at: string }> {
+  const res = await fetchWithAuth(`${API_URL}/api/user/cv/${cvId}/structured-document`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ document }),
+  });
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<{ success: boolean; updated_at: string }>;
+}
+
+/**
+ * Load a previously saved structured_document draft for a user CV row.
+ * Returns null when no draft exists yet.
+ */
+export async function getStructuredDocumentAPI(
+  cvId: string,
+): Promise<{ saved: CVDocumentV2 | null }> {
+  const res = await fetchWithAuth(`${API_URL}/api/user/cv/${cvId}/structured-document`);
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<{ saved: CVDocumentV2 | null }>;
 }

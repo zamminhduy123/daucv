@@ -53,6 +53,456 @@ def validate_raw_extraction(raw: RawExtraction) -> None:
         raise InvalidRawExtractionError("Raw extraction contains duplicate block IDs.")
 
 
+# ---------------------------------------------------------------------------
+# Reading-order reader for ``RawBlock`` (column-aware)
+# ---------------------------------------------------------------------------
+#
+# ``build_source_ledger`` in ``cv_range_plan_service.py`` consumes ``RawBlock``
+# objects directly. Naive iteration over ``page.blocks`` preserves the upstream
+# ``reading_order`` (often row-major across columns), which interleaves atoms
+# from a two-column skills or experience section. The helpers below assign a
+# ``column_id`` to each block and emit blocks in column-major reading order so
+# downstream consumers receive a layout-correct stream by construction.
+#
+# This module is the layout-aware layer; ``cv_range_plan_service`` remains
+# layout-agnostic and only consumes the materialized list.
+_SPAN_WIDTH_FRACTION = 0.65
+_MAX_COLUMN_CLUSTERS = 3
+_COLUMN_GAP_FRACTION = 0.06
+_COLUMN_GAP_MIN_PT = 30.0
+_COLUMN_MERGE_GAP_FACTOR = 4.0
+_COLUMN_ABSOLUTE_MERGE_PT = 50.0
+_BULLET_PREFIX_RE = re.compile(r"^(?:[-–—•▪‣])\s*")
+
+
+def _column_gap_threshold_pt(page_width: float | None) -> float:
+    if not page_width or page_width <= 0:
+        return _COLUMN_GAP_MIN_PT
+    return max(_COLUMN_GAP_MIN_PT, page_width * _COLUMN_GAP_FRACTION)
+
+
+def _merge_subcolumn_clusters(
+    cluster_ranges: list[tuple[float, float]],
+    x_mins: list[float],
+    *,
+    merge_gap_factor: float,
+    absolute_merge_threshold: float,
+) -> list[tuple[float, float]]:
+    """Merge adjacent clusters whose inter-gap is small relative to the
+    local within-cluster x-spread (or any small absolute gap below the
+    column-gutter threshold).
+
+    A real column gutter is wider than either surrounding column; a
+    sub-column indent (e.g. a value indented under its label) produces a
+    gap that is small compared to the x-variance within the surrounding
+    column. Without this filter, an indented value list would be
+    misclassified as a third column on a two-column page.
+
+    Two triggers merge a pair of clusters:
+
+    1. ``gap < local_within_cluster_spread * merge_gap_factor`` — the
+       indent falls well within the surrounding column's variance.
+    2. ``gap < absolute_merge_threshold`` — the gap is so small that it
+       cannot be a real column gutter regardless of cluster spread.
+
+    Each cluster's within-spread is computed once from ``x_mins`` and is
+    not recomputed after merges — a cumulative prev-cluster range would
+    absorb the gap and over-merge.
+    """
+    if len(cluster_ranges) < 2:
+        return cluster_ranges
+
+    spreads: list[float] = []
+    for left, right in cluster_ranges:
+        xs = [x for x in x_mins if left <= x <= right]
+        if not xs:
+            spreads.append(0.0)
+        else:
+            spreads.append(max(xs) - min(xs))
+
+    merged: list[tuple[float, float]] = [cluster_ranges[0]]
+    for index, (left, right) in enumerate(cluster_ranges[1:], start=1):
+        prev_left, prev_right = merged[-1]
+        gap = left - prev_right
+        prev_spread = spreads[len(merged) - 1]
+        cur_spread = spreads[index]
+        local_spread = max(prev_spread, cur_spread)
+        within_cluster_merge = (
+            local_spread > 0 and gap < local_spread * merge_gap_factor
+        )
+        absolute_merge = gap < absolute_merge_threshold
+        if within_cluster_merge or absolute_merge:
+            merged[-1] = (min(prev_left, left), max(prev_right, right))
+        else:
+            merged.append((left, right))
+    return merged
+
+
+def _assign_columns_for_page(page: RawPage) -> None:
+    """Detect column lanes on a page and populate ``block.column_id`` in place.
+
+    Blocks without a usable bbox receive ``column_id = None``. Remaining
+    blocks are clustered on ``bbox[0]`` (x_min) with up to
+    ``_MAX_COLUMN_CLUSTERS`` clusters. Clusters whose centroids are
+    separated by less than ``_column_gap_threshold_pt(page.width)`` are
+    merged. Surviving clusters are numbered 1, 2, 3, ... left-to-right.
+    Single-column pages leave every block at ``column_id = None`` so the
+    legacy reading order is preserved.
+
+    Note: heading vs content classification is the responsibility of
+    ``_partition_ledger`` via ``classify_heading``; this routine does
+    NOT identify section headings — it only assigns column membership.
+    """
+    blocks_with_bbox = [block for block in page.blocks if block.bbox is not None]
+    if not blocks_with_bbox:
+        for block in page.blocks:
+            block.column_id = None
+        return
+
+    page_width = page.width
+    threshold = _column_gap_threshold_pt(page_width)
+
+    columnar: list[RawBlock] = []
+    for block in page.blocks:
+        if block.bbox is None:
+            block.column_id = None
+            continue
+        columnar.append(block)
+
+    if not columnar:
+        return
+
+    x_mins = sorted(block.bbox[0] for block in columnar if block.bbox is not None)
+    cluster_ranges = _cluster_coordinate_ranges(
+        [(x, x) for x in x_mins],
+        threshold,
+    )
+    if not cluster_ranges:
+        return
+
+    # Merge clusters whose inter-gap is small relative to the local
+    # within-cluster x-spread.  This filters sub-column indentation
+    # (e.g. a skill value indented under its label) which would otherwise
+    # be picked up as a third column.
+    cluster_ranges = _merge_subcolumn_clusters(
+        cluster_ranges,
+        x_mins,
+        merge_gap_factor=_COLUMN_MERGE_GAP_FACTOR,
+        absolute_merge_threshold=_COLUMN_ABSOLUTE_MERGE_PT,
+    )
+
+    # Single-column pages: leave column_id = None so the legacy (y, x) sort
+    # is preserved and downstream consumers see no column metadata.
+    if len(cluster_ranges) <= 1:
+        return
+
+    if len(cluster_ranges) > _MAX_COLUMN_CLUSTERS:
+        cluster_ranges = cluster_ranges[:_MAX_COLUMN_CLUSTERS]
+
+    centroids = [(left + right) / 2.0 for left, right in cluster_ranges]
+
+    for block in columnar:
+        x_min = block.bbox[0]
+        best_index = 0
+        best_distance = float("inf")
+        for index, centroid in enumerate(centroids):
+            distance = abs(x_min - centroid)
+            if distance < best_distance:
+                best_distance = distance
+                best_index = index
+        block.column_id = best_index + 1
+
+
+def read_blocks_in_order(raw: RawExtraction) -> list[RawBlock]:
+    """Return blocks in column-major reading order.
+
+    For each page, ``_assign_columns_for_page`` is invoked first to populate
+    ``column_id``. Spanning blocks (``column_id is None``) are interleaved
+    with columnar blocks by Y-band: columnar content below the previous
+    spanning Y and above the current spanning Y is emitted first, then the
+    spanning block, then the cycle continues. Columnar blocks are emitted
+    left-to-right per column, top-to-bottom within each column.
+
+    Single-column pages (or blocks without bboxes) leave ``column_id`` as
+    ``None`` and the legacy ``(page, y, x)`` sort is preserved.
+    """
+    ordered: list[RawBlock] = []
+    for page in raw.pages:
+        _assign_columns_for_page(page)
+
+        spanning = sorted(
+            (block for block in page.blocks if block.column_id is None),
+            key=lambda block: (block.bbox[1] if block.bbox else 0.0),
+        )
+
+        columnar_columns: dict[int, list[RawBlock]] = {}
+        for block in page.blocks:
+            if block.column_id is not None:
+                columnar_columns.setdefault(block.column_id, []).append(block)
+        for column_id in columnar_columns:
+            columnar_columns[column_id].sort(
+                key=lambda block: (
+                    block.bbox[1] if block.bbox else 0.0,
+                    block.bbox[0] if block.bbox else 0.0,
+                )
+            )
+
+        column_ids_sorted = sorted(columnar_columns.keys())
+        lower_bound = float("-inf")
+        for spanning_block in spanning:
+            spanning_y = spanning_block.bbox[1] if spanning_block.bbox else 0.0
+            for column_id in column_ids_sorted:
+                band = [
+                    block
+                    for block in columnar_columns[column_id]
+                    if lower_bound < (block.bbox[1] if block.bbox else 0.0) < spanning_y
+                ]
+                ordered.extend(band)
+            ordered.append(spanning_block)
+            lower_bound = spanning_y
+
+        for column_id in column_ids_sorted:
+            tail = [
+                block
+                for block in columnar_columns[column_id]
+                if (block.bbox[1] if block.bbox else 0.0) > lower_bound
+            ]
+            ordered.extend(tail)
+
+    return ordered
+
+
+# ---------------------------------------------------------------------------
+# Logical-line joining (upstream wrap reconstruction)
+# ---------------------------------------------------------------------------
+#
+# Physical PDF lines are not semantic units: one visual bullet or citation
+# wrapped across N lines arrives as N RawBlocks. Joining them here — before
+# the source ledger is built — means one logical bullet/citation becomes one
+# ledger atom, so the cursor planner counts logical items, not fragments.
+# Geometry (page, column, y-gap, x-indent, line fullness) decides first;
+# text signals are tie-breakers only for geometrically ambiguous neighbors.
+
+_Y_GAP_JOIN_MAX_PT = 36.0
+_X_INDENT_JOIN_MAX_PT = 24.0
+_PAGE_EDGE_MARGIN_PT = 100.0
+_FULL_LINE_WIDTH_FRACTION = 0.70
+_FULL_LANE_FRACTION = 0.60
+
+_TITLE_COLON_RE = re.compile(r"^\S.{0,60}:\s+[A-Z]")
+_DIGIT_START_RE = re.compile(r"^\d")
+_TERMINAL_PUNCT_RE = re.compile(r"[.!?]\s*$")
+_OPEN_ENDING_RE = re.compile(r"[,/–—-]\s*$")
+_CONTINUATION_PREPOSITIONS = frozenset(
+    {
+        "in",
+        "of",
+        "and",
+        "for",
+        "with",
+        "to",
+        "from",
+        "on",
+        "at",
+        "by",
+        "as",
+        "or",
+        "via",
+        "including",
+        "using",
+        "the",
+        "a",
+        "an",
+    }
+)
+
+
+def _bbox_union(
+    first: tuple[float, float, float, float] | None,
+    second: tuple[float, float, float, float] | None,
+) -> tuple[float, float, float, float] | None:
+    if first is None:
+        return second
+    if second is None:
+        return first
+    return (
+        min(first[0], second[0]),
+        min(first[1], second[1]),
+        max(first[2], second[2]),
+        max(first[3], second[3]),
+    )
+
+
+def _should_join_logical(
+    prev: RawBlock,
+    curr: RawBlock,
+    *,
+    heading_block_ids: set[str] | None = None,
+    page_sizes: dict[int, tuple[float | None, float | None]] | None = None,
+    column_lane_widths: dict[tuple[int, int | None], list[float]] | None = None,
+) -> bool:
+    """Return True when ``curr`` continues ``prev``'s visual line group."""
+    headings = heading_block_ids or set()
+    if prev.block_id in headings or curr.block_id in headings:
+        return False
+    prev_text = (prev.text or "").strip()
+    curr_text = (curr.text or "").strip()
+    if not prev_text or not curr_text:
+        return False
+    # A new bullet glyph always starts a new logical block.
+    if _BULLET_PREFIX_RE.match(curr.text or ""):
+        return False
+    # Trailing-colon opener (e.g. "eKYC OCR:") continues onto the next line
+    # even when the next line starts with a digit ("95% ...").
+    prev_opens_with_colon = prev_text.rstrip().endswith(":")
+    # Section headings / job-metadata rows are never continuations.
+    if _is_known_section_heading(curr_text):
+        return False
+    if _is_job_metadata_line(curr_text):
+        return False
+    # "Title: Description" starts a new labeled bullet.
+    if _TITLE_COLON_RE.match(curr_text):
+        return False
+
+    # --- geometry gate ---
+    if curr.page != prev.page:
+        # Cross-page wrap (observed: eKYC bullet spans p1→p2). Require
+        # consecutive pages; margin checks only when sizes are known.
+        if curr.page != prev.page + 1:
+            return False
+        if page_sizes:
+            prev_size = page_sizes.get(prev.page, (None, None))
+            prev_h = prev_size[1] if prev_size else None
+            if (
+                prev_h
+                and prev.bbox
+                and curr.bbox
+                and not (
+                    prev.bbox[1] + (prev.bbox[3] - prev.bbox[1])
+                    >= prev_h - _PAGE_EDGE_MARGIN_PT
+                    and curr.bbox[1] <= _PAGE_EDGE_MARGIN_PT
+                )
+            ):
+                return False
+        if prev_opens_with_colon:
+            return True
+        if _DIGIT_START_RE.match(curr_text):
+            return False
+        if curr_text[:1].islower():
+            return True
+        if _TERMINAL_PUNCT_RE.search(prev_text) and curr_text[:1].isupper():
+            return False
+        return not bool(_TERMINAL_PUNCT_RE.search(prev_text))
+    if (
+        prev.column_id is not None
+        and curr.column_id is not None
+        and prev.column_id != curr.column_id
+    ):
+        return False
+    if prev.bbox is not None and curr.bbox is not None:
+        y_gap = curr.bbox[1] - prev.bbox[3]
+        if y_gap < -3 or y_gap > _Y_GAP_JOIN_MAX_PT:
+            return False
+        if abs(curr.bbox[0] - prev.bbox[0]) > _X_INDENT_JOIN_MAX_PT:
+            return False
+    # bbox missing → fall through to text tie-breakers (conservative).
+
+    # --- text tie-breakers (geometry already passed) ---
+    if prev_opens_with_colon:
+        return True
+    if _DIGIT_START_RE.match(curr_text):
+        # Quantified new bullet ("87.5% decreasing ...") vs. continuation.
+        return False
+    if _TERMINAL_PUNCT_RE.search(prev_text) and curr_text[:1].isupper():
+        return False
+    if curr_text[:1].islower():
+        return True
+    if _OPEN_ENDING_RE.search(prev_text):
+        return True
+    prev_last_word = (
+        re.split(r"\s+", prev_text.rstrip(" ,/–—-"))[-1].strip("()[]\"'").lower()
+        if prev_text
+        else ""
+    )
+    if prev_last_word in _CONTINUATION_PREPOSITIONS:
+        return True
+    if _TERMINAL_PUNCT_RE.search(prev_text):
+        return False
+    # Ambiguous uppercase→uppercase wrap without terminal punctuation:
+    # join only when the previous line fills its column measure (wrapped),
+    # not when it is short (complete bullet). Fullness is relative to the
+    # widest peer in the same (page, column) lane — page width is wrong for
+    # multi-column layouts where a full column line is ~0.3× page width.
+    # Without lane stats, stay split to avoid mega-bullets.
+    if prev.bbox is not None:
+        lane_widths = (
+            (column_lane_widths or {}).get((prev.page, prev.column_id))
+            if column_lane_widths
+            else None
+        )
+        prev_width = prev.bbox[2] - prev.bbox[0]
+        if lane_widths:
+            if prev_width >= max(lane_widths) * _FULL_LANE_FRACTION:
+                return True
+            return False
+        if page_sizes:
+            page_w, _ = page_sizes.get(prev.page, (None, None))
+            if page_w:
+                prev_right_edge = prev.bbox[2]
+                if (
+                    prev_width >= page_w * _FULL_LINE_WIDTH_FRACTION
+                    or prev_right_edge >= page_w - _PAGE_EDGE_MARGIN_PT
+                ):
+                    return True
+                return False
+    return False
+
+
+def join_logical_blocks(
+    blocks: list[RawBlock],
+    *,
+    heading_block_ids: set[str] | None = None,
+    page_sizes: dict[int, tuple[float | None, float | None]] | None = None,
+) -> list[tuple[RawBlock, list[str]]]:
+    """Merge wrapped physical lines into logical visual-line groups.
+
+    Returns ``[(merged_block, constituent_block_ids)]`` in input order.
+    The merged block keeps the first block's identity (``block_id``,
+    ``page``, ``reading_order``, ``column_id``, method/confidence) with
+    space-joined text and union bbox so downstream provenance can cite
+    every constituent line.
+    """
+    if not blocks:
+        return []
+    lane_widths: dict[tuple[int, int | None], list[float]] = {}
+    for block in blocks:
+        if block.bbox is not None:
+            lane_widths.setdefault((block.page, block.column_id), []).append(
+                block.bbox[2] - block.bbox[0]
+            )
+    merged: list[tuple[RawBlock, list[str]]] = []
+    cur = blocks[0].model_copy(deep=True)
+    cur_ids = [blocks[0].block_id]
+    for nxt in blocks[1:]:
+        if _should_join_logical(
+            cur,
+            nxt,
+            heading_block_ids=heading_block_ids,
+            page_sizes=page_sizes,
+            column_lane_widths=lane_widths,
+        ):
+            cur.text = f"{cur.text.rstrip()} {nxt.text.strip()}".strip()
+            cur.bbox = _bbox_union(cur.bbox, nxt.bbox)
+            if nxt.block_id not in cur_ids:
+                cur_ids.append(nxt.block_id)
+        else:
+            merged.append((cur, cur_ids))
+            cur = nxt.model_copy(deep=True)
+            cur_ids = [nxt.block_id]
+    merged.append((cur, cur_ids))
+    return merged
+
+
 def _is_compact_metadata_text(text: str) -> bool:
     stripped = text.strip()
     return len(stripped) <= 80 and bool(
@@ -852,7 +1302,9 @@ class Column:
 
     __slots__ = ("column_id", "left", "pages", "right")
 
-    def __init__(self, column_id: str, left: float, right: float, pages: set[int]):
+    def __init__(
+        self, column_id: str, left: float, right: float, pages: set[int]
+    ) -> None:
         self.column_id = column_id
         self.left = left
         self.right = right

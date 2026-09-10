@@ -139,6 +139,7 @@ async def persist_pipeline_tailoring(
     tailoring: TailoredCVResponse,
     selected_design: CVDesign = "classic_ats",
     analysis_key: str,
+    source_cv_id: UUID | None = None,
 ) -> TailoredCVVersionResponse:
     """Map bounded canonical bullet edits onto V2, validate, then persist once.
 
@@ -353,5 +354,6 @@ async def persist_pipeline_tailoring(
             document_v2=tailored_document,
             source_document_v2=source_document,
             tailoring_diagnostics=diagnostics,
+            source_cv_id=source_cv_id,
         ),
     )

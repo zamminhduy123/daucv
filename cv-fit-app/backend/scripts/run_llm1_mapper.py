@@ -105,7 +105,9 @@ async def main() -> None:
     )
 
     logger.info("Running LLM #1 Semantic CV Mapper...")
-    structuring_result = await structure_cv(cv_text=cv_text)
+    structuring_result = await structure_cv(
+        cv_text=cv_text, raw_extraction=raw_extraction
+    )
 
     document = structuring_result.document
     canonical_json = document.to_canonical_dict()

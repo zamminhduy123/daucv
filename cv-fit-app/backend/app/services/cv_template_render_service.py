@@ -149,15 +149,40 @@ def _render_header_html(document: CVDocumentV2) -> str:
             f"{escape(document.identity.full_name)}"
             f"</h1>"
         )
-    if document.identity.headline:
+    if document.identity.headline and not document.identity.is_field_hidden("headline"):
         parts.append(
             f'<div class="cv-headline" data-field-id="identity:headline">'
             f"{escape(document.identity.headline)}"
             f"</div>"
         )
 
-    # Single projection for contact entries
-    canonical_contacts = document.identity.canonical_contact_lines()
+    # Single projection for contact entries, minus wizard-hidden fields.
+    hidden_contacts = set(document.identity.hidden_fields or [])
+    canonical_contacts = [
+        line
+        for line in document.identity.canonical_contact_lines()
+        if not (
+            (
+                document.identity.email
+                and document.identity.email in line
+                and "email" in hidden_contacts
+            )
+            or (
+                document.identity.phone
+                and document.identity.phone in line
+                and "phone" in hidden_contacts
+            )
+            or (
+                document.identity.location
+                and document.identity.location in line
+                and "location" in hidden_contacts
+            )
+            or (
+                "links" in hidden_contacts
+                and any(link in line for link in document.identity.links)
+            )
+        )
+    ]
     contact_source = (
         canonical_contacts if canonical_contacts else document.identity.contact_lines
     )
@@ -181,7 +206,10 @@ def _render_section_html(
     section: CVSection,
     document: CVDocumentV2 | None = None,
 ) -> str:
-    if section.type == "custom" and "unclassified" in (section.title or "").lower():
+    title_lower = (section.title or "").lower()
+    if section.type == "custom" and (
+        "unclassified" in title_lower or "other content" in title_lower
+    ):
         return ""
     sec_key = f"section:{section.id if section.id else sec_idx}"
     parts: list[str] = [f'<div class="cv-section" data-section-type="{section.type}">']
@@ -194,7 +222,12 @@ def _render_section_html(
         )
 
     if section.type == "summary":
-        if document and document.summary and document.summary.text:
+        if (
+            document
+            and document.summary
+            and document.summary.text
+            and not document.summary.hidden
+        ):
             parts.append(
                 f'<p class="item-paragraph" data-field-id="summary:text" data-block-type="paragraph">{escape(document.summary.text)}</p>'
             )
@@ -210,6 +243,8 @@ def _render_section_html(
 
 
 def _render_block_html(block_key: str, block: CVBlockType) -> str:
+    if getattr(block, "hidden", False):
+        return ""
     conf_attr = (
         f' data-confidence="{block.confidence:.2f}"'
         if getattr(block, "confidence", None) is not None
@@ -220,34 +255,110 @@ def _render_block_html(block_key: str, block: CVBlockType) -> str:
     ]
 
     if isinstance(block, CVEntryBlock):
+        has_org = bool(block.organization)
+        has_loc = bool(block.location)
+        has_date = bool(block.date)
+        has_sub = bool(block.subtitle)
+
         parts.append('<div class="entry-header">')
-        if block.title:
+        # Row 1
+        parts.append('<div class="entry-row-1">')
+        if has_org and has_loc:
+            parts.append('<div class="row-left">')
+            parts.append(
+                f'<span class="entry-title" data-field-id="{block_key}:organization">{escape(block.organization)}</span>'
+            )
+            parts.append("</div>")
+            parts.append('<div class="row-right">')
+            parts.append(
+                f'<span class="entry-meta entry-location" data-field-id="{block_key}:location">{escape(block.location)}</span>'
+            )
+            parts.append("</div>")
+        elif has_org:
+            parts.append('<div class="row-left">')
+            parts.append(
+                f'<span class="entry-title" data-field-id="{block_key}:organization">{escape(block.organization)}</span>'
+            )
+            if block.title:
+                parts.append(' <span class="entry-separator">|</span> ')
+                parts.append(
+                    f'<span class="entry-subtitle" data-field-id="{block_key}:title"><em>{escape(block.title)}</em></span>'
+                )
+            parts.append("</div>")
+            if has_date:
+                parts.append('<div class="row-right">')
+                parts.append(
+                    f'<span class="entry-meta entry-date" data-field-id="{block_key}:date">{escape(block.date)}</span>'
+                )
+                parts.append("</div>")
+        else:
+            parts.append('<div class="row-left">')
             parts.append(
                 f'<span class="entry-title" data-field-id="{block_key}:title">{escape(block.title)}</span>'
             )
-        if block.date:
-            parts.append(
-                f'<span class="entry-meta" data-field-id="{block_key}:date">{escape(block.date)}</span>'
-            )
+            if has_sub:
+                parts.append(' <span class="entry-separator">|</span> ')
+                parts.append(
+                    f'<span class="entry-subtitle" data-field-id="{block_key}:subtitle"><em>{escape(block.subtitle)}</em></span>'
+                )
+            parts.append("</div>")
+            if has_date or has_loc:
+                parts.append('<div class="row-right">')
+                if has_date:
+                    parts.append(
+                        f'<span class="entry-meta entry-date" data-field-id="{block_key}:date">{escape(block.date)}</span>'
+                    )
+                elif has_loc:
+                    parts.append(
+                        f'<span class="entry-meta entry-location" data-field-id="{block_key}:location">{escape(block.location)}</span>'
+                    )
+                parts.append("</div>")
         parts.append("</div>")
 
-        if block.subtitle:
+        # Row 2
+        if has_org and has_loc:
+            parts.append('<div class="entry-row-2">')
+            parts.append('<div class="row-left">')
             parts.append(
-                f'<div class="entry-subtitle" data-field-id="{block_key}:subtitle">{escape(block.subtitle)}</div>'
+                f'<span class="entry-subtitle" data-field-id="{block_key}:title"><em>{escape(block.title)}</em></span>'
             )
-
-        meta_parts: list[str] = []
-        if block.organization:
-            meta_parts.append(
-                f'<span data-field-id="{block_key}:organization">{escape(block.organization)}</span>'
+            if has_sub:
+                parts.append(" – ")
+                parts.append(
+                    f'<span data-field-id="{block_key}:subtitle">{escape(block.subtitle)}</span>'
+                )
+            parts.append("</div>")
+            if has_date:
+                parts.append('<div class="row-right">')
+                parts.append(
+                    f'<span class="entry-meta entry-date" data-field-id="{block_key}:date"><em>{escape(block.date)}</em></span>'
+                )
+                parts.append("</div>")
+            parts.append("</div>")
+        elif has_org and has_sub:
+            parts.append('<div class="entry-row-2">')
+            parts.append('<div class="row-left">')
+            parts.append(
+                f'<span class="entry-subtitle" data-field-id="{block_key}:subtitle"><em>{escape(block.subtitle)}</em></span>'
             )
-        if block.location:
-            meta_parts.append(
-                f'<span data-field-id="{block_key}:location">{escape(block.location)}</span>'
+            parts.append("</div>")
+            if has_loc:
+                parts.append('<div class="row-right">')
+                parts.append(
+                    f'<span class="entry-meta entry-location" data-field-id="{block_key}:location"><em>{escape(block.location)}</em></span>'
+                )
+                parts.append("</div>")
+            parts.append("</div>")
+        elif not has_org and has_loc and has_date:
+            parts.append('<div class="entry-row-2">')
+            parts.append('<div class="row-left"></div>')
+            parts.append('<div class="row-right">')
+            parts.append(
+                f'<span class="entry-meta entry-location" data-field-id="{block_key}:location"><em>{escape(block.location)}</em></span>'
             )
-
-        if meta_parts:
-            parts.append(f'<div class="entry-meta">{" · ".join(meta_parts)}</div>')
+            parts.append("</div>")
+            parts.append("</div>")
+        parts.append("</div>")
 
         if block.bullets:
             parts.append('<ul class="bullet-list">')
@@ -273,58 +384,68 @@ def _render_block_html(block_key: str, block: CVBlockType) -> str:
 
     elif isinstance(block, CVSkillGroupBlock):
         parts.append('<div class="skills-group">')
+        parts.append('<span class="bullet-char">• </span>')
         if block.label:
             parts.append(
-                f'<span class="skills-label" data-field-id="{block_key}:label">{escape(block.label)}</span>'
+                f'<strong class="skills-label" data-field-id="{block_key}:label">{escape(block.label)}: </strong>'
             )
-            if block.skills:
-                parts.append(": ")
         if block.skills:
             skill_spans = [
                 f'<span data-field-id="{block_key}:skill:{skill_idx}">{escape(skill)}</span>'
                 for skill_idx, skill in enumerate(block.skills)
             ]
-            parts.append(f'<div class="skills-list">{" · ".join(skill_spans)}</div>')
+            parts.append(f'<span class="skills-list">{", ".join(skill_spans)}</span>')
         parts.append("</div>")
 
     elif isinstance(block, CVPublicationBlock):
-        if block.title:
-            parts.append(
-                f'<div class="entry-title" data-field-id="{block_key}:title">{escape(block.title)}</div>'
-            )
+        parts.append('<div class="pub-row">')
+        parts.append('<span class="bullet-char">• </span>')
         if block.authors:
             parts.append(
-                f'<div class="entry-subtitle" data-field-id="{block_key}:authors">{escape(block.authors)}</div>'
+                f'<span class="pub-authors" data-field-id="{block_key}:authors">{escape(block.authors)}. </span>'
             )
-
-        pub_meta: list[str] = []
+        if block.title:
+            parts.append(
+                f'<span class="pub-title" data-field-id="{block_key}:title">“{escape(block.title)}” </span>'
+            )
+        meta_items: list[str] = []
         if block.venue:
-            pub_meta.append(
-                f'<span data-field-id="{block_key}:venue">{escape(block.venue)}</span>'
-            )
-        if block.date:
-            pub_meta.append(
-                f'<span data-field-id="{block_key}:date">{escape(block.date)}</span>'
+            meta_items.append(
+                f'<em class="pub-venue" data-field-id="{block_key}:venue">{escape(block.venue)}</em>'
             )
         if block.status:
-            pub_meta.append(
-                f'<span data-field-id="{block_key}:status">{escape(block.status)}</span>'
+            meta_items.append(
+                f'<span class="pub-status" data-field-id="{block_key}:status">{escape(block.status)}</span>'
             )
-        if pub_meta:
-            parts.append(f'<div class="entry-meta">{" · ".join(pub_meta)}</div>')
+        if block.date:
+            meta_items.append(
+                f'<span class="pub-date" data-field-id="{block_key}:date">{escape(block.date)}</span>'
+            )
+        if meta_items:
+            parts.append(", ".join(meta_items))
+        parts.append("</div>")
 
     elif isinstance(block, CVEducationBlock):
         parts.append('<div class="entry-header">')
+        # Row 1: Institution + Location
+        parts.append('<div class="entry-row-1">')
+        parts.append('<div class="row-left">')
         if block.institution:
             parts.append(
                 f'<span class="entry-title" data-field-id="{block_key}:institution">{escape(block.institution)}</span>'
             )
-        if block.date:
+        parts.append("</div>")
+        if block.location:
+            parts.append('<div class="row-right">')
             parts.append(
-                f'<span class="entry-meta" data-field-id="{block_key}:date">{escape(block.date)}</span>'
+                f'<span class="entry-meta entry-location" data-field-id="{block_key}:location">{escape(block.location)}</span>'
             )
+            parts.append("</div>")
         parts.append("</div>")
 
+        # Row 2: Degree/Field + Date
+        parts.append('<div class="entry-row-2">')
+        parts.append('<div class="row-left">')
         deg_parts: list[str] = []
         if block.degree:
             deg_parts.append(
@@ -335,19 +456,28 @@ def _render_block_html(block_key: str, block: CVBlockType) -> str:
                 f'<span data-field-id="{block_key}:field">{escape(block.field)}</span>'
             )
         if deg_parts:
-            parts.append(f'<div class="entry-subtitle">{" — ".join(deg_parts)}</div>')
-
-        if block.location:
             parts.append(
-                f'<div class="entry-meta"><span data-field-id="{block_key}:location">{escape(block.location)}</span></div>'
+                f'<span class="entry-subtitle"><em>{" in ".join(deg_parts)}</em></span>'
             )
-
-        for detail_idx, detail in enumerate(block.details):
+        parts.append("</div>")
+        if block.date:
+            parts.append('<div class="row-right">')
             parts.append(
-                f'<p class="item-paragraph" data-field-id="{block_key}:detail:{detail_idx}">'
-                f"{escape(detail)}"
-                f"</p>"
+                f'<span class="entry-meta entry-date" data-field-id="{block_key}:date"><em>{escape(block.date)}</em></span>'
             )
+            parts.append("</div>")
+        parts.append("</div>")
+        parts.append("</div>")
+
+        if block.details:
+            parts.append('<div class="education-details">')
+            for detail_idx, detail in enumerate(block.details):
+                parts.append(
+                    f'<p class="item-paragraph edu-detail" data-field-id="{block_key}:detail:{detail_idx}">'
+                    f"{escape(detail)}"
+                    f"</p>"
+                )
+            parts.append("</div>")
 
     elif isinstance(block, CVUnknownBlock):
         for line_idx, line in enumerate(block.lines):

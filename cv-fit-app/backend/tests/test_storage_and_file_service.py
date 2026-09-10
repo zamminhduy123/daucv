@@ -40,6 +40,14 @@ class DummyStorage:
     ) -> str:
         return f"https://mock-storage.test/{bucket}/{path}"
 
+    async def create_signed_url(
+        self,
+        bucket: str,
+        path: str,
+        expires_in: int = 300,
+    ) -> str:
+        return f"https://mock-storage.test/{bucket}/{path}?signed=1&expires_in={expires_in}"
+
 
 def test_storage_protocol_compliance():
     """Verify SupabaseStorage and DummyStorage satisfy Storage protocol."""
@@ -111,7 +119,10 @@ async def test_file_service_upload():
 
     # 3. Assert returned object contains metadata and neutral generated URL
     assert result["id"] == test_file_id
-    assert result["url"] == f"https://mock-storage.test/user-files/{user_id}/resume.pdf"
+    assert (
+        result["url"]
+        == f"https://mock-storage.test/user-files/{user_id}/resume.pdf?signed=1&expires_in=3600"
+    )
 
 
 @pytest.mark.asyncio

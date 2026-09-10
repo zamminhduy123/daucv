@@ -339,7 +339,7 @@ def minimal_data(model: type[BaseModel]) -> dict[str, Any]:
         }
 
     if model is TailoredCVVersionUpdate:
-        return {"selected_design": "modern_professional"}
+        return {"selected_design": "compact"}
 
     if model is TailoredCVVersionResponse:
         return {

@@ -74,6 +74,7 @@ from app.schemas.tailored_cv import VerifyUserEditRequest, VerifyUserEditRespons
 from app.schemas.user import (
     CVListResponse,
     CVResponse,
+    StructuredDocumentSaveRequest,
     UpdateCVRequest,
     UserProfileResponse,
 )
@@ -893,15 +894,42 @@ async def get_user_profile(
     return await user_cv_service.get_profile_with_stats(user)
 
 
-def to_uuid(val) -> UUID:
+def to_uuid(val: str | UUID) -> UUID:
     if isinstance(val, UUID):
         return val
     return UUID(str(val))
 
 
+def parse_cv_uuid(cv_id: str) -> UUID:
+    """Parse one CV row id or raise a localized 400 (single helper)."""
+    try:
+        return UUID(cv_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID CV không hợp lệ.") from None
+
+
 @router.get("/user/cvs", response_model=CVListResponse)
-async def list_user_cvs(user: dict = Depends(get_current_user)) -> CVListResponse:
+async def list_user_cvs(
+    user: dict = Depends(get_current_user),
+    file_service: FileService = Depends(get_file_service),
+) -> CVListResponse:
     cvs = await user_cv_service.list_cvs(to_uuid(user["id"]))
+    # Resolve fresh per-row PDF URLs for first-page thumbnails. Rows are
+    # already user-scoped by the query; URL minting re-checks ownership per
+    # file so a forged pdf_file_id can never leak another user's object.
+    # Signed URLs expire — the client refetches the list (re-minting) and
+    # falls back to text previews on failure.
+    for cv in cvs:
+        if not cv.pdf_file_id:
+            continue
+        try:
+            cv.pdf_url = await file_service.get_owned_file_url(
+                str(user["id"]), cv.pdf_file_id
+            )
+        except Exception:
+            _logger.warning(
+                "Could not mint thumbnail URL for CV %s.", cv.id, exc_info=True
+            )
     return CVListResponse(cvs=cvs)
 
 
@@ -914,6 +942,8 @@ async def upload_user_cv(
         to_uuid(user["id"]),
         req.cv_text,
         req.cv_filename,
+        req.raw_extraction_ref,
+        req.pdf_file_id,
     )
 
 
@@ -929,18 +959,78 @@ async def update_active_cv(
     )
 
 
+@router.put("/user/cv/{cv_id}", response_model=CVResponse)
+async def update_user_cv(
+    cv_id: str,
+    req: UpdateCVRequest,
+    user: dict = Depends(get_current_user),
+) -> CVResponse:
+    """Update one source CV row by id (multi-CV switcher; ownership-checked)."""
+    cv_uuid = parse_cv_uuid(cv_id)
+    return await user_cv_service.update_cv_text(
+        cv_uuid,
+        to_uuid(user["id"]),
+        req.cv_text,
+        req.cv_filename,
+        req.raw_extraction_ref,
+    )
+
+
 @router.delete("/user/cv/{cv_id}")
 async def deactivate_user_cv(
     cv_id: str,
     user: dict = Depends(get_current_user),
+    file_service: FileService = Depends(get_file_service),
 ) -> dict:
-    try:
-        cv_uuid = UUID(cv_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="ID CV không hợp lệ.")
+    """Delete one source CV and, best-effort, its stored files.
 
-    await user_cv_service.deactivate_cv(cv_uuid, to_uuid(user["id"]))
+    File ids come from the owned row itself (raw extraction + source PDF),
+    so callers cannot address other users' objects. Storage cleanup never
+    blocks the row deletion: missing or already cleaned artifacts are
+    ignored so orphaned files cannot strand the row.
+    """
+    cv_uuid = parse_cv_uuid(cv_id)
+
+    row = await user_cv_service.get_cv(cv_uuid, to_uuid(user["id"]))
+    if row is not None:
+        for file_id in (row.raw_extraction_ref, row.pdf_file_id):
+            if file_id:
+                await file_service.delete_owned_file(str(user["id"]), file_id)
+
+    await user_cv_service.delete_cv(cv_uuid, to_uuid(user["id"]))
     return {"success": True}
+
+
+@router.put("/user/cv/{cv_id}/structured-document")
+async def save_structured_document(
+    cv_id: str,
+    req: StructuredDocumentSaveRequest,
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Persist the review-wizard corrected document JSON for one source CV.
+
+    Per-brick provenance is preserved: only bricks the wizard touched carry
+    ``origin == USER_EDIT`` (stamped by the frontend); untouched bricks keep
+    the extractor's ``EXTRACTED`` origin.
+    """
+    cv_uuid = parse_cv_uuid(cv_id)
+    document = req.document.model_copy(deep=True)
+    document = user_cv_service.mark_user_edited(document)
+    updated_at = await user_cv_service.save_structured_document(
+        cv_uuid, to_uuid(user["id"]), document.model_dump_json()
+    )
+    return {"success": True, "updated_at": updated_at}
+
+
+@router.get("/user/cv/{cv_id}/structured-document")
+async def get_structured_document(
+    cv_id: str,
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Return the saved wizard JSON for one source CV, or saved:null."""
+    cv_uuid = parse_cv_uuid(cv_id)
+    saved = await user_cv_service.get_structured_document(cv_uuid, to_uuid(user["id"]))
+    return {"saved": saved}
 
 
 @router.post("/user/feedback", response_model=FeedbackResponse)

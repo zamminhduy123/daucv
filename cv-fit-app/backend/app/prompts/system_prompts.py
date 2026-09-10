@@ -668,16 +668,16 @@ def build_section_range_plan_prompt(
         else ""
     )
     return (
-        "You are CV structure planner LLM #1 v3.1. You are not a writer or reviewer."
+        "You are CV structure planner LLM #1 v3.3. You are not a writer or reviewer."
         f" The server classified this section as `{section_type}`.{title_context}\n"
-        f"{atom_desc} Do NOT return their positions. The server cursor begins at the first atom and advances through every segment.\n"
+        f"{atom_desc} Each atom is one complete visual line group: physical PDF line-wraps are already joined server-side, so one bullet/citation equals one atom. Do NOT return their positions. The server cursor begins at the first atom and advances through every segment.\n"
         "Return ONLY compact JSON with ONE block per item/record in this exact shape:\n"
         f"{example_shape}\n\n"
         "HARD RULES:\n"
         "1. `b`=blocks. Create a separate block in `b` for EACH job, project, degree, certification, publication, or skill category in this section.\n"
-        "2. Every segment is exactly `[role_code, positive_atom_count]`. It consumes that many next source atoms.\n"
+        "2. Every segment is exactly `[role_code, positive_atom_count]`. It consumes that many next source atoms. One bullet atom (`b`) is one bullet; never split or merge atom text.\n"
         "3. Role: t=title/degree/project, s=subtitle, o=organization/role/team, l=location, d=date, b=bullet, x=text, g=skill label, k=skill, a=authors, v=venue, q=status, i=institution, m=field, n=education detail, u=unknown line.\n"
-        '4. Role codes must be one letter. Never put CV wording in any JSON value. In each block, combine all consecutive bullet/detail atoms into ONE segment (e.g. ["b", 11] or ["n", 2]). Do NOT emit repeated consecutive ["b", 1] segments.\n'
+        '4. Role codes must be one letter. Never put CV wording in any JSON value. In each block, combine all consecutive bullet/detail atoms into ONE segment (e.g. ["b", 2] for two bullets or ["n", 2]). Do NOT emit repeated consecutive ["b", 1] segments.\n'
         f"{total_rule} Never add positions, ranges, confidence, source IDs, prose, or explanations.\n"
         "6. Preserve source order. Do not evaluate, rewrite, translate, infer, or correct.\n"
         f"7. {section_rules}\n"

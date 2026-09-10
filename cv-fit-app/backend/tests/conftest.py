@@ -78,6 +78,7 @@ def client():
         "cv_text": "Sample CV Text",
         "is_active": True,
         "created_at": datetime.now(),
+        "credits": 10,
     }
     mock_conn.execute = AsyncMock(return_value="UPDATE 1")
     mock_conn.transaction = lambda: MockTransaction()

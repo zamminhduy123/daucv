@@ -40,3 +40,12 @@ class Storage(Protocol):
     ) -> str:
         """Get public or accessible URL for an object in specified bucket and path."""
         ...
+
+    async def create_signed_url(
+        self,
+        bucket: str,
+        path: str,
+        expires_in: int = 300,
+    ) -> str:
+        """Mint a time-limited URL that also works on private buckets."""
+        ...

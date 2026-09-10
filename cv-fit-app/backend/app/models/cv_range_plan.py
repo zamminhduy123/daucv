@@ -28,6 +28,13 @@ class SourceLedgerAtom(_StrictRangePlanModel):
     is_bullet: bool = False
     start_offset: int = Field(ge=0)
     end_offset: int = Field(gt=0)
+    source_block_ids: list[str] = Field(
+        default_factory=list,
+        description=(
+            "All constituent raw block IDs merged into this logical atom. "
+            "Empty means single-block atom (equals [block_id])."
+        ),
+    )
 
     @model_validator(mode="after")
     def offsets_are_ordered(self) -> SourceLedgerAtom:

@@ -10,6 +10,12 @@ Run with:
     cd backend && pytest tests/test_layout_extraction.py -v
 """
 
+from app.models.cv_raw_extraction import (
+    ExtractionMethod,
+    RawBlock,
+    RawExtraction,
+    RawPage,
+)
 from app.services.layout_extraction import (
     ExtractedLine,
     _cluster_coordinate_ranges,
@@ -32,6 +38,7 @@ from app.services.layout_extraction import (
     extract_text_from_layout,
     layout_extract_pdf,
     normalize_line,
+    read_blocks_in_order,
     should_join_lines,
     sort_by_reading_order,
 )
@@ -993,3 +1000,265 @@ class TestLayoutExtractionIntegration:
         lines = layout_extract_pdf(_make_minimal_pdf(expected))
         assert [line.text for line in lines] == expected
         assert all(line.width > 0 and line.height > 0 for line in lines)
+
+
+# ---------------------------------------------------------------------------
+# ``read_blocks_in_order`` — column-major reading order for ``RawBlock``
+# ---------------------------------------------------------------------------
+
+
+def _block(
+    block_id: str,
+    text: str,
+    *,
+    x: float,
+    y: float,
+    width: float = 100.0,
+    height: float = 12.0,
+) -> RawBlock:
+    return RawBlock(
+        block_id=block_id,
+        page=1,
+        text=text,
+        bbox=(x, y, x + width, y + height),
+        extraction_method=ExtractionMethod.NATIVE_BLOCKS,
+        reading_order=0,
+    )
+
+
+def test_read_blocks_in_order_single_column_keeps_legacy_sort() -> None:
+    """Single-column page: every block stays ``column_id is None`` and the
+    output equals the legacy ``(y, x)`` sort.
+    """
+    blocks = [
+        _block("a", "Header", x=40, y=80),
+        _block("b", "First", x=40, y=120),
+        _block("c", "Second", x=40, y=140),
+        _block("d", "Third", x=40, y=160),
+    ]
+    raw = RawExtraction(
+        method=ExtractionMethod.NATIVE_BLOCKS,
+        pages=[RawPage(page=1, width=612, blocks=blocks)],
+    )
+
+    ordered = read_blocks_in_order(raw)
+
+    assert [b.block_id for b in ordered] == ["a", "b", "c", "d"]
+    assert all(b.column_id is None for b in ordered)
+
+
+def test_read_blocks_in_order_two_columns_emits_left_then_right() -> None:
+    """Two-column page with a clear gutter: left column emitted top-to-bottom
+    first, then right column top-to-bottom. Spanning header stays at top.
+    """
+    blocks = [
+        _block("hdr", "SKILLS", x=30, y=80, width=552),
+        _block("cv", "Computer Vision", x=39, y=120),
+        _block("prog", "Programming", x=316, y=120),
+        _block("ocr", "Deep models in OCR", x=39, y=140),
+        _block("pt", "Pytorch, OpenCV", x=316, y=140),
+        _block("det", "Detection, Segmentation", x=39, y=160),
+        _block("trt", "TensorRT", x=316, y=160),
+    ]
+    raw = RawExtraction(
+        method=ExtractionMethod.NATIVE_BLOCKS,
+        pages=[RawPage(page=1, width=612, blocks=blocks)],
+    )
+
+    ordered = read_blocks_in_order(raw)
+
+    assert [b.block_id for b in ordered] == [
+        "hdr",
+        "cv",
+        "ocr",
+        "det",
+        "prog",
+        "pt",
+        "trt",
+    ]
+    # Header sits at the top of column 1 because column detection operates
+    # on bbox geometry only; heading detection is the partition layer's
+    # responsibility (via ``classify_heading``).
+    assert ordered[0].column_id == 1
+    assert {b.column_id for b in ordered[1:]} == {1, 2}
+
+
+def test_read_blocks_in_order_three_columns_each_top_to_bottom() -> None:
+    """Three-column page: each column reads independently, emitted
+    left-to-right.
+    """
+    blocks = [
+        _block("hdr", "SKILLS", x=30, y=80, width=552),
+        _block("a1", "A-One", x=39, y=120),
+        _block("b1", "B-One", x=216, y=120),
+        _block("c1", "C-One", x=393, y=120),
+        _block("a2", "A-Two", x=39, y=140),
+        _block("b2", "B-Two", x=216, y=140),
+        _block("c2", "C-Two", x=393, y=140),
+    ]
+    raw = RawExtraction(
+        method=ExtractionMethod.NATIVE_BLOCKS,
+        pages=[RawPage(page=1, width=612, blocks=blocks)],
+    )
+
+    ordered = read_blocks_in_order(raw)
+
+    assert [b.block_id for b in ordered] == [
+        "hdr",
+        "a1",
+        "a2",
+        "b1",
+        "b2",
+        "c1",
+        "c2",
+    ]
+    assert [b.column_id for b in ordered[1:]] == [1, 1, 2, 2, 3, 3]
+
+
+def test_read_blocks_in_order_spanning_block_at_y_mid() -> None:
+    """A wide block placed mid-page (e.g. an EXPERIENCE heading inside a
+    two-column page) is assigned to column 1 (the closest centroid) and
+    emitted at its Y-position within that column. Heading detection is
+    the partition layer's responsibility (``classify_heading``); this
+    routine only assigns column membership.
+    """
+    blocks = [
+        _block("cv", "Computer Vision", x=39, y=120),
+        _block("prog", "Programming", x=316, y=120),
+        _block("hdr_exp", "EXPERIENCE", x=30, y=200, width=552),
+        _block("e1", "Engineer", x=39, y=240),
+    ]
+    raw = RawExtraction(
+        method=ExtractionMethod.NATIVE_BLOCKS,
+        pages=[RawPage(page=1, width=612, blocks=blocks)],
+    )
+
+    ordered = read_blocks_in_order(raw)
+
+    assert [b.block_id for b in ordered] == ["cv", "hdr_exp", "e1", "prog"]
+
+
+def test_read_blocks_in_order_sub_threshold_gap_treated_as_single_column() -> None:
+    """Two x_min clusters separated by less than the dynamic threshold are
+    treated as a single column (no column_id assigned).
+    """
+    blocks = [
+        _block("a", "Header", x=40, y=80, width=120),
+        _block("b", "Body", x=170, y=120, width=120),
+    ]
+    raw = RawExtraction(
+        method=ExtractionMethod.NATIVE_BLOCKS,
+        pages=[RawPage(page=1, width=4000, blocks=blocks)],
+    )
+
+    ordered = read_blocks_in_order(raw)
+
+    assert [b.block_id for b in ordered] == ["a", "b"]
+    assert all(b.column_id is None for b in ordered)
+
+
+def test_read_blocks_in_order_does_not_treat_wide_bullet_as_spanning() -> None:
+    """A bullet line that happens to be visually wide (e.g. wrapping across
+    both columns) is NOT a heading and must not be hoisted to the top.
+    """
+    blocks = [
+        _block("cv", "Computer Vision", x=39, y=120),
+        _block("prog", "Programming", x=316, y=120),
+        _block("bullet", "– Shipped production features.", x=51, y=140, width=400),
+    ]
+    raw = RawExtraction(
+        method=ExtractionMethod.NATIVE_BLOCKS,
+        pages=[RawPage(page=1, width=612, blocks=blocks)],
+    )
+
+    ordered = read_blocks_in_order(raw)
+
+    assert [b.block_id for b in ordered] == ["cv", "bullet", "prog"]
+    assert ordered[1].column_id == 1
+    assert ordered[2].column_id == 2
+
+
+def test_read_blocks_in_order_property_single_column_matches_legacy_sort() -> None:
+    """Property: for any single-column page, ``read_blocks_in_order`` output
+    equals the legacy ``(y, x)`` sort. Catches accidental row-major regression.
+    """
+    blocks = [
+        _block("b1", "alpha", x=42, y=110),
+        _block("b2", "beta", x=42, y=160),
+        _block("b3", "gamma", x=42, y=130),
+        _block("b4", "delta", x=42, y=200),
+    ]
+    raw = RawExtraction(
+        method=ExtractionMethod.NATIVE_BLOCKS,
+        pages=[RawPage(page=1, width=612, blocks=blocks)],
+    )
+
+    ordered = read_blocks_in_order(raw)
+    legacy = sorted(blocks, key=lambda block: (block.bbox[1], block.bbox[0]))
+
+    assert [b.block_id for b in ordered] == [b.block_id for b in legacy]
+
+
+def test_read_blocks_in_order_merges_subcolumn_indentation() -> None:
+    """Regression for vinh.pdf page 3: skill values are indented ~36pt
+    under their category labels (x≈38 → x≈75). The 36pt gap exceeds the
+    base column threshold (~36pt) and would otherwise create a phantom
+    third column. The merge step must collapse the indent into the
+    surrounding column.
+    """
+    blocks = [
+        _block("hdr", "SKILLS", x=27, y=80, width=540),
+        _block("cv_lbl", "Computer Vision", x=39, y=110),
+        _block("cv_v1", "Deep models in OCR", x=75, y=130),
+        _block("cv_v2", "Detection, Segmentation", x=75, y=150),
+        _block("eng_lbl", "English", x=39, y=200),
+        _block("eng_v1", "VNU-EPT 280", x=75, y=220),
+        _block("prog_lbl", "Programming", x=316, y=110),
+        _block("prog_v1", "Pytorch, OpenCV", x=352, y=130),
+        _block("prog_v2", "TensorRT", x=352, y=150),
+    ]
+    raw = RawExtraction(
+        method=ExtractionMethod.NATIVE_BLOCKS,
+        pages=[RawPage(page=1, width=595, blocks=blocks)],
+    )
+
+    ordered = read_blocks_in_order(raw)
+
+    # Two real columns (left + right); the indent at x≈75 must not split
+    # off as a third.
+    column_ids = {b.column_id for b in ordered if b.column_id is not None}
+    assert column_ids == {1, 2}
+    # Left column labels (x=39) and their indented values (x=75) share
+    # the same column_id.
+    cv_lbl = next(b for b in ordered if b.block_id == "cv_lbl")
+    cv_v1 = next(b for b in ordered if b.block_id == "cv_v1")
+    assert cv_lbl.column_id == cv_v1.column_id
+    # Right column labels (x=316) and indented values (x=352) share the
+    # same column_id.
+    prog_lbl = next(b for b in ordered if b.block_id == "prog_lbl")
+    prog_v1 = next(b for b in ordered if b.block_id == "prog_v1")
+    assert prog_lbl.column_id == prog_v1.column_id
+
+
+def test_read_blocks_in_order_keeps_real_narrow_gutter() -> None:
+    """The merge step must NOT collapse a real (narrow-but-valid) two-column
+    gutter. A standard 30pt gutter on a US-Letter page is the minimum
+    legitimate column boundary.
+    """
+    blocks = [
+        _block("a1", "Left One", x=40, y=100),
+        _block("b1", "Right One", x=300, y=100),
+        _block("a2", "Left Two", x=40, y=140),
+        _block("b2", "Right Two", x=300, y=140),
+    ]
+    raw = RawExtraction(
+        method=ExtractionMethod.NATIVE_BLOCKS,
+        pages=[RawPage(page=1, width=612, blocks=blocks)],
+    )
+
+    ordered = read_blocks_in_order(raw)
+
+    a1 = next(b for b in ordered if b.block_id == "a1")
+    b1 = next(b for b in ordered if b.block_id == "b1")
+    assert a1.column_id == 1
+    assert b1.column_id == 2

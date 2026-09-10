@@ -1216,7 +1216,7 @@ def test_tailored_cv_create_reports_required_persistence_migration(
 def test_tailored_cv_routes_validate_version_id(client: TestClient) -> None:
     patch_response = client.patch(
         "/api/user/tailored-cvs/not-a-uuid",
-        json={"selected_design": "modern_professional"},
+        json={"selected_design": "classic_ats"},
     )
     pdf_response = client.get("/api/user/tailored-cvs/not-a-uuid/pdf")
 
@@ -1768,7 +1768,7 @@ def test_update_tailored_cv_design_ownership(
 
     resp = client.patch(
         "/api/user/tailored-cvs/12345678-1234-1234-1234-123456789012",
-        json={"selected_design": "modern_professional"},
+        json={"selected_design": "classic_ats"},
     )
     assert resp.status_code == 404
 

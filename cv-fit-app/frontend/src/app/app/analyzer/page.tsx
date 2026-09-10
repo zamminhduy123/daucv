@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, Briefcase, Download, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import {
   tailorCVAPI,
 } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
+import { clearWizardHandoff, readWizardHandoff } from "@/lib/wizard-handoff";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { useAuth } from "@/context/AuthContext";
 
@@ -88,8 +89,23 @@ export default function AnalyzerPage() {
     setCachedAnalysis,
     clearCache,
     rawExtractionRef,
+    selectedCvId,
   } = useWorkspace();
-  const { refreshCredits } = useAuth();
+  const { refreshCredits, userId } = useAuth();
+
+  // Wizard handoff: the review page persists the user-corrected document,
+  // mints a source ticket for it, and stashes both in a user-scoped
+  // sessionStorage entry before navigating here. The analyzer then skips
+  // /api/cv/parse (LLM1) and its credit charge entirely. The handoff is
+  // validated against the selected CV so a stale one can never apply to a
+  // different CV; it is cleared once the analysis succeeds.
+  const wizardHandoff = useMemo(
+    () => {
+      const handoff = readWizardHandoff(userId);
+      return handoff && handoff.source_cv_id === selectedCvId ? handoff : null;
+    },
+    [userId, selectedCvId],
+  );
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<CVPipelineAnalysis | null>(
@@ -104,16 +120,24 @@ export default function AnalyzerPage() {
   const cancelledByUserRef = useRef(false);
   const canonicalCVRef = useRef(cache.analyzerResult?.canonical_cv ?? null);
 
-  // Route guard: redirect if no data
+  // Route guard: force user through Setup -> Review -> Analyzer flow
   useEffect(() => {
-    if (isLoaded && !hasData) {
+    if (!isLoaded) return;
+    if (!hasData) {
       router.replace("/app/setup");
+      return;
     }
-  }, [isLoaded, hasData, router]);
+    // Cannot analyze directly without having gone through the review wizard or having a cached analysis
+    if (!analysisResult && !cache.analyzerResult && !wizardHandoff) {
+      router.replace("/app/review");
+      return;
+    }
+  }, [isLoaded, hasData, analysisResult, cache.analyzerResult, wizardHandoff, router]);
 
-  // Auto-analyze on mount (only once, skip if cached)
+  // Auto-analyze on mount (only once, skip if cached or unreviewed)
   useEffect(() => {
     if (!hasData || hasTriggered.current || analysisResult) return;
+    if (!cache.analyzerResult && !wizardHandoff) return;
     hasTriggered.current = true;
 
     const runAnalysis = async () => {
@@ -125,17 +149,19 @@ export default function AnalyzerPage() {
       setProgressMessage(canonicalCVRef.current ? "Đang đánh giá CV..." : "Đang lập bản đồ CV...");
       try {
         const cached = cache.analyzerResult;
-        let sourceDocument = cached?.source_document_v2;
-        let sourceTicket = cached?.source_ticket;
-        let canonicalCV = canonicalCVRef.current;
+        let sourceDocument = cached?.source_document_v2 ?? wizardHandoff?.source_document_v2 ?? null;
+        let sourceTicket = cached?.source_ticket ?? wizardHandoff?.source_ticket ?? null;
+        let canonicalCV = canonicalCVRef.current ?? wizardHandoff?.canonical_cv ?? null;
 
+        // Wizard path: the document is already user-corrected and ticketed.
+        // Skip parseCVAPI (LLM1) and its credit charge.
         if (!canonicalCV || !sourceDocument || !sourceTicket) {
           const parsed = await parseCVAPI(cvText, rawExtractionRef?.id, controller.signal);
           canonicalCV = parsed.canonical_cv;
           sourceDocument = parsed.source_document_v2;
           sourceTicket = parsed.source_ticket;
-          canonicalCVRef.current = canonicalCV;
         }
+        canonicalCVRef.current = canonicalCV;
 
         setProgressMessage(jdText.trim() ? "Đang đánh giá độ phù hợp với JD..." : "Đang đánh giá chất lượng CV...");
         const evaluation = await evaluateCVAPI(canonicalCV, jdText, controller.signal);
@@ -159,6 +185,7 @@ export default function AnalyzerPage() {
         } satisfies CVPipelineAnalysis;
         setAnalysisResult(data);
         setCachedAnalysis(data);
+        clearWizardHandoff(userId);
       } catch (err: unknown) {
         const isAbort =
           cancelledByUserRef.current ||
@@ -191,6 +218,8 @@ export default function AnalyzerPage() {
     setCachedAnalysis,
     cache.analyzerResult,
     refreshCredits,
+    wizardHandoff,
+    userId,
   ]);
 
   const handleTailorCV = async () => {
@@ -259,8 +288,9 @@ export default function AnalyzerPage() {
         analysisResult.source_document_v2,
         analysisResult.source_ticket,
         tailoring,
-        "classic_ats",
+        wizardHandoff?.design ?? "classic_ats",
         controller.signal,
+        wizardHandoff?.source_cv_id ?? selectedCvId ?? undefined,
       );
       toast.success("Đã lưu CV đã tối ưu. Đang chuyển sang màn hình xem trước & xuất PDF...");
       router.push(`/app/history?selected=${version.id}`);

@@ -343,11 +343,24 @@ async def create_version(
         except ValueError as exc:
             raise TailoredCVEntitlementError from exc
 
-    source = await Database.fetch_one(
-        "SELECT id, cv_filename FROM public.user_cvs WHERE user_id = $1 AND cv_text = $2 ORDER BY is_active DESC, created_at DESC LIMIT 1",
-        user_id,
-        request.source_cv_text,
-    )
+    source: dict | None = None
+    if request.source_cv_id is not None:
+        # Explicit link from the multi-CV switcher (ownership-checked).
+        source_row = await Database.fetch_one(
+            "SELECT id, cv_filename FROM public.user_cvs WHERE id = $1 AND user_id = $2",
+            request.source_cv_id,
+            user_id,
+        )
+        if source_row is not None:
+            source = dict(source_row)
+    if source is None:
+        source = await Database.fetch_one(
+            "SELECT id, cv_filename FROM public.user_cvs WHERE user_id = $1 AND cv_text = $2 ORDER BY is_active DESC, created_at DESC LIMIT 1",
+            user_id,
+            request.source_cv_text,
+        )
+        if source is not None:
+            source = dict(source)
     inferred_role, inferred_company = extract_target_metadata(request.jd_text)
     complete_cv = build_source_preserving_tailored_cv_from_parts(
         cv_text=request.source_cv_text,

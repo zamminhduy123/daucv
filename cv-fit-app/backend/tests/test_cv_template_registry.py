@@ -15,13 +15,15 @@ def test_list_templates_returns_allowlisted_templates():
     templates = list_templates()
     ids = [t.template_id for t in templates]
     assert "classic_ats" in ids
-    assert "modern_professional" in ids
     assert "compact" in ids
+    # modern_professional retired: two-column sidebar is not ATS-safe.
+    assert "modern_professional" not in ids
 
 
 def test_resolve_template_id_maps_legacy_values():
     assert resolve_template_id("classic_ats") == "classic_ats"
-    assert resolve_template_id("modern_professional") == "modern_professional"
+    # Retired modern records resolve to classic so old versions still open.
+    assert resolve_template_id("modern_professional") == "classic_ats"
     assert resolve_template_id("compact_one_page") == "compact"
     assert resolve_template_id("compact") == "compact"
 

@@ -610,6 +610,7 @@ async def structure_cv(
     raw_extraction_ref_id: str | None = None,
     user_id: str | None = None,
     file_service: FileService | None = None,
+    raw_extraction: RawExtraction | None = None,
     background_tasks: BackgroundTasks | None = None,
     on_retry: ParserRetryReporter | None = None,
 ) -> CVStructuringResult:
@@ -622,6 +623,7 @@ async def structure_cv(
             raw_extraction_ref_id=raw_extraction_ref_id,
             user_id=user_id,
             file_service=file_service,
+            raw_extraction=raw_extraction,
             background_tasks=background_tasks,
             on_retry=on_retry,
         )

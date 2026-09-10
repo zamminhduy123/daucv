@@ -427,7 +427,7 @@ def test_tailoring_entitlement_is_bound_to_user_cv_and_jd(monkeypatch):
 
 @pytest.mark.parametrize(
     "design",
-    ["classic_ats", "modern_professional", "compact_one_page"],
+    ["classic_ats", "compact_one_page"],
 )
 def test_pdf_html_contains_complete_escaped_cv_for_every_design(design):
     cv = type(_analysis_response().tailored_cv).model_validate(
@@ -507,7 +507,9 @@ def test_pdf_html_repairs_wrapped_bullet_before_highlighting_next_entry():
 
 
 @pytest.mark.parametrize("title", ["Technical Skills", "KỸ NĂNG", "Ky nang"])
-def test_modern_pdf_places_skill_aliases_in_sidebar(title):
+def test_classic_pdf_keeps_skill_aliases_in_single_column(title):
+    # Sidebar layout retired with modern_professional (not ATS-safe):
+    # skills render inline in the single-column flow for all designs.
     cv = type(_analysis_response().tailored_cv).model_validate(
         {
             "name": "Duy",
@@ -515,10 +517,10 @@ def test_modern_pdf_places_skill_aliases_in_sidebar(title):
         },
     )
 
-    html = render_tailored_cv_html(cv, "modern_professional")
-    sidebar = html.split("</aside>", 1)[0]
+    html = render_tailored_cv_html(cv, "classic_ats")
 
-    assert title in sidebar
+    assert title in html
+    assert "</aside>" not in html
 
 
 def test_llm_schema_does_not_include_or_accept_match_score():

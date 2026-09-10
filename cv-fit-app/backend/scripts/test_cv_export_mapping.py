@@ -144,7 +144,7 @@ Specializations: Deep Learning, Natural Language Processing, Computer Vision
     print("\n" + "=" * 70)
     print("STEP 5: Test HTML Template Rendering for All Designs")
     print("=" * 70)
-    designs: list[CVDesign] = ["classic_ats", "modern_professional", "compact"]
+    designs: list[CVDesign] = ["classic_ats", "compact"]
     for design in designs:
         result = render_cv_document(
             document=saved_doc,
