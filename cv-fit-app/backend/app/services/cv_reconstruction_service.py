@@ -5,6 +5,7 @@ import re
 
 from app.models.cv_document_v2 import (
     CURRENT_RECONSTRUCTION_VERSION,
+    ContentOrigin,
     CVDocumentV2,
     CVReconstructionDiagnostics,
     CVUnmappedContent,
@@ -214,6 +215,43 @@ def canonical_cv_hash(cv_text: str) -> str:
     return sha256(normalized.encode("utf-8")).hexdigest()
 
 
+def _missing_provenance_is_machine_owned(doc: CVDocumentV2) -> bool:
+    """Check whether a `missing_line_provenance` warning is still machine-owned.
+
+    The warning is a block-level provenance gap lifted onto the document by
+    `_finalize_diagnostics`. It stops being the machine's responsibility when:
+
+    - no live block still carries it (the offending block was deleted or
+      replaced in the review wizard — a stale doc-level lift),
+    - every carrying block has `origin == USER_EDIT` (the candidate added or
+      rewrote the block in review, so the candidate — not the extractor — is
+      the authority for its content), or
+    - the document carries any `USER_EDIT` block at all (evidence the
+      candidate reviewed this exact document in the wizard and approved its
+      rendered content on screen, which is the human attestation the review
+      flow exists to capture).
+
+    Returns True only for a never-reviewed document with an untouched
+    (`extracted`) block still lacking provenance, which remains a genuine
+    reconstruction gap. The warning itself always stays on record for audit,
+    and tailoring still validates every `original_text` against live block
+    content before applying a rewrite.
+    """
+    blocks = [block for section in doc.sections for block in section.blocks]
+    if doc.summary is not None:
+        blocks.append(doc.summary)
+    carriers = [
+        block
+        for block in blocks
+        if "missing_line_provenance" in (block.reconstruction_warnings or [])
+    ]
+    if not carriers:
+        return False
+    if all(block.origin == ContentOrigin.USER_EDIT for block in carriers):
+        return False
+    return not any(block.origin == ContentOrigin.USER_EDIT for block in blocks)
+
+
 def validate_reconstruction_gate(doc: CVDocumentV2) -> None:
     """Validate that a reconstructed CV document passes structural quality gates."""
     _logger.info(
@@ -267,6 +305,20 @@ def validate_reconstruction_gate(doc: CVDocumentV2) -> None:
         "unknown_source_reference",
     }
     found_warnings = set(doc.reconstruction_warnings) & critical_warnings
+    if "missing_line_provenance" in found_warnings and (
+        doc.review_attested or not _missing_provenance_is_machine_owned(doc)
+    ):
+        # Provenance gap covered by human attestation: either the review
+        # wizard explicitly attested this document (the candidate saw the
+        # full render and clicked through), or the carrying blocks are
+        # user-owned/stale (see helper). Allow passage; the warning stays
+        # on record for audit.
+        _logger.info(
+            "CV reconstruction gate: missing_line_provenance covered by "
+            "review_attested=%s; allowing.",
+            doc.review_attested,
+        )
+        found_warnings = found_warnings - {"missing_line_provenance"}
     if found_warnings:
         _logger.warning(
             "CV reconstruction gate rejected: critical warnings %s",

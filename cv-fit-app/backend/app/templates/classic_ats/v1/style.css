@@ -86,14 +86,14 @@ body {
 
 .cv-summary {
   margin-bottom: 12px;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 
 .cv-section {
   margin-bottom: 12px;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 
 .cv-section-title {
@@ -105,12 +105,23 @@ body {
   margin: 12px 0 6px 0;
   letter-spacing: 0.2px;
   text-transform: none;
+  break-after: avoid;
+  page-break-after: avoid;
 }
 
 .cv-block {
   margin-bottom: 6px;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto;
+  page-break-inside: auto;
+}
+
+.bullet-item,
+.item-paragraph,
+.skills-group,
+.pub-row,
+.edu-detail {
+  orphans: 3;
+  widows: 3;
 }
 
 .entry-header {

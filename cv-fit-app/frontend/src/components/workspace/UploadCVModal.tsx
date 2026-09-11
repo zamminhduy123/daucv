@@ -20,6 +20,7 @@ interface UploadCVModalProps {
     text: string;
     rawExtractionRef: PdfExtractResult["raw_extraction_ref"];
     pdfFileId: string | null;
+    thumbnailFileId: string | null;
   }) => void;
 }
 
@@ -98,6 +99,7 @@ export default function UploadCVModal({
         text: result.text,
         rawExtractionRef: result.raw_extraction_ref,
         pdfFileId: result.file_info?.id ?? null,
+        thumbnailFileId: result.thumbnail_file_id ?? null,
       });
     } catch (err) {
       setError(apiErrorMessage(err));

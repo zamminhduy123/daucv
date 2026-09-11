@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response
 
 from app.dependencies import get_current_user
-from app.models.cv_template import CVTemplateDefinition
+from app.models.cv_template import CVTemplateDefinition, CVTypographyOverride
 from app.schemas.tailored_cv import (
     CVPreviewResponse,
     TailoredCVTemplateUpdateRequest,
@@ -11,6 +11,7 @@ from app.schemas.tailored_cv import (
     TailoredCVVersionListResponse,
     TailoredCVVersionResponse,
     TailoredCVVersionUpdate,
+    WysiwygPdfRequest,
 )
 from app.services import cv_export_service, tailored_cv_service
 from app.services.cv_template_registry import list_templates
@@ -118,18 +119,38 @@ async def preview_tailored_cv(
 async def download_tailored_cv_pdf(
     version_id: str,
     translation_variant_id: str | None = None,
+    base_font_size: float | None = None,
+    line_height: float | None = None,
+    section_spacing: float | None = None,
+    item_spacing: float | None = None,
+    page_margin: float | None = None,
+    font_family: str | None = None,
     user: dict = Depends(get_current_user),
 ) -> Response:
-    """Download PDF for original or translated CV version."""
+    """Download PDF for original or translated CV version.
+
+    Optional typography query params mirror the export-screen controls and
+    are clamped/whitelisted server-side; omitted params keep template
+    defaults.
+    """
     ver_uuid = _version_id(version_id)
     try:
         variant_uuid = (
             _version_id(translation_variant_id) if translation_variant_id else None
         )
+        typography = CVTypographyOverride(
+            base_font_size=base_font_size,
+            line_height=line_height,
+            section_spacing=section_spacing,
+            item_spacing=item_spacing,
+            page_margin=page_margin,
+            font_family=font_family,
+        )
         pdf = await cv_export_service.generate_pdf(
             ver_uuid,
             _user_id(user),
             translation_variant_id=variant_uuid,
+            typography=None if typography.is_empty else typography,
         )
     except TailoredCVNotFoundError:
         raise HTTPException(
@@ -139,6 +160,46 @@ async def download_tailored_cv_pdf(
     except UnsupportedCVSchemaVersionError as exc:
         raise _unsupported_schema(exc) from exc
     except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Tạo file PDF thất bại: {exc}",
+        ) from exc
+
+    filename = f"tailored-cv-{version_id}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/{version_id}/pdf-wysiwyg")
+async def download_wysiwyg_pdf(
+    version_id: str,
+    req: WysiwygPdfRequest,
+    user: dict = Depends(get_current_user),
+) -> Response:
+    """Download PDF rendered from the client's exact preview HTML.
+
+    Screen-faithful export: typography, spacing, and layout match the
+    on-screen preview pixel-for-pixel. HTML is sanitized (no scripts or
+    external resources) and the browser session is network-isolated.
+    """
+    ver_uuid = _version_id(version_id)
+    try:
+        pdf = await cv_export_service.generate_pdf_from_html(
+            ver_uuid,
+            _user_id(user),
+            req.html,
+        )
+    except TailoredCVNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy CV đã tối ưu hoặc bạn không có quyền truy cập.",
+        )
+    except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(

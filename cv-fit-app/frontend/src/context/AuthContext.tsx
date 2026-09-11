@@ -11,6 +11,10 @@ export interface UserCV {
   cv_text: string;
   is_active: boolean;
   created_at: string;
+  raw_extraction_ref?: string | null;
+  pdf_file_id?: string | null;
+  pdf_url?: string | null;
+  thumbnail_file_id?: string | null;
 }
 
 export interface UserProfile {

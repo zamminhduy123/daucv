@@ -36,6 +36,7 @@ export interface UserCV {
   raw_extraction_ref?: string | null;
   pdf_file_id?: string | null;
   pdf_url?: string | null;
+  thumbnail_file_id?: string | null;
 }
 
 

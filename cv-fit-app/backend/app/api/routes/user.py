@@ -26,7 +26,7 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 
 from app.core.config import (
     CV_ANALYSIS_REQUEST_TIMEOUT,
@@ -87,6 +87,7 @@ from app.services.layout_extraction import (
     raw_extraction_to_layout_lines,
     raw_extraction_to_text,
 )
+from app.services.pdf_thumbnail import generate_pdf_thumbnail
 from app.services.tailored_cv_metadata import (
     issue_tailoring_entitlement_v3,
 )
@@ -280,12 +281,12 @@ async def extract_pdf(
 
         # Source PDFs keep their existing public-file behavior.
         file_info = None
+        raw_filename = Path(file.filename or "uploaded_cv.pdf").name
+        safe_filename = (
+            re.sub(r"[^\w.\-]+", "_", raw_filename).strip("._") or "uploaded_cv.pdf"
+        )
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         try:
-            raw_filename = Path(file.filename or "uploaded_cv.pdf").name
-            safe_filename = (
-                re.sub(r"[^\w.\-]+", "_", raw_filename).strip("._") or "uploaded_cv.pdf"
-            )
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             stored_filename = f"{timestamp}_{uuid4().hex[:8]}_{safe_filename}"
             file_info = await file_service.upload_file(
                 user_id=user_id,
@@ -297,8 +298,38 @@ async def extract_pdf(
             )
         except Exception as upload_err:
             _logger.warning(
-                f"File upload to bucket skipped/failed during extract-pdf: {upload_err}"
+                f"File upload to bucket skipped/failed during extract-pdf: {upload_err}",
+                exc_info=True,
             )
+
+        # Pre-render first-page WebP thumbnail for fast, reliable, high-quality card previews
+        thumbnail_info = None
+        if purpose == "cv":
+            try:
+                thumb_bytes = generate_pdf_thumbnail(file_bytes)
+                if thumb_bytes:
+                    is_webp = (
+                        thumb_bytes.startswith(b"RIFF")
+                        and len(thumb_bytes) >= 12
+                        and thumb_bytes[8:12] == b"WEBP"
+                    )
+                    ext = "webp" if is_webp else "jpg"
+                    mime = "image/webp" if is_webp else "image/jpeg"
+                    stored_thumb_name = f"{timestamp}_{uuid4().hex[:8]}_thumb.{ext}"
+                    thumbnail_info = await file_service.upload_file(
+                        user_id=user_id,
+                        filename=stored_thumb_name,
+                        data=thumb_bytes,
+                        content_type=mime,
+                        bucket="cv",
+                        include_url=False,
+                        original_filename=f"thumb_{raw_filename}.{ext}",
+                    )
+            except Exception as thumb_err:
+                _logger.warning(
+                    f"Thumbnail upload to bucket skipped/failed during extract-pdf: {thumb_err}",
+                    exc_info=True,
+                )
 
         pending_raw_cleanup_ids: list[str] = []
         if (
@@ -338,6 +369,8 @@ async def extract_pdf(
             res["pending_raw_extraction_cleanup_ids"] = pending_raw_cleanup_ids
         if file_info:
             res["file_info"] = file_info
+        if thumbnail_info:
+            res["thumbnail_file_id"] = str(thumbnail_info["id"])
         return res
     except HTTPException:
         raise
@@ -944,6 +977,7 @@ async def upload_user_cv(
         req.cv_filename,
         req.raw_extraction_ref,
         req.pdf_file_id,
+        req.thumbnail_file_id,
     )
 
 
@@ -964,15 +998,37 @@ async def update_user_cv(
     cv_id: str,
     req: UpdateCVRequest,
     user: dict = Depends(get_current_user),
+    file_service: FileService = Depends(get_file_service),
 ) -> CVResponse:
     """Update one source CV row by id (multi-CV switcher; ownership-checked)."""
     cv_uuid = parse_cv_uuid(cv_id)
+    user_id = str(user["id"])
+
+    # If new files are being associated (e.g. re-upload/replace), clean up the old replaced files
+    if req.pdf_file_id or req.thumbnail_file_id:
+        old_row = await user_cv_service.get_cv(cv_uuid, to_uuid(user["id"]))
+        if old_row:
+            if (
+                req.pdf_file_id
+                and old_row.pdf_file_id
+                and req.pdf_file_id != old_row.pdf_file_id
+            ):
+                await file_service.delete_owned_file(user_id, old_row.pdf_file_id)
+            if (
+                req.thumbnail_file_id
+                and old_row.thumbnail_file_id
+                and req.thumbnail_file_id != old_row.thumbnail_file_id
+            ):
+                await file_service.delete_owned_file(user_id, old_row.thumbnail_file_id)
+
     return await user_cv_service.update_cv_text(
         cv_uuid,
         to_uuid(user["id"]),
         req.cv_text,
         req.cv_filename,
         req.raw_extraction_ref,
+        req.pdf_file_id,
+        req.thumbnail_file_id,
     )
 
 
@@ -984,7 +1040,7 @@ async def deactivate_user_cv(
 ) -> dict:
     """Delete one source CV and, best-effort, its stored files.
 
-    File ids come from the owned row itself (raw extraction + source PDF),
+    File ids come from the owned row itself (raw extraction + source PDF + thumbnail),
     so callers cannot address other users' objects. Storage cleanup never
     blocks the row deletion: missing or already cleaned artifacts are
     ignored so orphaned files cannot strand the row.
@@ -993,12 +1049,132 @@ async def deactivate_user_cv(
 
     row = await user_cv_service.get_cv(cv_uuid, to_uuid(user["id"]))
     if row is not None:
-        for file_id in (row.raw_extraction_ref, row.pdf_file_id):
+        for file_id in (row.raw_extraction_ref, row.pdf_file_id, row.thumbnail_file_id):
             if file_id:
                 await file_service.delete_owned_file(str(user["id"]), file_id)
 
     await user_cv_service.delete_cv(cv_uuid, to_uuid(user["id"]))
     return {"success": True}
+
+
+def _detect_image_media_type(data: bytes, fallback: str = "image/webp") -> str:
+    if data.startswith(b"RIFF") and len(data) >= 12 and data[8:12] == b"WEBP":
+        return "image/webp"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    return fallback
+
+
+@router.get("/user/cv/{cv_id}/thumbnail")
+async def get_user_cv_thumbnail(
+    cv_id: str,
+    v: str | None = None,
+    user: dict = Depends(get_current_user),
+    file_service: FileService = Depends(get_file_service),
+) -> Response:
+    """Stream pre-rendered first-page thumbnail (WebP/JPEG) for a source CV.
+
+    If the thumbnail has not been pre-rendered yet (e.g. existing CVs),
+    lazily backfills it on the fly and writes through to storage and DB.
+    """
+    cv_uuid = parse_cv_uuid(cv_id)
+    user_id = str(user["id"])
+    row = await user_cv_service.get_cv(cv_uuid, to_uuid(user["id"]))
+    if not row:
+        raise HTTPException(status_code=404, detail="Không tìm thấy CV.")
+
+    # Pasted-text CVs have no source PDF and therefore no thumbnail
+    if not row.pdf_file_id:
+        raise HTTPException(status_code=404, detail="CV không có file PDF.")
+
+    # 1. If thumbnail already exists on the row, try downloading from storage
+    if row.thumbnail_file_id:
+        try:
+            thumb_record = await file_service.repository.get_file_by_id(
+                row.thumbnail_file_id
+            )
+            if thumb_record and str(thumb_record.get("user_id")) == user_id:
+                data = await file_service.storage.download(
+                    bucket=thumb_record["bucket"],
+                    path=thumb_record["object_path"],
+                )
+                media_type = thumb_record.get(
+                    "content_type"
+                ) or _detect_image_media_type(data)
+                return Response(
+                    content=data,
+                    media_type=media_type,
+                    headers={
+                        "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",
+                    },
+                )
+        except Exception:
+            _logger.warning(
+                "Failed to download existing thumbnail for CV %s, falling back to regeneration.",
+                cv_id,
+                exc_info=True,
+            )
+
+    # 2. Lazy backfill: download source PDF and generate thumbnail on the fly
+    try:
+        pdf_record = await file_service.repository.get_file_by_id(row.pdf_file_id)
+    except Exception:
+        pdf_record = None
+
+    if not pdf_record or str(pdf_record.get("user_id")) != user_id:
+        raise HTTPException(status_code=404, detail="Không tìm thấy file PDF gốc.")
+
+    try:
+        pdf_bytes = await file_service.storage.download(
+            bucket=pdf_record["bucket"],
+            path=pdf_record["object_path"],
+        )
+    except Exception as exc:
+        _logger.warning("Could not download source PDF for thumbnail: %s", exc)
+        raise HTTPException(status_code=404, detail="Không thể đọc file PDF gốc.")
+
+    thumb_bytes = generate_pdf_thumbnail(pdf_bytes)
+    if not thumb_bytes:
+        raise HTTPException(
+            status_code=404, detail="Không thể tạo thumbnail từ file PDF."
+        )
+
+    media_type = _detect_image_media_type(thumb_bytes, "image/webp")
+    ext = "webp" if media_type == "image/webp" else "jpg"
+
+    # 3. Write-through: persist thumbnail file and update user_cvs row
+    try:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        thumb_filename = f"{timestamp}_{uuid4().hex[:8]}_thumb.{ext}"
+        thumb_info = await file_service.upload_file(
+            user_id=user_id,
+            filename=thumb_filename,
+            data=thumb_bytes,
+            content_type=media_type,
+            bucket="cv",
+            include_url=False,
+            original_filename=f"thumb_{row.cv_filename}.{ext}",
+        )
+        await user_cv_service.update_cv_thumbnail(
+            cv_uuid,
+            to_uuid(user["id"]),
+            str(thumb_info["id"]),
+        )
+    except Exception as exc:
+        _logger.warning(
+            "Write-through thumbnail persistence failed (serving generated bytes anyway): %s",
+            exc,
+        )
+
+    return Response(
+        content=thumb_bytes,
+        media_type=media_type,
+        headers={
+            "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",
+        },
+    )
 
 
 @router.put("/user/cv/{cv_id}/structured-document")

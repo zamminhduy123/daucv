@@ -119,6 +119,7 @@ export interface PdfExtractResult {
   raw_extraction_ref?: RawExtractionReference;
   pending_raw_extraction_cleanup_ids?: string[];
   file_info?: FileInfo;
+  thumbnail_file_id?: string | null;
   error?: string;
 }
 
@@ -443,10 +444,10 @@ export async function finishInterviewAPI(
 }
 
 export async function generateTTSAPI(text: string) {
-  const res = await fetchWithAuth(`${TTS_API_URL}/api/tts/generate`, {
+  const res = await fetchWithAuth(`${TTS_API_URL}/api/interview/tts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: text, self_clone: true }),
+    body: JSON.stringify({ text }),
   });
 
   if (!res.ok) {
@@ -493,11 +494,23 @@ export async function getUserProfileAPI() {
   return res.json();
 }
 
-export async function uploadUserCVAPI(cvText: string, cvFilename: string, rawExtractionRef?: string, pdfFileId?: string): Promise<UserCV> {
+export async function uploadUserCVAPI(
+  cvText: string,
+  cvFilename: string,
+  rawExtractionRef?: string,
+  pdfFileId?: string,
+  thumbnailFileId?: string,
+): Promise<UserCV> {
   const res = await fetchWithAuth(`${API_URL}/api/user/cv`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cv_text: cvText, cv_filename: cvFilename, raw_extraction_ref: rawExtractionRef ?? null, pdf_file_id: pdfFileId ?? null }),
+    body: JSON.stringify({
+      cv_text: cvText,
+      cv_filename: cvFilename,
+      raw_extraction_ref: rawExtractionRef ?? null,
+      pdf_file_id: pdfFileId ?? null,
+      thumbnail_file_id: thumbnailFileId ?? null,
+    }),
   });
   if (!res.ok) {
     throw await parseApiError(res);
@@ -517,11 +530,24 @@ export async function updateActiveCVTextAPI(cvText: string, cvFilename: string) 
   return res.json();
 }
 
-export async function updateUserCVAPI(cvId: string, cvText: string, cvFilename: string, rawExtractionRef?: string): Promise<UserCV> {
+export async function updateUserCVAPI(
+  cvId: string,
+  cvText: string,
+  cvFilename: string,
+  rawExtractionRef?: string,
+  pdfFileId?: string,
+  thumbnailFileId?: string,
+): Promise<UserCV> {
   const res = await fetchWithAuth(`${API_URL}/api/user/cv/${cvId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cv_text: cvText, cv_filename: cvFilename, raw_extraction_ref: rawExtractionRef ?? null }),
+    body: JSON.stringify({
+      cv_text: cvText,
+      cv_filename: cvFilename,
+      raw_extraction_ref: rawExtractionRef ?? null,
+      pdf_file_id: pdfFileId ?? null,
+      thumbnail_file_id: thumbnailFileId ?? null,
+    }),
   });
   if (!res.ok) {
     throw await parseApiError(res);
@@ -602,8 +628,39 @@ export async function updateTailoredCVTemplateAPI(id: string, template_id: strin
   return res.json() as Promise<TailoredCVVersion>;
 }
 
-export async function downloadTailoredCVPDFAPI(id: string, translationVariantId?: string) {
-  const query = translationVariantId ? `?translation_variant_id=${encodeURIComponent(translationVariantId)}` : "";
+export interface CVTypographyParams {
+  baseFontSize?: number;
+  lineHeight?: number;
+  sectionSpacing?: number;
+  itemSpacing?: number;
+  pageMargin?: number;
+  fontFamily?: string;
+}
+
+export async function downloadWysiwygPDFAPI(id: string, html: string) {
+  const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs/${id}/pdf-wysiwyg`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ html }),
+  });
+  if (!res.ok) throw await parseApiError(res);
+  return res.blob();
+}
+
+export async function downloadTailoredCVPDFAPI(
+  id: string,
+  translationVariantId?: string,
+  typography?: CVTypographyParams,
+) {
+  const params = new URLSearchParams();
+  if (translationVariantId) params.set("translation_variant_id", translationVariantId);
+  if (typography?.baseFontSize !== undefined) params.set("base_font_size", String(typography.baseFontSize));
+  if (typography?.lineHeight !== undefined) params.set("line_height", String(typography.lineHeight));
+  if (typography?.sectionSpacing !== undefined) params.set("section_spacing", String(typography.sectionSpacing));
+  if (typography?.itemSpacing !== undefined) params.set("item_spacing", String(typography.itemSpacing));
+  if (typography?.pageMargin !== undefined) params.set("page_margin", String(typography.pageMargin));
+  if (typography?.fontFamily) params.set("font_family", typography.fontFamily);
+  const query = params.toString() ? `?${params.toString()}` : "";
   const res = await fetchWithAuth(`${API_URL}/api/user/tailored-cvs/${id}/pdf${query}`);
   if (!res.ok) throw await parseApiError(res);
   return res.blob();

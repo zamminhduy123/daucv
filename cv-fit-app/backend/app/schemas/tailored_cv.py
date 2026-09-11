@@ -101,3 +101,9 @@ class VerifyUserEditResponse(BaseModel):
     edited_document_v2: CVDocumentV2
     tailoring_diagnostics: CVTailoringDiagnostics
     tailoring_entitlement: str
+
+
+class WysiwygPdfRequest(BaseModel):
+    """Exact preview HTML for WYSIWYG PDF export (screen-faithful bytes)."""
+
+    html: str = Field(..., min_length=100, max_length=3_000_000)

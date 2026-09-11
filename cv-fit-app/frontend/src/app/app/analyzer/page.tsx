@@ -149,9 +149,22 @@ export default function AnalyzerPage() {
       setProgressMessage(canonicalCVRef.current ? "Đang đánh giá CV..." : "Đang lập bản đồ CV...");
       try {
         const cached = cache.analyzerResult;
-        let sourceDocument = cached?.source_document_v2 ?? wizardHandoff?.source_document_v2 ?? null;
-        let sourceTicket = cached?.source_ticket ?? wizardHandoff?.source_ticket ?? null;
-        let canonicalCV = canonicalCVRef.current ?? wizardHandoff?.canonical_cv ?? null;
+        // Atomic + freshest-first: the wizard handoff is minted seconds ago
+        // in review; a stale cache entry must never supply half the pair.
+        // Mixing a cached document with a handoff ticket (or vice versa)
+        // fails ticket verification with "no longer matches this CV".
+        const useHandoffPair = Boolean(
+          wizardHandoff?.source_document_v2 && wizardHandoff?.source_ticket,
+        );
+        let sourceDocument = useHandoffPair
+          ? wizardHandoff?.source_document_v2 ?? null
+          : cached?.source_document_v2 ?? wizardHandoff?.source_document_v2 ?? null;
+        let sourceTicket = useHandoffPair
+          ? wizardHandoff?.source_ticket ?? null
+          : cached?.source_ticket ?? wizardHandoff?.source_ticket ?? null;
+        let canonicalCV = useHandoffPair
+          ? wizardHandoff?.canonical_cv ?? null
+          : canonicalCVRef.current ?? wizardHandoff?.canonical_cv ?? null;
 
         // Wizard path: the document is already user-corrected and ticketed.
         // Skip parseCVAPI (LLM1) and its credit charge.
@@ -167,7 +180,9 @@ export default function AnalyzerPage() {
         const evaluation = await evaluateCVAPI(canonicalCV, jdText, controller.signal);
 
         setProgressMessage("Đang tối ưu các bullet CV an toàn...");
-        let tailoring = cached?.tailoring;
+        // A fresh handoff means a (possibly edited) new document: never reuse
+        // tailoring generated for a previous document's bullets.
+        let tailoring = useHandoffPair ? undefined : cached?.tailoring;
         if (!tailoring) {
           try {
             tailoring = await tailorCVAPI(canonicalCV, jdText, evaluation, controller.signal);
@@ -257,6 +272,18 @@ export default function AnalyzerPage() {
 
   const handleSaveTailoredCV = async () => {
     if (!analysisResult || isSavingTailoredCV) return;
+    // Stale-doc guard: documents saved before review attestation existed
+    // can never pass the server gate. Redirect to review instead of
+    // failing with a cryptic 422.
+    const srcDoc = analysisResult.source_document_v2;
+    if (
+      (srcDoc?.reconstruction_warnings ?? []).includes("missing_line_provenance") &&
+      !srcDoc?.review_attested
+    ) {
+      toast.error("Bản CV này chưa được duyệt. Quay lại Review, bấm Lưu & Tiếp tục, rồi lưu lại.");
+      router.push("/app/review");
+      return;
+    }
     if (
       !analysisResult.source_document_v2
       || analysisResult.source_document_v2.requires_reprocessing
@@ -292,8 +319,8 @@ export default function AnalyzerPage() {
         controller.signal,
         wizardHandoff?.source_cv_id ?? selectedCvId ?? undefined,
       );
-      toast.success("Đã lưu CV đã tối ưu. Đang chuyển sang màn hình xem trước & xuất PDF...");
-      router.push(`/app/history?selected=${version.id}`);
+      toast.success("Đã lưu CV đã tối ưu. Đang mở màn hình so sánh & xuất PDF...");
+      router.push(`/app/export?selected=${version.id}`);
     } catch (err: unknown) {
       if (controller.signal.aborted) return;
       toast.error(pipelineExportErrorMessage(err));

@@ -640,14 +640,24 @@ export default function ReviewPage() {
       }
       const { saved } = await getStructuredDocumentAPI(selectedCvId);
       if (!saved) throw new Error("Không tải được bản CV vừa lưu.");
-      setState((s) => ({ ...s, snapshot: JSON.stringify(saved) }));
+      // Explicit review attestation: the candidate has seen the full render
+      // and clicked through. Stamped before the source ticket binds this
+      // exact document, so the reconstruction gate can honor it for
+      // machine-provenance warnings. Set once; never cleared by later edits.
+      let attested = saved;
+      if (!saved.review_attested) {
+        attested = dropEmptySummary({ ...saved, review_attested: true });
+        await saveStructuredDocumentAPI(selectedCvId, attested);
+        setCachedStructuredDoc(selectedCvId, attested, userId);
+      }
+      setState((s) => ({ ...s, snapshot: JSON.stringify(attested) }));
       const { source_ticket, canonical_cv } = await mintSourceTicketAPI(
         cvText,
-        saved,
+        attested,
         rawExtractionRef?.id,
       );
       storeWizardHandoff(userId, {
-        source_document_v2: saved,
+        source_document_v2: attested,
         canonical_cv,
         source_ticket,
         source_cv_id: selectedCvId,

@@ -616,6 +616,16 @@ class CVDocumentV2(BaseModel):
     unmapped_content: list[CVUnmappedContent] = Field(default_factory=list)
     reconstruction_warnings: list[str] = Field(default_factory=list)
     reconstruction_diagnostics: CVReconstructionDiagnostics | None = None
+    review_attested: bool = Field(
+        default=False,
+        description=(
+            "Set by the review wizard when the candidate has seen the full "
+            "rendered document and clicked through (Save & Continue). Marks "
+            "explicit human attestation of the document content, which the "
+            "reconstruction gate honors for machine-provenance warnings. "
+            "Never set by extraction or reconstruction."
+        ),
+    )
 
     def to_canonical_dict(self) -> dict[str, Any]:
         """Export CVDocumentV2 to clean canonical machine-readable CV JSON.

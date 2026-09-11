@@ -258,12 +258,22 @@ export default function InterviewRoomMinimal({
       setIsTTSLoading(!audioBlobCacheRef.current.has(cleanText));
 
       const blob = await getQuestionAudioBlob(cleanText);
+      if (blob.type && !blob.type.startsWith("audio")) {
+        throw new Error(`Unexpected TTS content type: ${blob.type || "unknown"}`);
+      }
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
 
       audioRef.current = audio;
       audioUrlRef.current = url;
       audio.onended = () => {
+        cleanupAudioUrl();
+        setIsSpeaking(false);
+      };
+      // Decode failures don't always reject play() (older engines) — without
+      // this the orb would stick on "speaking" forever.
+      audio.onerror = () => {
+        console.error("TTS audio decode error");
         cleanupAudioUrl();
         setIsSpeaking(false);
       };

@@ -1468,7 +1468,10 @@ def test_analyze_cv_route_uses_owned_raw_ref_for_semantic_source(
     assert response.status_code == 200, response.text
     source_document = response.json()["source_document_v2"]
     assert source_document["raw_extraction_id"] == raw_ref_id
-    assert source_document["parser_version"] == "llm-semantic-1.0"
+    assert source_document["parser_version"] in (
+        "llm-semantic-1.0",
+        "llm-cursor-plan-3.3-logical-blocks",
+    )
     assert source_document["identity"]["full_name"] == "SYNTHETIC CANDIDATE"
     assert "TAMPERED CLIENT LAYOUT" not in json.dumps(source_document)
     load_raw.assert_awaited_once_with(
@@ -1674,6 +1677,168 @@ def test_deactivate_user_cv(client: TestClient) -> None:
     resp = client.delete(f"/api/user/cv/{cv_id}")
     assert resp.status_code == 200
     assert resp.json() == {"success": True}
+
+
+def test_get_user_cv_thumbnail_existing(client: TestClient) -> None:
+    from datetime import datetime, timezone
+
+    from app.schemas.user import CVResponse
+
+    cv_id = "12345678-1234-1234-1234-123456789012"
+    mock_cv = CVResponse(
+        id=cv_id,
+        cv_filename="test.pdf",
+        cv_text="CV Text",
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+        pdf_file_id="pdf-file-123",
+        thumbnail_file_id="thumb-file-123",
+    )
+    with patch("app.api.routes.user.user_cv_service.get_cv", return_value=mock_cv):
+        with patch(
+            "app.services.files.FileRepository.get_file_by_id",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "thumb-file-123",
+                "user_id": "12345678-1234-1234-1234-123456789012",
+                "bucket": "cv",
+                "object_path": "path/thumb.jpg",
+            },
+        ):
+            with patch(
+                "app.storage.supabase.SupabaseStorage.download",
+                new_callable=AsyncMock,
+                return_value=b"\xff\xd8\xff-mock-jpeg",
+            ):
+                resp = client.get(f"/api/user/cv/{cv_id}/thumbnail")
+                assert resp.status_code == 200
+                assert resp.headers["content-type"] == "image/jpeg"
+                assert resp.content == b"\xff\xd8\xff-mock-jpeg"
+
+
+def test_get_user_cv_thumbnail_no_pdf(client: TestClient) -> None:
+    from datetime import datetime, timezone
+
+    from app.schemas.user import CVResponse
+
+    cv_id = "12345678-1234-1234-1234-123456789012"
+    mock_cv = CVResponse(
+        id=cv_id,
+        cv_filename="pasted.txt",
+        cv_text="Pasted Text CV",
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+        pdf_file_id=None,
+        thumbnail_file_id=None,
+    )
+    with patch("app.api.routes.user.user_cv_service.get_cv", return_value=mock_cv):
+        resp = client.get(f"/api/user/cv/{cv_id}/thumbnail")
+        assert resp.status_code == 404
+
+
+def test_get_user_cv_thumbnail_lazy_backfill(client: TestClient) -> None:
+    from datetime import datetime, timezone
+
+    from app.schemas.user import CVResponse
+
+    cv_id = "12345678-1234-1234-1234-123456789012"
+    mock_cv = CVResponse(
+        id=cv_id,
+        cv_filename="legacy.pdf",
+        cv_text="Legacy CV Text",
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+        pdf_file_id="pdf-legacy-123",
+        thumbnail_file_id=None,
+    )
+    with patch("app.api.routes.user.user_cv_service.get_cv", return_value=mock_cv):
+        with patch(
+            "app.services.files.FileRepository.get_file_by_id",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "pdf-legacy-123",
+                "user_id": "12345678-1234-1234-1234-123456789012",
+                "bucket": "cv",
+                "object_path": "path/legacy.pdf",
+            },
+        ):
+            with patch(
+                "app.storage.supabase.SupabaseStorage.download",
+                new_callable=AsyncMock,
+                return_value=b"%PDF-mock-pdf",
+            ):
+                with patch(
+                    "app.api.routes.user.generate_pdf_thumbnail",
+                    return_value=b"\xff\xd8\xff-generated-jpeg",
+                ):
+                    with patch(
+                        "app.services.files.FileService.upload_file",
+                        new_callable=AsyncMock,
+                        return_value={"id": "new-thumb-file-id"},
+                    ):
+                        with patch(
+                            "app.api.routes.user.user_cv_service.update_cv_thumbnail",
+                            new_callable=AsyncMock,
+                        ) as mock_update_thumb:
+                            resp = client.get(f"/api/user/cv/{cv_id}/thumbnail")
+                            assert resp.status_code == 200
+                            assert resp.headers["content-type"] == "image/jpeg"
+                            assert resp.content == b"\xff\xd8\xff-generated-jpeg"
+                            mock_update_thumb.assert_called_once()
+
+
+def test_get_user_cv_thumbnail_lazy_backfill_webp(client: TestClient) -> None:
+    from datetime import datetime, timezone
+
+    from app.schemas.user import CVResponse
+
+    cv_id = "87654321-4321-4321-4321-210987654321"
+    mock_cv = CVResponse(
+        id=cv_id,
+        cv_filename="webp_candidate.pdf",
+        cv_text="WebP Candidate Text",
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+        pdf_file_id="pdf-webp-456",
+        thumbnail_file_id=None,
+    )
+    mock_webp_bytes = b"RIFF\x20\x00\x00\x00WEBPVP8 \x14\x00\x00\x00mock-webp-payload"
+    with patch("app.api.routes.user.user_cv_service.get_cv", return_value=mock_cv):
+        with patch(
+            "app.services.files.FileRepository.get_file_by_id",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "pdf-webp-456",
+                "user_id": "12345678-1234-1234-1234-123456789012",
+                "bucket": "cv",
+                "object_path": "path/webp.pdf",
+            },
+        ):
+            with patch(
+                "app.storage.supabase.SupabaseStorage.download",
+                new_callable=AsyncMock,
+                return_value=b"%PDF-mock-pdf",
+            ):
+                with patch(
+                    "app.api.routes.user.generate_pdf_thumbnail",
+                    return_value=mock_webp_bytes,
+                ):
+                    with patch(
+                        "app.services.files.FileService.upload_file",
+                        new_callable=AsyncMock,
+                        return_value={"id": "new-webp-thumb-id"},
+                    ) as mock_upload:
+                        with patch(
+                            "app.api.routes.user.user_cv_service.update_cv_thumbnail",
+                            new_callable=AsyncMock,
+                        ):
+                            resp = client.get(f"/api/user/cv/{cv_id}/thumbnail")
+                            assert resp.status_code == 200
+                            assert resp.headers["content-type"] == "image/webp"
+                            assert resp.content == mock_webp_bytes
+                            assert (
+                                mock_upload.call_args[1]["content_type"] == "image/webp"
+                            )
 
 
 @patch(

@@ -334,4 +334,6 @@ export interface CVDocumentV2 {
   unmapped_content: CVUnmappedContent[];
   reconstruction_warnings: string[];
   reconstruction_diagnostics?: CVReconstructionDiagnostics;
+  /** Set when the candidate has seen the full render and clicked through review. */
+  review_attested?: boolean;
 }

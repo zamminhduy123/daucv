@@ -103,3 +103,56 @@ def test_validate_static_html_checks_mismatched_and_unescaped_content() -> None:
     validate_static_html(tampered_html, ledger, result.diagnostics)
     assert result.diagnostics.is_valid is False
     assert any("unescaped" in fid for fid in result.diagnostics.mismatched_field_ids)
+
+
+def test_sanitize_wysiwyg_html_strips_active_content() -> None:
+    from app.services.cv_export_service import sanitize_wysiwyg_html
+
+    raw = (
+        "<html><head><style>p{color:red}</style>"
+        '<script>alert("x")</script></head>'
+        '<body onload="evil()"><p onclick="evil()">Hi</p>'
+        '<iframe src="http://evil.example/x"></iframe>'
+        '<img src="http://evil.example/p.png"></body></html>'
+    )
+    clean = sanitize_wysiwyg_html(raw)
+    assert "color:red" in clean
+    assert "<script" not in clean
+    assert "onclick" not in clean and "onload" not in clean
+    assert "<iframe" not in clean and "<img" not in clean
+
+
+def test_sanitize_wysiwyg_html_rejects_bad_input() -> None:
+    import pytest
+
+    from app.services.cv_export_service import sanitize_wysiwyg_html
+
+    with pytest.raises(ValueError):
+        sanitize_wysiwyg_html("too short")
+    with pytest.raises(ValueError):
+        sanitize_wysiwyg_html("<p>no html wrapper</p>")
+
+
+def test_typography_override_sanitization() -> None:
+    from app.models.cv_template import CVTypographyOverride
+
+    hostile = CVTypographyOverride(
+        base_font_size=999,
+        line_height=0.1,
+        font_family='Arial"; body{display:none}',
+    ).sanitized()
+    assert hostile.base_font_size == 13.0
+    assert hostile.line_height == 1.0
+    assert hostile.font_family is None
+
+    assert CVTypographyOverride().sanitized().is_empty
+    assert CVTypographyOverride().to_override_css() == ""
+
+    css = (
+        CVTypographyOverride(base_font_size=8.0, font_family="Inter")
+        .sanitized()
+        .to_override_css()
+    )
+    assert "font-size: 8.0pt" in css
+    assert "font-size: 16.8pt" in css  # name = 8.0 * 2.1
+    assert "Inter" in css

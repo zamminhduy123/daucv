@@ -44,13 +44,33 @@ function previewLines(text: string): { heading: string; body: string[] } {
 }
 
 function CardPreview({ cv }: { cv: UserCV }) {
+  const [thumbFailed, setThumbFailed] = useState(false);
   const [pdfFailed, setPdfFailed] = useState(false);
-  // A freshly minted signed URL deserves a fresh attempt.
+  // A freshly minted signed URL or thumbnail deserves a fresh attempt.
   useEffect(() => {
     queueMicrotask(() => {
       setPdfFailed(false);
+      setThumbFailed(false);
     });
-  }, [cv.pdf_url]);
+  }, [cv.pdf_url, cv.thumbnail_file_id]);
+
+  const hasPdf = Boolean(cv.pdf_file_id || cv.thumbnail_file_id || cv.pdf_url);
+
+  if (hasPdf && !thumbFailed) {
+    return (
+      <div className="relative aspect-[210/297] overflow-hidden bg-[#FDFDFB] pointer-events-none select-none">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/api/cv/${cv.id}/thumbnail${cv.thumbnail_file_id ? `?v=${encodeURIComponent(cv.thumbnail_file_id)}` : ""}`}
+          alt={cv.cv_filename}
+          className="h-full w-full object-cover object-top"
+          loading="lazy"
+          onError={() => setThumbFailed(true)}
+        />
+      </div>
+    );
+  }
+
   if (cv.pdf_url && !pdfFailed) {
     return <CVPdfThumb url={cv.pdf_url} label={cv.cv_filename} onError={() => setPdfFailed(true)} />;
   }

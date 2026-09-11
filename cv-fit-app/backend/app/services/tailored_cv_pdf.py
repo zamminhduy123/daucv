@@ -3,6 +3,7 @@
 import logging
 
 from app.models.cv_document_v2 import CVDocumentV2
+from app.models.cv_template import CVTypographyOverride
 from app.models.domain import TailoredCV
 from app.schemas.tailored_cv import CVDesign
 from app.services.cv_language import CVLanguage, detect_tailored_cv_language
@@ -43,6 +44,7 @@ async def generate_tailored_cv_pdf(
     language: CVLanguage | None = None,
     template_id: str | None = None,
     template_version: int | None = None,
+    typography: CVTypographyOverride | None = None,
 ) -> bytes:
     """Generate PDF binary from canonical server-rendered HTML with Playwright validation."""
     document = document_v2 or v1_to_v2(tailored_cv)
@@ -54,6 +56,7 @@ async def generate_tailored_cv_pdf(
         template_id=target_template,
         template_version=template_version,
         language=target_lang,
+        typography=typography.sanitized() if typography else None,
     )
 
     ledger = build_cv_render_ledger(document)

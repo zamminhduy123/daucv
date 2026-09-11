@@ -44,7 +44,6 @@ export function buildCVHtml(
   const body = `${summary}${sections}`;
 
   let customTypographyStyle = "";
-  let pageMarginPx = 45; // Default ~12mm
   if (typography) {
     let basePt = 9.5;
     if (typeof typography.baseFontSize === "number" && !isNaN(typography.baseFontSize)) {
@@ -62,7 +61,6 @@ export function buildCVHtml(
     const secGap = typeof typography.sectionSpacing === "number" ? typography.sectionSpacing : 4.0;
     const itemGap = typeof typography.itemSpacing === "number" ? typography.itemSpacing : 3.0;
     const pMargin = typeof typography.pageMargin === "number" ? typography.pageMargin : 12;
-    pageMarginPx = Math.round(pMargin * 3.78);
 
     const fontRule = typography.fontFamily
       ? `font-family: ${typography.fontFamily}, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;`
@@ -143,7 +141,9 @@ export function buildCVHtml(
   function applyPageBreaks() {
     var PAGE_H = 1123;
     var GAP_H = 52;
-    var NEXT_PAD = ${pageMarginPx};
+    // Band-only markers: content flows naturally across pages (CSS
+    // break-inside allows splits); the band just labels where the 1123px
+    // boundary falls. No spacer push — straddling blocks stay in flow.
     var oldBreaks = document.querySelectorAll('.cv-page-break-container');
     for (var b = 0; b < oldBreaks.length; b++) {
       oldBreaks[b].remove();
@@ -174,18 +174,16 @@ export function buildCVHtml(
       var threshold = isHeader ? currentBreakTarget - 80 : currentBreakTarget - 10;
 
       if (elBottom > threshold || (isHeader && blockBottom > currentBreakTarget)) {
-        var spacerH = Math.max(0, currentBreakTarget - elTop);
         var container = document.createElement('div');
         container.className = 'cv-page-break-container';
-        container.innerHTML = '<div class="cv-page-end-spacer" style="height:' + spacerH + 'px; width:100%;"></div>' +
+        container.innerHTML =
           '<div class="cv-page-gap-wrapper" style="height:' + GAP_H + 'px;">' +
             '<div class="cv-page-separator">' +
               '<span class="cv-page-separator-line"></span>' +
               '<span class="cv-page-separator-badge">Trang ' + pageNum + '</span>' +
               '<span class="cv-page-separator-line"></span>' +
             '</div>' +
-          '</div>' +
-          '<div class="cv-page-next-padding" style="height:' + NEXT_PAD + 'px; width:100%;"></div>';
+          '</div>';
 
         el.parentNode.insertBefore(container, el);
 
@@ -193,7 +191,7 @@ export function buildCVHtml(
         var newElRect = el.getBoundingClientRect();
         var newElTop = newElRect.top - articleRect.top;
 
-        currentBreakTarget = newElTop + PAGE_H - NEXT_PAD;
+        currentBreakTarget = newElTop + PAGE_H - GAP_H;
         pageNum++;
       }
     }
@@ -386,7 +384,6 @@ const CSS = `
 html, body { margin: 0; padding: 0; color: #111827; font-family: Arial, sans-serif; background: #ffffff; overflow: hidden; }
 article { width: 210mm; min-height: 297mm; background: #ffffff; padding: 16mm; margin: 0 auto; box-sizing: border-box; }
 .cv-page-break-container { display: block; width: 100%; clear: both; }
-.cv-page-end-spacer { display: block; width: 100%; background: #ffffff; }
 .cv-page-gap-wrapper {
   display: flex;
   align-items: center;
@@ -430,7 +427,6 @@ article { width: 210mm; min-height: 297mm; background: #ffffff; padding: 16mm; m
   letter-spacing: 0.5px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
-.cv-page-next-padding { display: block; height: 16mm; width: 100%; background: #ffffff; }
 @media print {
   body { background: white !important; }
   article { box-shadow: none !important; border: none !important; margin: 0 !important; width: auto !important; min-height: auto !important; }
@@ -438,7 +434,13 @@ article { width: 210mm; min-height: 297mm; background: #ffffff; padding: 16mm; m
 }
 header { border-bottom: 1px solid #9ca3af; padding-bottom: 5mm; }
 h1 { margin: 0 0 1mm; font-size: 24pt; } h3 { margin: 0 0 3mm; font-size: 11pt; }
-.contacts { color: #596565; font-size: 8.5pt; } section { margin-top: 6mm; break-inside: avoid; }
+.contacts { color: #596565; font-size: 8.5pt; } section { margin-top: 6mm; }
+/* ── Natural page flow: long sections/entries split across pages instead of
+   jumping whole to the next page. Headings stay glued to their content;
+   short blocks keep widows/orphans off page edges. */
+section { break-inside: auto; page-break-inside: auto; }
+h2 { break-after: avoid; page-break-after: avoid; }
+.bullet, .item, .pub-row, .skill-row, .edu-detail, .item-paragraph { orphans: 3; widows: 3; }
 h2 { margin: 0 0 2.5mm; border-bottom: 1px solid #9ca3af; padding-bottom: 1mm; font-size: 10pt; text-transform: uppercase; letter-spacing: 1.2px; }
 .item, .bullet, .entry-title, .entry-subtitle, .entry-meta { margin: 0 0 1.5mm; font-size: 9pt; line-height: 1.45; white-space: pre-wrap; }
 .entry-title { font-weight: 700; } .entry-subtitle, .entry-meta { color: #555; }
@@ -484,8 +486,8 @@ h2 { margin: 0 0 2.5mm; border-bottom: 1px solid #9ca3af; padding-bottom: 1mm; f
 .classic_ats section {
   margin-top: 4mm;
   margin-bottom: 0;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 .classic_ats h2 {
   font-size: 11.5pt;
@@ -507,8 +509,8 @@ h2 { margin: 0 0 2.5mm; border-bottom: 1px solid #9ca3af; padding-bottom: 1mm; f
 .classic_ats .cv-entry,
 .classic_ats .cv-education {
   margin-bottom: 3mm;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 .classic_ats .entry-header {
   margin-bottom: 1.5mm;
@@ -660,8 +662,8 @@ h2 { margin: 0 0 2.5mm; border-bottom: 1px solid #9ca3af; padding-bottom: 1mm; f
 .compact_one_page section, .compact section {
   margin-top: 3.5mm;
   margin-bottom: 0;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 .compact_one_page h2, .compact h2 {
   font-size: 9.5pt;
@@ -685,8 +687,8 @@ h2 { margin: 0 0 2.5mm; border-bottom: 1px solid #9ca3af; padding-bottom: 1mm; f
 .compact_one_page .cv-entry, .compact .cv-entry,
 .compact_one_page .cv-education, .compact .cv-education {
   margin-bottom: 2mm;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 .compact_one_page .entry-header, .compact .entry-header {
   margin-bottom: 1mm;

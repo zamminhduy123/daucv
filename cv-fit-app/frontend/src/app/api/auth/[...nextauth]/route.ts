@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import type { Session } from "next-auth";
+import type { NextAuthOptions, Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import jwt from "jsonwebtoken";
 import { query } from "@/lib/db";
@@ -33,7 +33,7 @@ function signBackendAccessToken(token: JWT) {
   );
 }
 
-const handler = NextAuth({
+export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "mock-google-client-id",
@@ -117,6 +117,8 @@ const handler = NextAuth({
       return jwt.verify(token!, secret, { algorithms: ["HS256"] }) as JWT;
     },
   },
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };

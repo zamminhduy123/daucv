@@ -17,6 +17,7 @@ class CVResponse(BaseModel):
     raw_extraction_ref: str | None = None
     pdf_file_id: str | None = None
     pdf_url: str | None = None
+    thumbnail_file_id: str | None = None
 
 
 class UserProfileResponse(BaseModel):
@@ -42,6 +43,10 @@ class UpdateCVRequest(BaseModel):
     pdf_file_id: str | None = Field(
         default=None,
         description="Uploaded source PDF file id để render thumbnail trang đầu",
+    )
+    thumbnail_file_id: str | None = Field(
+        default=None,
+        description="Pre-rendered first-page JPEG thumbnail file id",
     )
 
 

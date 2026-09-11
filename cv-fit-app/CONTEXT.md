@@ -41,8 +41,8 @@ The browser-rendered representation of a CV in its selected CV Design. Rendered 
 _Avoid_: Static PDF embed, external viewer modal
 
 **Continuous Pagination & Page Breaks**:
-The client-side DOM layout engine (`applyPageBreaks()`) inside the CV Preview iframe that dynamically measures elements against standard A4 page heights (1123px / 297mm). It automatically inserts an edge-to-edge separation band (`[ Trang N ]`), preserves whitespace, and protects section headings from being awkwardly orphaned at page bottoms.
-_Avoid_: Rigid canvas pagination buttons, arbitrary CSS page breaks
+The client-side DOM layout engine (`applyPageBreaks()`) inside the CV Preview iframe that dynamically measures elements against standard A4 page heights (1123px / 297mm). It inserts band-only edge-to-edge separation markers (`[ Trang N ]`) where page boundaries fall while content flows naturally across pages: sections and entries may split instead of jumping whole to the next page, headings stay glued to their content (`break-after: avoid`), and short blocks keep widows/orphans off page edges.
+_Avoid_: Rigid canvas pagination buttons, whole-section page jumps, arbitrary CSS page breaks
 
 **CV Typography & Spacing Engine**:
 The real-time styling subsystem in `cv-render-html.ts` allowing granular document formatting without server roundtrips:
@@ -55,7 +55,7 @@ The user starts a Tailored CV with “Tạo CV đã tối ưu”, selects a CV D
 _Avoid_: Print analysis, edit-and-export flow
 
 **Tailored CV Library**:
-The Lịch sử area that lists a user's saved Tailored CV Versions and lets them reopen, change design, preview, download, or delete them without changing the source CV.
+The Lịch sử area that lists a user's saved Tailored CV Versions (name, design, date, change count) and links each one to the Export screen for compare, design change, preview, and download, or deletes it without changing the source CV.
 _Avoid_: Analysis history, temporary cache
 
 **Tailored CV Version**:

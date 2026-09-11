@@ -26,7 +26,7 @@ const FEATURES: {
   badge: string;
 }[] = [
   { kind: "analyze", icon: BarChart3, title: "Phân tích CV", desc: "Chấm điểm & nhận xét, không cần JD.", tile: "hover:border-emerald-600/50 hover:bg-emerald-50/40", badge: "bg-emerald-100 text-emerald-700" },
-  { kind: "tailor", icon: Sparkles, title: "Tối ưu theo JD", desc: "Dán JD ở bước sau để tailor.", tile: "hover:border-blue-600/50 hover:bg-blue-50/40", badge: "bg-blue-100 text-blue-700" },
+  { kind: "tailor", icon: Sparkles, title: "Tối ưu theo JD", desc: "Bắt buộc tải file JD để tailor.", tile: "hover:border-blue-600/50 hover:bg-blue-50/40", badge: "bg-blue-100 text-blue-700" },
   { kind: "interview", icon: MessagesSquare, title: "Phỏng vấn thử", desc: "Luyện trả lời từ CV đã lưu.", tile: "hover:border-rose-600/50 hover:bg-rose-50/40", badge: "bg-rose-100 text-rose-700" },
   { kind: "jobs", icon: Search, title: "Tìm việc", desc: "Gợi ý việc phù hợp từ CV.", tile: "hover:border-violet-600/50 hover:bg-violet-50/40", badge: "bg-violet-100 text-violet-700" },
 ];
@@ -73,9 +73,12 @@ export default function FeatureChooserModal({ open, cvName, canUseFeatures, init
     }
   };
 
-  // JD step for "Tối ưu theo JD" — JD is collected here, at pick time.
+  // JD step for "Tối ưu theo JD" — a PDF upload is mandatory; the
+  // textarea only previews/corrects the extracted text.
   if (step === "jd") {
     const jdValid = jdText.trim().length > 20;
+    const jdUploaded = jdFileName !== null;
+    const canContinue = jdValid && jdUploaded && !isExtracting;
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Nhập Job Description">
         <button type="button" aria-label="Đóng" onClick={close} className="absolute inset-0 bg-slate-900/50 cursor-pointer" />
@@ -107,17 +110,27 @@ export default function FeatureChooserModal({ open, cvName, canUseFeatures, init
               className="flex w-full items-center gap-2 rounded-xl border-2 border-dashed border-blue-200 px-4 py-3 text-left text-sm text-gray-500 hover:border-blue-400 cursor-pointer disabled:opacity-50"
             >
               {isExtracting ? <Loader2 size={16} className="animate-spin text-blue-600" /> : <Upload size={16} className="text-blue-500" />}
-              {jdFileName ? <span className="truncate font-semibold text-slate-700">{jdFileName}</span> : "Tải file PDF JD (không bắt buộc)"}
+              {jdFileName ? <span className="truncate font-semibold text-slate-700">{jdFileName}</span> : "Tải file PDF JD"}
               <FileText size={14} className="ml-auto shrink-0 text-gray-300" />
             </button>
             <textarea
               value={jdText}
               onChange={(e) => setJdText(e.target.value)}
               onBlur={() => setJdText((v) => v.trim())}
-              placeholder="Dán nội dung Job Description vào đây (tối thiểu ~20 ký tự)..."
+              placeholder={jdUploaded ? "Nội dung JD từ file — sửa lại nếu trích xuất thiếu..." : "Tải file PDF JD ở trên để lấy nội dung..."}
               rows={8}
               className="w-full resize-y rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-gray-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/10"
             />
+            {!jdUploaded && !jdError && (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                Bắt buộc: tải file PDF JD để tiếp tục tailor.
+              </p>
+            )}
+            {jdUploaded && !jdValid && !jdError && (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                File JD trích xuất quá ngắn — bổ sung nội dung vào ô trên (tối thiểu ~20 ký tự).
+              </p>
+            )}
             {jdError && (
               <p role="alert" className="rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
                 {jdError}
@@ -135,7 +148,7 @@ export default function FeatureChooserModal({ open, cvName, canUseFeatures, init
             <button
               type="button"
               onClick={() => onPick("tailor", jdText.trim(), jdFileName)}
-              disabled={!jdValid || isExtracting}
+              disabled={!canContinue}
               className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               TIẾP TỤC TAILOR

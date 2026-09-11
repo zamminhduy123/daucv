@@ -58,18 +58,31 @@ async def get_profile_with_stats(user: dict) -> UserProfileResponse:
 async def list_cvs(user_id: UUID) -> list[CVResponse]:
     try:
         rows = await Database.fetch_all(
-            "SELECT id, cv_filename, cv_text, is_active, created_at, raw_extraction_ref, pdf_file_id FROM public.user_cvs WHERE user_id = $1 ORDER BY created_at DESC",
+            "SELECT id, cv_filename, cv_text, is_active, created_at, raw_extraction_ref, pdf_file_id, thumbnail_file_id FROM public.user_cvs WHERE user_id = $1 ORDER BY created_at DESC",
             user_id,
         )
     except Exception as exc:
-        # Migration 010/011 may not have applied yet on some
-        # environments. Fall back to the legacy column set so the CV list
-        # keeps working instead of 500ing the picker.
+        if "thumbnail_file_id" in str(exc):
+            logger.warning(
+                "user_cvs thumbnail_file_id column missing; listing without it. Apply migration 013.",
+                exc_info=True,
+            )
+            try:
+                rows = await Database.fetch_all(
+                    "SELECT id, cv_filename, cv_text, is_active, created_at, raw_extraction_ref, pdf_file_id FROM public.user_cvs WHERE user_id = $1 ORDER BY created_at DESC",
+                    user_id,
+                )
+                return [
+                    CVResponse.model_validate({**dict(r), "thumbnail_file_id": None})
+                    for r in rows
+                ]
+            except Exception:
+                pass
         if "raw_extraction_ref" not in str(exc) and "pdf_file_id" not in str(exc):
             raise
         logger.warning(
             "user_cvs PDF/raw columns missing; listing without them. "
-            "Apply migrations 010 and 011.",
+            "Apply migrations 010, 011, and 013.",
             exc_info=True,
         )
         rows = await Database.fetch_all(
@@ -78,7 +91,12 @@ async def list_cvs(user_id: UUID) -> list[CVResponse]:
         )
         return [
             CVResponse.model_validate(
-                {**dict(r), "raw_extraction_ref": None, "pdf_file_id": None}
+                {
+                    **dict(r),
+                    "raw_extraction_ref": None,
+                    "pdf_file_id": None,
+                    "thumbnail_file_id": None,
+                }
             )
             for r in rows
         ]
@@ -89,11 +107,25 @@ async def get_cv(cv_id: UUID, user_id: UUID) -> CVResponse | None:
     """Fetch one source CV row (ownership-checked) or None."""
     try:
         row = await Database.fetch_one(
-            "SELECT id, cv_filename, cv_text, is_active, created_at, raw_extraction_ref, pdf_file_id FROM public.user_cvs WHERE id = $1 AND user_id = $2",
+            "SELECT id, cv_filename, cv_text, is_active, created_at, raw_extraction_ref, pdf_file_id, thumbnail_file_id FROM public.user_cvs WHERE id = $1 AND user_id = $2",
             cv_id,
             user_id,
         )
     except Exception as exc:
+        if "thumbnail_file_id" in str(exc):
+            try:
+                row = await Database.fetch_one(
+                    "SELECT id, cv_filename, cv_text, is_active, created_at, raw_extraction_ref, pdf_file_id FROM public.user_cvs WHERE id = $1 AND user_id = $2",
+                    cv_id,
+                    user_id,
+                )
+                if row is None:
+                    return None
+                return CVResponse.model_validate(
+                    {**dict(row), "thumbnail_file_id": None}
+                )
+            except Exception:
+                pass
         if "raw_extraction_ref" not in str(exc) and "pdf_file_id" not in str(exc):
             raise
         row = await Database.fetch_one(
@@ -104,7 +136,12 @@ async def get_cv(cv_id: UUID, user_id: UUID) -> CVResponse | None:
         if row is None:
             return None
         return CVResponse.model_validate(
-            {**dict(row), "raw_extraction_ref": None, "pdf_file_id": None}
+            {
+                **dict(row),
+                "raw_extraction_ref": None,
+                "pdf_file_id": None,
+                "thumbnail_file_id": None,
+            }
         )
     if row is None:
         return None
@@ -120,6 +157,7 @@ async def create_cv(
     cv_filename: str,
     raw_extraction_ref: str | None = None,
     pdf_file_id: str | None = None,
+    thumbnail_file_id: str | None = None,
 ) -> CVResponse:
     """Store a new source CV row alongside existing rows (multi-CV switcher).
 
@@ -173,14 +211,30 @@ async def create_cv(
             )
 
         # Insert the new CV without touching other rows (coexist, not replace)
-        row = await conn.fetchrow(
-            "INSERT INTO public.user_cvs (user_id, cv_text, cv_filename, is_active, raw_extraction_ref, pdf_file_id) VALUES ($1, $2, $3, FALSE, $4, $5) RETURNING id, cv_filename, cv_text, is_active, created_at, raw_extraction_ref, pdf_file_id",
-            user_id,
-            cv_text,
-            cv_filename,
-            raw_extraction_ref,
-            pdf_file_id,
-        )
+        try:
+            row = await conn.fetchrow(
+                "INSERT INTO public.user_cvs (user_id, cv_text, cv_filename, is_active, raw_extraction_ref, pdf_file_id, thumbnail_file_id) VALUES ($1, $2, $3, FALSE, $4, $5, $6) RETURNING id, cv_filename, cv_text, is_active, created_at, raw_extraction_ref, pdf_file_id, thumbnail_file_id",
+                user_id,
+                cv_text,
+                cv_filename,
+                raw_extraction_ref,
+                pdf_file_id,
+                thumbnail_file_id,
+            )
+        except Exception as exc:
+            if "thumbnail_file_id" in str(exc):
+                row = await conn.fetchrow(
+                    "INSERT INTO public.user_cvs (user_id, cv_text, cv_filename, is_active, raw_extraction_ref, pdf_file_id) VALUES ($1, $2, $3, FALSE, $4, $5) RETURNING id, cv_filename, cv_text, is_active, created_at, raw_extraction_ref, pdf_file_id",
+                    user_id,
+                    cv_text,
+                    cv_filename,
+                    raw_extraction_ref,
+                    pdf_file_id,
+                )
+                return CVResponse.model_validate(
+                    {**dict(row), "thumbnail_file_id": None}
+                )
+            raise
 
     return CVResponse.model_validate(dict(row))
 
@@ -191,6 +245,8 @@ async def update_cv_text(
     cv_text: str,
     cv_filename: str,
     raw_extraction_ref: str | None = None,
+    pdf_file_id: str | None = None,
+    thumbnail_file_id: str | None = None,
 ) -> CVResponse:
     """Update one source CV row by id (ownership-checked)."""
     if not Database.pool:
@@ -204,14 +260,37 @@ async def update_cv_text(
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
 
-        row = await conn.fetchrow(
-            "UPDATE public.user_cvs SET cv_text = $1, cv_filename = $2, raw_extraction_ref = COALESCE($3, raw_extraction_ref) WHERE id = $4 AND user_id = $5 RETURNING id, cv_filename, cv_text, is_active, created_at, raw_extraction_ref, pdf_file_id",
-            cv_text,
-            cv_filename,
-            raw_extraction_ref,
-            cv_id,
-            user_id,
-        )
+        try:
+            row = await conn.fetchrow(
+                "UPDATE public.user_cvs SET cv_text = $1, cv_filename = $2, raw_extraction_ref = COALESCE($3, raw_extraction_ref), pdf_file_id = COALESCE($4, pdf_file_id), thumbnail_file_id = COALESCE($5, thumbnail_file_id) WHERE id = $6 AND user_id = $7 RETURNING id, cv_filename, cv_text, is_active, created_at, raw_extraction_ref, pdf_file_id, thumbnail_file_id",
+                cv_text,
+                cv_filename,
+                raw_extraction_ref,
+                pdf_file_id,
+                thumbnail_file_id,
+                cv_id,
+                user_id,
+            )
+        except Exception as exc:
+            if "thumbnail_file_id" in str(exc):
+                row = await conn.fetchrow(
+                    "UPDATE public.user_cvs SET cv_text = $1, cv_filename = $2, raw_extraction_ref = COALESCE($3, raw_extraction_ref), pdf_file_id = COALESCE($4, pdf_file_id) WHERE id = $5 AND user_id = $6 RETURNING id, cv_filename, cv_text, is_active, created_at, raw_extraction_ref, pdf_file_id",
+                    cv_text,
+                    cv_filename,
+                    raw_extraction_ref,
+                    pdf_file_id,
+                    cv_id,
+                    user_id,
+                )
+                if not row:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Không tìm thấy CV hoặc bạn không có quyền sửa đổi CV này.",
+                    )
+                return CVResponse.model_validate(
+                    {**dict(row), "thumbnail_file_id": None}
+                )
+            raise
         if not row:
             raise HTTPException(
                 status_code=404,
@@ -219,6 +298,25 @@ async def update_cv_text(
             )
 
     return CVResponse.model_validate(dict(row))
+
+
+async def update_cv_thumbnail(
+    cv_id: UUID,
+    user_id: UUID,
+    thumbnail_file_id: str,
+) -> None:
+    """Persist newly generated thumbnail file id for a CV row (lazy backfill)."""
+    try:
+        await Database.execute(
+            "UPDATE public.user_cvs SET thumbnail_file_id = $1 WHERE id = $2 AND user_id = $3",
+            thumbnail_file_id,
+            cv_id,
+            user_id,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Could not update thumbnail_file_id on user_cvs row: %s", exc, exc_info=True
+        )
 
 
 async def update_active_cv_text(

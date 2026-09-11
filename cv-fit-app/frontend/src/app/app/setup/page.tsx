@@ -57,6 +57,7 @@ export default function SetupPage() {
     text: string;
     rawExtractionRef: PdfExtractResult["raw_extraction_ref"];
     pdfFileId: string | null;
+    thumbnailFileId: string | null;
   }) => {
     setIsUploading(true);
     setUploadError(null);
@@ -68,7 +69,7 @@ export default function SetupPage() {
             method: (args.rawExtractionRef.method as RawExtractionReference["method"]) ?? "native_blocks",
           }
         : null;
-      const row = await uploadFileCV(args.text, args.name, rawRef, args.pdfFileId);
+      const row = await uploadFileCV(args.text, args.name, rawRef, args.pdfFileId, args.thumbnailFileId);
       if (row?.id) {
         try {
           const prefill = await prefillCVAPI(args.text, rawRef?.id, row.id);
@@ -153,6 +154,8 @@ export default function SetupPage() {
                 id={cv.id}
                 filename={cv.cv_filename}
                 pdfUrl={cv.pdf_url ?? null}
+                thumbnailFileId={cv.thumbnail_file_id ?? null}
+                hasPdf={Boolean(cv.pdf_file_id || cv.thumbnail_file_id || cv.pdf_url)}
                 text={cv.cv_text}
                 createdAt={cv.created_at}
                 onOpen={() => setActionId(cv.id)}
@@ -226,8 +229,11 @@ function formatRelativeTime(createdAt: string): string {
 }
 
 function CvCard({
+  id,
   filename,
   pdfUrl,
+  thumbnailFileId,
+  hasPdf,
   text,
   createdAt,
   onOpen,
@@ -236,13 +242,21 @@ function CvCard({
   id: string;
   filename: string;
   pdfUrl: string | null;
+  thumbnailFileId: string | null;
+  hasPdf: boolean;
   text: string;
   createdAt: string;
   onOpen: () => void;
   onDelete: () => void;
 }) {
+  const [thumbFailed, setThumbFailed] = useState(false);
   const [pdfFailed, setPdfFailed] = useState(false);
   const [edited, setEdited] = useState("");
+
+  useEffect(() => {
+    setThumbFailed(false);
+    setPdfFailed(false);
+  }, [id, pdfUrl, thumbnailFileId]);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -255,7 +269,16 @@ function CvCard({
   return (
     <div onClick={onOpen} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm cursor-pointer hover:border-[#2D7A58]/40 transition-colors">
       <div className="aspect-1/1.25 overflow-hidden bg-[#F7F9F7] pointer-events-none">
-        {pdfUrl && !pdfFailed ? (
+        {hasPdf && !thumbFailed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={`/api/cv/${id}/thumbnail${thumbnailFileId ? `?v=${encodeURIComponent(thumbnailFileId)}` : ""}`}
+            alt={filename}
+            className="h-full w-full object-cover object-top"
+            loading="lazy"
+            onError={() => setThumbFailed(true)}
+          />
+        ) : pdfUrl && !pdfFailed ? (
           <CVPdfThumb url={pdfUrl} label={filename} onError={() => setPdfFailed(true)} />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-1 p-3 text-center">

@@ -18,7 +18,11 @@ from app.models.cv_document_v2 import (
     CVSkillGroupBlock,
     CVUnknownBlock,
 )
-from app.models.cv_template import CVRenderDiagnostics, CVRenderResult
+from app.models.cv_template import (
+    CVRenderDiagnostics,
+    CVRenderResult,
+    CVTypographyOverride,
+)
 from app.services.cv_language import CVLanguage
 from app.services.cv_render_ledger import build_cv_render_ledger
 from app.services.cv_render_validation import validate_static_html
@@ -35,8 +39,15 @@ def render_cv_document(
     template_id: str = "classic_ats",
     template_version: int | None = None,
     language: CVLanguage = "vi",
+    typography: CVTypographyOverride | None = None,
 ) -> CVRenderResult:
-    """Render CVDocumentV2 into canonical HTML with strict data-field-id tags."""
+    """Render CVDocumentV2 into canonical HTML with strict data-field-id tags.
+
+    An optional sanitized typography override is appended after the template
+    CSS so export-screen spacing/font tuning reaches the PDF. Omitted fields
+    keep template defaults; text content is untouched so ledger validation
+    is unaffected.
+    """
     canonical_id = resolve_template_id(template_id)
     pkg = get_template_package(canonical_id, template_version)
     template_def = pkg.definition
@@ -112,6 +123,7 @@ def render_cv_document(
         f'  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
         f"  <title>{escape(document.identity.full_name or 'CV')}</title>\n"
         f"  <style>\n{css_content}\n</style>\n"
+        f"  {typography.to_override_css() if typography else ''}\n"
         f"</head>\n"
         f"<body{body_attr}>\n"
         f'  <div class="cv-container">\n'
@@ -386,8 +398,10 @@ def _render_block_html(block_key: str, block: CVBlockType) -> str:
         parts.append('<div class="skills-group">')
         parts.append('<span class="bullet-char">• </span>')
         if block.label:
+            # Decorative colon lives OUTSIDE the tagged element: the render
+            # validator compares element text byte-for-byte with the ledger.
             parts.append(
-                f'<strong class="skills-label" data-field-id="{block_key}:label">{escape(block.label)}: </strong>'
+                f'<strong class="skills-label" data-field-id="{block_key}:label">{escape(block.label)}</strong>: '
             )
         if block.skills:
             skill_spans = [
@@ -402,11 +416,11 @@ def _render_block_html(block_key: str, block: CVBlockType) -> str:
         parts.append('<span class="bullet-char">• </span>')
         if block.authors:
             parts.append(
-                f'<span class="pub-authors" data-field-id="{block_key}:authors">{escape(block.authors)}. </span>'
+                f'<span class="pub-authors" data-field-id="{block_key}:authors">{escape(block.authors)}</span>. '
             )
         if block.title:
             parts.append(
-                f'<span class="pub-title" data-field-id="{block_key}:title">“{escape(block.title)}” </span>'
+                f'“<span class="pub-title" data-field-id="{block_key}:title">{escape(block.title)}</span>” '
             )
         meta_items: list[str] = []
         if block.venue:

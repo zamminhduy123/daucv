@@ -1,0 +1,164 @@
+{
+  "identity": {
+    "name": "Trung",
+    "headline": "Dao",
+    "email": "tdao6@wisc.edu",
+    "phone": null,
+    "location": null,
+    "links": [
+      "linkedin.com/in/trung-dt880",
+      "github.com/trungdt880"
+    ]
+  },
+  "summary": null,
+  "education": [
+    {
+      "institution": "University of Wisconsin-Madison",
+      "degree": "Ph.D. in Computer Science (Advisor: Prof. Yong Jae Lee)",
+      "field": null,
+      "location": null,
+      "date": null,
+      "details": [],
+      "source": [
+        "p1-b11",
+        "p1-b13"
+      ]
+    },
+    {
+      "institution": "Thang Long University",
+      "degree": "Bachelor of Computer Science; GPA: 9.0/10.0 ( Valedictorian )",
+      "field": null,
+      "location": null,
+      "date": null,
+      "details": [],
+      "source": [
+        "p1-b15",
+        "p1-b17"
+      ]
+    }
+  ],
+  "experience": [],
+  "research_experience": [],
+  "projects": [
+    {
+      "title": "Noise Cancelling on Smartphone Responsibleforconvertingmodelsacrossvariousframeworks(PyTorch,TensorFlow, ONNX) into TFLite, followed by quantization and smartphone deployment. Optimized existing algorithm with FFT, achieving a 40% runtime reduction.",
+      "organization": null,
+      "location": null,
+      "date": null,
+      "bullets": [
+        {
+          "text": "SmartData Redesigned the data labeling pipeline of the backend system built with Flask. Introduced a new end-to-end multi-step labeling feature, improving labeling efficiency by 30% .",
+          "source": [
+            "p2-b17",
+            "p2-b18",
+            "p2-b19",
+            "p2-b20",
+            "p2-b21"
+          ]
+        }
+      ],
+      "source": [
+        "p2-b17",
+        "p2-b18",
+        "p2-b19",
+        "p2-b20",
+        "p2-b21"
+      ]
+    },
+    {
+      "title": "Professional Services",
+      "organization": null,
+      "location": null,
+      "date": null,
+      "bullets": [
+        {
+          "text": "Reviewer: CVPR(2023, 2024, 2025, 2026), NeurIPS(2024, 2025), ECCV(2024, 2026), ICCV(2025), ICLR(2025), WACV(2025), ACCV(2022, 2024).",
+          "source": [
+            "p2-b22",
+            "p2-b23",
+            "p2-b24"
+          ]
+        }
+      ],
+      "source": [
+        "p2-b22",
+        "p2-b23",
+        "p2-b24"
+      ]
+    },
+    {
+      "title": "Outstanding Reviewer: CVPR 2026 (Top 5%).",
+      "organization": null,
+      "location": null,
+      "date": null,
+      "bullets": [],
+      "source": [
+        "p2-b25"
+      ]
+    }
+  ],
+  "skills": {
+    "Languages": [
+      "C++",
+      "Python",
+      "Unix scripting",
+      "SQL"
+    ],
+    "Tools": [
+      "PyTorch",
+      "TensorFlow",
+      "TensorRT",
+      "AIMET",
+      "ONNX",
+      "NCNN",
+      "MNN",
+      "OpenCV",
+      "Docker",
+      "Git",
+      "Jira"
+    ]
+  },
+  "publications": [
+    {
+      "title": "[P1] Trung Dao* , Duc Hong Vu*, Cuong Pham and Anh Tran. ”EFHQ: Multi-purpose ExtremePose-Face-HQ dataset.” CVPR, 2024.",
+      "authors": "[P2] Trung Dao , Thuan Nguyen, Thanh Le, Duc Vu, Khoi Nguyen, Cuong Pham, Anh Tran.",
+      "venue": "”SwiftBrushV2: Make Your One-step Diffusion Model Better Than Its Teacher.” ECCV, 2025.",
+      "date": "[P3] Hao Phung*, Quan Dao*, Trung Dao , Hoang Phan, Dimitris N. Metaxas, Anh Tran.",
+      "status": null,
+      "source": [
+        "p3-b2",
+        "p3-b3",
+        "p3-b4",
+        "p3-b5",
+        "p3-b6",
+        "p3-b7"
+      ]
+    },
+    {
+      "title": "[P4] Quan Dao*, Hao Phung*, Trung Dao , Dimitris N. Metaxas, Anh Tran.",
+      "authors": "”DiMSUM: Diffusion Mamba - A Scalable and Unified Spatial-Frequency Method For Image Generation.” NeurIPS, 2024.",
+      "venue": "”Self-Corrected Flow Distillation for Consistent One-Step and Few-Step Image Generation.” AAAI, 2025.",
+      "date": "[P5] Viet Nguyen*, Viet Nguyen*, Trung Dao , Toan Tran, Anh Tran.",
+      "status": null,
+      "source": [
+        "p3-b8",
+        "p3-b9",
+        "p3-b10",
+        "p3-b11"
+      ]
+    },
+    {
+      "title": "[P6] Anh Nguyen*, Viet Nguyen*, Duc Vu, Trung Dao , Chi Tran, Toan Tran, Anh Tran.",
+      "authors": "”SNOOPI: Supercharged One-step Diffusion Distillation with Proper Guidance.” ICCV, 2025.",
+      "venue": "”Improved Training Technique for Shortcut Models.” NeurIPS, 2025.",
+      "date": null,
+      "status": null,
+      "source": [
+        "p3-b12",
+        "p3-b13",
+        "p3-b14"
+      ]
+    }
+  ],
+  "certifications": []
+}

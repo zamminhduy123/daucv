@@ -3,11 +3,13 @@
 import hashlib
 import json
 import logging
+import re
 from typing import Literal
 from uuid import UUID
 
 from app.core.db import Database
 from app.models.cv_document_v2 import CVDocumentV2
+from app.models.cv_template import CVTypographyOverride
 from app.models.cv_translation import CVTranslationVariant
 from app.schemas.tailored_cv import CVPreviewResponse, TailoredCVVersionResponse
 from app.services.cv_template_render_service import render_cv_document
@@ -65,6 +67,76 @@ def _verify_exportable_translation_variant(
         )
 
 
+_WYSIWYG_MAX_HTML_BYTES = 3_000_000
+
+_STRIP_PATTERNS = (
+    re.compile(r"<script\b[^>]*>.*?</script\s*>", re.IGNORECASE | re.DOTALL),
+    re.compile(r"<(iframe|object|embed|form|link|img|base)\b[^>]*>", re.IGNORECASE),
+    re.compile(r"</(iframe|object|embed|form)\s*>", re.IGNORECASE),
+    re.compile(r"<meta\b[^>]*http-equiv[^>]*>", re.IGNORECASE),
+    re.compile(r"\son\w+\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", re.IGNORECASE),
+)
+
+
+def sanitize_wysiwyg_html(html: str) -> str:
+    """Strip active/external content from client-supplied preview HTML.
+
+    The export screen sends the exact preview markup so the PDF matches the
+    screen pixel-for-pixel. Scripts, frames, external resources, and inline
+    event handlers are removed; inline <style> and text are preserved.
+    """
+    if len(html.encode("utf-8")) > _WYSIWYG_MAX_HTML_BYTES:
+        raise ValueError("Preview HTML exceeds the 3 MB limit.")
+    clean = html
+    for pattern in _STRIP_PATTERNS:
+        clean = pattern.sub("", clean)
+    if "<html" not in clean.lower():
+        raise ValueError("Preview HTML is not a complete document.")
+    return clean
+
+
+async def generate_pdf_from_html(
+    version_id: UUID,
+    user_id: UUID,
+    html: str,
+) -> bytes:
+    """Render the client's exact preview HTML to PDF bytes (WYSIWYG export).
+
+    Ownership of the version is verified, but the stored template is
+    deliberately bypassed: the point is byte-fidelity with the on-screen
+    preview, including the user's live typography. Network is isolated so
+    the markup cannot trigger server-side requests.
+    """
+    await get_version(version_id, user_id)
+    clean = sanitize_wysiwyg_html(html)
+
+    from playwright.async_api import async_playwright
+
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch(headless=True)
+        try:
+            page = await browser.new_page(viewport={"width": 794, "height": 1123})
+            await page.route(
+                "**/*",
+                lambda route: route.abort()
+                if route.request.url.startswith("http")
+                else route.continue_(),
+            )
+            await page.set_content(clean, wait_until="domcontentloaded")
+            await page.evaluate("document.fonts.ready")
+            pdf_bytes = await page.pdf(
+                format="A4",
+                print_background=True,
+                margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+            )
+        finally:
+            await browser.close()
+
+    if not pdf_bytes or len(pdf_bytes) < 100:
+        raise RuntimeError("PDF generation yielded empty or corrupted binary.")
+    return pdf_bytes
+
+
 async def get_preview(
     version_id: UUID,
     user_id: UUID,
@@ -105,6 +177,7 @@ async def generate_pdf(
     version_id: UUID,
     user_id: UUID,
     translation_variant_id: UUID | None = None,
+    typography: CVTypographyOverride | None = None,
 ) -> bytes:
     """Orchestrate PDF generation for original or translated CV document."""
     version = await get_version(version_id, user_id)
@@ -131,6 +204,7 @@ async def generate_pdf(
         language=source_lang,
         template_id=target_template,
         template_version=version.template_version,
+        typography=typography,
     )
 
 

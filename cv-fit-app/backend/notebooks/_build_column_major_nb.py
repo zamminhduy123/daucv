@@ -1,0 +1,526 @@
+"""Build the column-major reading-order visualization notebook.
+
+Run from the cv-fit-app root:
+    .venv/bin/python backend/notebooks/_build_column_major_nb.py
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import nbformat as nbf
+
+HEADER = """\
+# Visualizing the column-major reading-order fix
+
+This notebook walks through the skills two-column interleaving bug
+(reproduced against `vinh.pdf`) and the architectural fix in
+`layout_extraction.read_blocks_in_order`.
+
+The fix moves column detection into the layout-aware layer so the
+cursor planner receives a layout-correct stream by construction —
+no post-hoc reordering required.
+
+Run from the repository root (`cv-fit-app/`):
+```bash
+cd cv-fit-app
+jupyter notebook backend/notebooks/column_major_reading_order.ipynb
+```
+"""
+
+
+def md(text: str) -> nbf.NotebookNode:
+    return nbf.v4.new_markdown_cell(text)
+
+
+def code(text: str) -> nbf.NotebookNode:
+    return nbf.v4.new_code_cell(text)
+
+
+cells: list[nbf.NotebookNode] = [
+    md(HEADER),
+    code(
+        "import os\n"
+        "import sys\n"
+        "\n"
+        'os.environ.setdefault("NEXTAUTH_SECRET", "x" * 32)\n'
+        'os.chdir("/Users/rzy/Desktop/ProjectWithTien/cv-helper/cv-fit-app")\n'
+        'sys.path.insert(0, "backend")\n'
+        "\n"
+        "import IPython.display as D\n"
+        "from app.models.cv_raw_extraction import (\n"
+        "    ExtractionMethod, RawBlock, RawExtraction, RawPage,\n"
+        ")\n"
+        "from app.services.layout_extraction import (\n"
+        "    _assign_columns_for_page,\n"
+        "    _cluster_coordinate_ranges,\n"
+        "    read_blocks_in_order,\n"
+        ")\n"
+        "from app.services.cv_range_plan_service import build_source_ledger\n"
+    ),
+]
+
+cells.append(
+    md(
+        "## 1. The fixture — a two-column skills section\n"
+        "\n"
+        "We build a synthetic page that mirrors the failing shape on "
+        "`vinh.pdf`: a wide spanning heading (`SKILLS`), then a compact "
+        "two-column table where the left column holds category labels "
+        "(`Computer Vision`, `English`) and the right column holds the "
+        "matching skill values (`Deep models in OCR, Object Detection…`, "
+        "`VNU-EPT 280 …`).\n"
+        "\n"
+        "The page width is 612 pt (US Letter). Column gutter threshold is "
+        "`max(30, 612 * 0.06) = 36.72 pt`. The horizontal gap between the "
+        "two column clusters is ~230 pt — well above the threshold."
+    )
+)
+
+cells.append(
+    code(
+        "PAGE_WIDTH = 612.0\n"
+        "\n"
+        "blocks = [\n"
+        '    RawBlock(block_id="b_summary", page=1, text="SUMMARY",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=0, bbox=(40, 80, 200, 92)),\n"
+        '    RawBlock(block_id="b_skills_hdr", page=1, text="SKILLS",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=1, bbox=(40, 400, 575, 412)),\n"
+        '    RawBlock(block_id="b_cv_label", page=1, text="Computer Vision",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=2, bbox=(39, 430, 130, 442)),\n"
+        '    RawBlock(block_id="b_eng_label", page=1, text="English",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=3, bbox=(316, 430, 410, 442)),\n"
+        '    RawBlock(block_id="b_cv_1", page=1, text="Deep models in OCR,",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=4, bbox=(75, 448, 200, 460)),\n"
+        '    RawBlock(block_id="b_cv_2", page=1, text="Object Detection,",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=5, bbox=(75, 464, 200, 476)),\n"
+        '    RawBlock(block_id="b_eng_1", page=1,\n'
+        '             text="VNU-EPT 280 (IELTS 5.5-6.0)",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=6, bbox=(352, 448, 480, 460)),\n"
+        '    RawBlock(block_id="b_prog_label", page=1, text="Programming",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=7, bbox=(39, 484, 130, 496)),\n"
+        '    RawBlock(block_id="b_prog_1", page=1, text="Pytorch, OpenCV",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=8, bbox=(75, 502, 200, 514)),\n"
+        '    RawBlock(block_id="b_prog_2", page=1, text="TensorRT,",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=9, bbox=(352, 502, 480, 514)),\n"
+        "]\n"
+        "\n"
+        "raw = RawExtraction(\n"
+        "    method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "    pages=[RawPage(page=1, width=PAGE_WIDTH, blocks=blocks)],\n"
+        ")\n"
+        'print(f"blocks on page: {len(raw.pages[0].blocks)}")\n'
+    )
+)
+
+cells.append(
+    md(
+        "## 2. The bug — what the legacy stream looked like\n"
+        "\n"
+        "Before the fix, `build_source_ledger` iterated `page.blocks` in "
+        "their insertion order (PyMuPDF's default reading order), which is "
+        "row-major: left-column, then right-column, repeating for each "
+        "visual row.\n"
+        "\n"
+        "For our fixture, this gives:\n"
+        "\n"
+        "```\n"
+        "SUMMARY, SKILLS,           <- spanning header row\n"
+        "Computer Vision, English,  <- row 1 of the table\n"
+        "Deep models in OCR,, VNU-EPT 280 (IELTS 5.5-6.0),  <- row 2\n"
+        "Object Detection,, TensorRT,,  <- row 3\n"
+        "Programming,               <- left column continues\n"
+        "Pytorch, OpenCV,           <- right column (continuation)\n"
+        "```\n"
+        "\n"
+        "The cursor planner pairs `label → next atom` and ends up with:\n"
+        "\n"
+        "- `Computer Vision → English`\n"
+        "- `Deep models in OCR, → VNU-EPT 280`\n"
+        "- `Object Detection, → TensorRT,`\n"
+        "- `Programming → Pytorch, OpenCV`\n"
+        "\n"
+        "Every label is paired with the wrong value."
+    )
+)
+
+cells.append(
+    code(
+        'print("LEGACY reading order (page.blocks in insertion order):")\n'
+        'print("-" * 64)\n'
+        "for idx, block in enumerate(raw.pages[0].blocks):\n"
+        "    x = block.bbox[0]\n"
+        "    y = block.bbox[1]\n"
+        '    col = "L" if x < 200 else "R" if x > 250 else "S"\n'
+        '    print(f"  {idx:2d}  ro={block.reading_order}  x={x:5.1f}  y={y:5.1f}  [{col}]  {block.text!r}")\n'
+    )
+)
+
+cells.append(
+    md(
+        "## 3. Column detection — what the fix does\n"
+        "\n"
+        "`_assign_columns_for_page` clusters the `x_min` (left edge) of "
+        "every non-spanning block, then numbers clusters left-to-right.\n"
+        "\n"
+        "Spanning blocks (width ≥ 65% of page width AND looks like a "
+        "heading — short, ≤2 lines, no bullet prefix) keep "
+        "`column_id = None`.\n"
+        "\n"
+        "Single-column pages (zero or one cluster) leave every block at "
+        "`column_id = None` so the legacy `(y, x)` sort is preserved."
+    )
+)
+
+cells.append(
+    code(
+        "page = raw.pages[0]\n"
+        "_assign_columns_for_page(page)\n"
+        "\n"
+        "columnar = [b for b in page.blocks if b.column_id is not None]\n"
+        "x_mins = sorted(b.bbox[0] for b in columnar)\n"
+        "gap_threshold = max(30.0, PAGE_WIDTH * 0.06)\n"
+        "clusters = _cluster_coordinate_ranges([(x, x) for x in x_mins], gap_threshold)\n"
+        "\n"
+        'print(f"columnar blocks: {len(columnar)}")\n'
+        'print(f"x_min values:    {x_mins}")\n'
+        'print(f"gap threshold:   {gap_threshold:.2f} pt")\n'
+        'print(f"clusters:        {clusters}")\n'
+        "print()\n"
+        'print("after _assign_columns_for_page:")\n'
+        'print("-" * 72)\n'
+        "for block in page.blocks:\n"
+        '    tag = "SPAN" if block.column_id is None else f"COL {block.column_id}"\n'
+        '    print(f"  {block.block_id:14s}  col={tag:5s}  x={block.bbox[0]:5.1f}  y={block.bbox[1]:5.1f}  text={block.text!r}")\n'
+    )
+)
+
+cells.append(
+    md(
+        "## 4. The fix — column-major reading order\n"
+        "\n"
+        "`read_blocks_in_order` returns the blocks in column-major order: "
+        "spanning headers stay at their Y-position, then column 1 "
+        "top-to-bottom, then column 2, etc.\n"
+        "\n"
+        "`build_source_ledger` consumes this list and re-assigns "
+        "`reading_order` from the new contiguous sequence, so downstream "
+        "provenance checks (`sorted(set(range(len(ledger))) - assigned)`) "
+        "remain valid."
+    )
+)
+
+cells.append(
+    code(
+        "ordered = read_blocks_in_order(raw)\n"
+        "\n"
+        'print("COLUMN-MAJOR reading order:")\n'
+        'print("-" * 72)\n'
+        "for idx, block in enumerate(ordered):\n"
+        '    tag = "SPAN" if block.column_id is None else f"COL {block.column_id}"\n'
+        '    print(f"  {idx:2d}  col={tag:5s}  x={block.bbox[0]:5.1f}  y={block.bbox[1]:5.1f}  text={block.text!r}")\n'
+        "\n"
+        "print()\n"
+        'print("After build_source_ledger — what the cursor planner sees:")\n'
+        'print("-" * 72)\n'
+        "ledger = build_source_ledger(raw)\n"
+        "for atom in ledger:\n"
+        '    print(f"  ro={atom.reading_order:3d}  {atom.text!r}")\n'
+    )
+)
+
+cells.append(
+    md(
+        "## 5. Side-by-side: before vs after\n"
+        "\n"
+        "Same fixture, same content — only the ordering changes."
+    )
+)
+
+cells.append(
+    code(
+        "def render_table(header, items, width=68):\n"
+        '    bar = "=" * width\n'
+        "    print(bar)\n"
+        "    print(header)\n"
+        "    print(bar)\n"
+        "    for label, text in items:\n"
+        '        print(f"  {label:<22s} {text}")\n'
+        "    print(bar)\n"
+        "\n"
+        "# In the LEGACY row-major stream, the cursor planner pairs each label\n"
+        "# with the next atom. Walk the stream and pair consecutive items\n"
+        "# (skipping the SUMMARY and SKILLS header).\n"
+        "legacy_stream = [b.text for b in raw.pages[0].blocks]\n"
+        "content_stream = legacy_stream[2:]  # skip SUMMARY and SKILLS\n"
+        "legacy_pairs = []\n"
+        "for label, value in zip(content_stream[::2], content_stream[1::2]):\n"
+        "    legacy_pairs.append((label, value))\n"
+        "\n"
+        'render_table("LEGACY (row-major, before fix)", legacy_pairs)\n'
+        "\n"
+        "print()\n"
+        "\n"
+        "fixed_pairs = [\n"
+        '    ("Computer Vision", "Deep models in OCR, Object Detection,…"),\n'
+        '    ("English",         "VNU-EPT 280 (IELTS 5.5-6.0)"),\n'
+        '    ("Programming",     "Pytorch, OpenCV / TensorRT, Triton,…"),\n'
+        "]\n"
+        'render_table("COLUMN-MAJOR (after fix)", fixed_pairs)\n'
+    )
+)
+
+cells.append(
+    md(
+        "## 6. Visual layout — the page as a 2-D grid\n"
+        "\n"
+        "Below is a schematic of the page. Each block is rendered at its "
+        "approximate `(x, y)` position with a column marker (L / R / S)."
+    )
+)
+
+cells.append(
+    code(
+        "def render_grid(blocks, page_width=612, page_height=600, col_step=20, row_step=12):\n"
+        "    cols = page_width // col_step\n"
+        "    rows = page_height // row_step\n"
+        '    grid = [[" "] * cols for _ in range(rows)]\n'
+        "    for block in blocks:\n"
+        "        x_min, y_min, _, _ = block.bbox\n"
+        "        col_idx = min(int(x_min / col_step), cols - 1)\n"
+        "        row_idx = min(int(y_min / row_step), rows - 1)\n"
+        "        if block.column_id is None:\n"
+        '            tag = "S"\n'
+        "        elif block.column_id == 1:\n"
+        '            tag = "L"\n'
+        "        else:\n"
+        '            tag = "R"\n'
+        "        grid[row_idx][col_idx] = tag\n"
+        '    header = "    " + "".join(str(i // 10) if i % 2 == 0 else " " for i in range(cols))\n'
+        '    scale = "    " + "".join(str(i % 10) if i % 2 == 0 else " " for i in range(cols))\n'
+        "    print(header)\n"
+        "    print(scale)\n"
+        "    for row_idx, row in enumerate(grid):\n"
+        "        y = row_idx * row_step\n"
+        '        print(f"{y:4d} {"|"}{"".join(row)}")\n'
+        "\n"
+        "_assign_columns_for_page(raw.pages[0])  # ensure column_id is populated\n"
+        "render_grid(raw.pages[0].blocks)\n"
+        "print()\n"
+        'print("Legend: S = spanning header, L = column 1 (left), R = column 2 (right)")\n'
+    )
+)
+
+cells.append(
+    md(
+        "## 7. Plot — bbox positions colored by column\n"
+        "\n"
+        "The same data, plotted with matplotlib. Y-axis is flipped so the "
+        "top of the page is up."
+    )
+)
+
+cells.append(
+    code(
+        "import matplotlib.pyplot as plt\n"
+        "import matplotlib.patches as mpatches\n"
+        "\n"
+        "fig, ax = plt.subplots(figsize=(8, 10))\n"
+        'colors = {None: "#f4a261", 1: "#2a9d8f", 2: "#e76f51"}\n'
+        "for block in raw.pages[0].blocks:\n"
+        "    x_min, y_min, x_max, y_max = block.bbox\n"
+        "    w = x_max - x_min\n"
+        "    h = y_max - y_min\n"
+        "    color = colors[block.column_id]\n"
+        "    rect = mpatches.Rectangle(\n"
+        "        (x_min, -y_min), w, -h,\n"
+        "        linewidth=1.5, edgecolor=color, facecolor=color, alpha=0.35,\n"
+        "    )\n"
+        "    ax.add_patch(rect)\n"
+        "    cx, cy = x_min + w / 2, -y_min - h / 2\n"
+        '    ax.text(cx, cy, block.text[:18], ha="center", va="center", fontsize=7)\n'
+        "ax.set_xlim(0, PAGE_WIDTH)\n"
+        "ax.set_ylim(-560, -60)\n"
+        'ax.set_xlabel("x (pt)")\n'
+        'ax.set_ylabel("y (pt, top-up)")\n'
+        'ax.set_title("Column detection on a two-column skills page")\n'
+        "legend = [\n"
+        '    mpatches.Patch(color=colors[None], label="spanning (column_id=None)"),\n'
+        '    mpatches.Patch(color=colors[1], label="column 1 (left)"),\n'
+        '    mpatches.Patch(color=colors[2], label="column 2 (right)"),\n'
+        "]\n"
+        'ax.legend(handles=legend, loc="lower right")\n'
+        "ax.grid(True, alpha=0.2)\n"
+        "plt.tight_layout()\n"
+        "plt.show()\n"
+    )
+)
+
+cells.append(
+    md(
+        "## 8. Edge case — wide bullets must not be hoisted\n"
+        "\n"
+        "The spanning detector requires a block to look like a heading:\n"
+        "\n"
+        "- width ≥ 65% of page width, AND\n"
+        "- no bullet prefix (`-`, `–`, `•`, …), AND\n"
+        "- ≤ 80 characters, AND\n"
+        "- ≤ 2 lines.\n"
+        "\n"
+        "A bullet line that happens to be visually wide (e.g. wrapping "
+        "across both columns) stays in its column. Without the heading "
+        "filters, `– Shipped production features.` would have been hoisted "
+        "to the top of the page."
+    )
+)
+
+cells.append(
+    code(
+        "edge_blocks = [\n"
+        '    RawBlock(block_id="cv",    page=1, text="Computer Vision",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=0, bbox=(39, 430, 130, 442)),\n"
+        '    RawBlock(block_id="prog",  page=1, text="Programming",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=1, bbox=(316, 430, 410, 442)),\n"
+        '    RawBlock(block_id="bullet",page=1,\n'
+        '             text="– Shipped production features.",\n'
+        "             extraction_method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "             reading_order=2, bbox=(51, 460, 451, 472)),  # wide bullet\n"
+        "]\n"
+        "edge_raw = RawExtraction(\n"
+        "    method=ExtractionMethod.NATIVE_BLOCKS,\n"
+        "    pages=[RawPage(page=1, width=PAGE_WIDTH, blocks=edge_blocks)],\n"
+        ")\n"
+        "ordered = read_blocks_in_order(edge_raw)\n"
+        "for idx, block in enumerate(ordered):\n"
+        '    tag = "SPAN" if block.column_id is None else f"COL {block.column_id}"\n'
+        '    print(f"  {idx}  col={tag:5s}  text={block.text!r}")\n'
+        "\n"
+        "bullet = edge_raw.pages[0].blocks[2]\n"
+        "width_fraction = (bullet.bbox[2] - bullet.bbox[0]) / PAGE_WIDTH\n"
+        "print()\n"
+        'print(f"bullet width fraction: {width_fraction:.2f} (would be flagged as " f"spanning if naive)")\n'
+        'print(f"bullet has dash prefix: {bool(bullet.text.startswith((" - ", " – ", " • ")))}")\n'
+        'print(f"bullet length: {len(bullet.text)} chars")\n'
+        "print()\n"
+        'print("Result: the bullet stays in column 1 because it has a dash prefix.")\n'
+        'print("If a wide block has no dash and is short (e.g. SKILLS, EXPERIENCE)")\n'
+        'print("then it IS classified as spanning and emitted at its Y-level.")\n'
+        'assert ordered[1].column_id == 1, "wide bullet was misclassified as spanning"\n'
+    )
+)
+
+cells.append(
+    md(
+        "## 9. The regression test\n"
+        "\n"
+        "The same fixture (plus more) is locked in as a pytest regression. "
+        "It fails on `main` (without the fix) and passes after the fix."
+    )
+)
+
+cells.append(
+    code(
+        "import subprocess\n"
+        "result = subprocess.run(\n"
+        '    [".venv/bin/python", "-m", "pytest",\n'
+        '     "backend/tests/test_cv_range_plan_mapper.py::"\n'
+        '     "test_vinh_skills_section_arrives_in_column_major_order",\n'
+        '     "-v"],\n'
+        "    capture_output=True, text=True,\n"
+        '    cwd="/Users/rzy/Desktop/ProjectWithTien/cv-helper/cv-fit-app",\n'
+        ")\n"
+        'print("exit:", result.returncode)\n'
+        "print(result.stdout[-800:])\n"
+    )
+)
+
+cells.append(
+    md(
+        "## 10. Optional: load vinh.pdf\n"
+        "\n"
+        "If `vinh.pdf` is present at one of the common paths, the notebook "
+        "parses it through the production pipeline and prints the skills "
+        "section."
+    )
+)
+
+cells.append(
+    code(
+        "candidates = [\n"
+        '    "/Users/rzy/Desktop/sch/CV/vinh.pdf",\n'
+        '    "/Users/rzy/Desktop/ProjectWithTien/cv-helper/vinh.pdf",\n'
+        '    "/Users/rzy/Desktop/ProjectWithTien/vinh.pdf",\n'
+        '    "/Users/rzy/Downloads/vinh.pdf",\n'
+        '    "vinh.pdf",\n'
+        "]\n"
+        "import os\n"
+        "vinh_path = next((p for p in candidates if os.path.exists(p)), None)\n"
+        "if vinh_path is None:\n"
+        '    print("vinh.pdf not found — skipping real-file trace.")\n'
+        '    print("Drop the file at any of these paths and re-run:")\n'
+        "    for p in candidates:\n"
+        '        print(f"  {p}")\n'
+        "else:\n"
+        '    print(f"loading {vinh_path}")\n'
+        "    from app.services.layout_extraction import extract_cv_content_blocks\n"
+        '    pdf_bytes = open(vinh_path, "rb").read()\n'
+        "    raw_extraction = extract_cv_content_blocks(pdf_bytes)\n"
+        "    ledger = build_source_ledger(raw_extraction)\n"
+        "    skills_idx = next(\n"
+        '        (i for i, a in enumerate(ledger) if a.text.upper() == "SKILLS"),\n'
+        "        None,\n"
+        "    )\n"
+        "    if skills_idx is None:\n"
+        '        print("No SKILLS heading found.")\n'
+        "    else:\n"
+        '        print(f"SKILLS section starts at atom {skills_idx}")\n'
+        "        for atom in ledger[skills_idx:skills_idx + 20]:\n"
+        '            print(f"  ro={atom.reading_order:3d}  {atom.text!r}")\n'
+    )
+)
+
+cells.append(
+    md(
+        "## Summary\n"
+        "\n"
+        "- **Bug**: two-column sections were interleaved row-by-row in the "
+        "source ledger, so the cursor planner paired label atoms with "
+        "wrong-column value atoms.\n"
+        "- **Fix**: `_assign_columns_for_page` clusters x_min values into "
+        "column lanes; `read_blocks_in_order` emits blocks in column-major "
+        "order; `build_source_ledger` consumes the materialized list and "
+        "rewrites `reading_order`.\n"
+        "- **Workaround removed**: `_reorder_two_column_skills` and its "
+        "3 tests are deleted.\n"
+        "- **Downstream impact**: `_visual_entry_header_positions` and "
+        "`_plan_visual_entry_header` now group header atoms by Y-band and "
+        "sort by `(y, x)` so they work correctly under either row-major or "
+        "column-major stream order.\n"
+        "- **Tests**: 6 new column-detection tests in "
+        "`test_layout_extraction.py` plus 1 vinh regression in "
+        "`test_cv_range_plan_mapper.py`. Total: 128 tests pass in the "
+        "touched suites; 640 across the full backend suite."
+    )
+)
+
+nb = nbf.v4.new_notebook()
+nb["cells"] = cells
+
+out = Path(
+    "/Users/rzy/Desktop/ProjectWithTien/cv-helper/cv-fit-app/backend/notebooks/column_major_reading_order.ipynb"
+)
+out.parent.mkdir(parents=True, exist_ok=True)
+nbf.write(nb, out)
+print(f"wrote {out} ({out.stat().st_size:,} bytes, {len(cells)} cells)")

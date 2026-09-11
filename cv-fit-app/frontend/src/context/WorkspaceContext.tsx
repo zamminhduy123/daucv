@@ -62,7 +62,7 @@ interface WorkspaceContextType extends WorkspaceState {
   refreshCvList: () => Promise<void>;
   selectCV: (id: string) => void;
   clearSelection: () => void;
-  uploadFileCV: (text: string, filename: string, rawExtractionRef?: RawExtractionReference | null, pdfFileId?: string | null) => Promise<UserCV | null>;
+  uploadFileCV: (text: string, filename: string, rawExtractionRef?: RawExtractionReference | null, pdfFileId?: string | null, thumbnailFileId?: string | null) => Promise<UserCV | null>;
   deleteCV: (id: string) => Promise<void>;
   hasData: boolean;
 
@@ -417,6 +417,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     filename: string,
     rawExtractionRef?: RawExtractionReference | null,
     pdfFileId?: string | null,
+    thumbnailFileId?: string | null,
   ): Promise<UserCV | null> => {
     // Optimistic marker FIRST (synchronously): the debounced auto-save must
     // see this upload as already persisted, otherwise its 1.5s timer can
@@ -432,11 +433,17 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setCache({ ...EMPTY_CACHE });
     if (status === "authenticated" && text.trim()) {
       try {
-        const row = await uploadUserCVAPI(text, filename, rawExtractionRef?.id, pdfFileId ?? undefined);
+        const row = await uploadUserCVAPI(
+          text,
+          filename,
+          rawExtractionRef?.id,
+          pdfFileId ?? undefined,
+          thumbnailFileId ?? undefined,
+        );
         lastSavedCV.current = { id: row.id, text, filename };
         setState((s) => ({ ...s, selectedCvId: row.id }));
         // Refresh (instead of prepending) so the row carries its minted
-        // pdf_url for the card thumbnail.
+        // pdf_url and thumbnail_file_id for the card thumbnail.
         await refreshCvList();
         await refreshProfile(true);
         return row;

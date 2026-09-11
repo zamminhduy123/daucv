@@ -1,6 +1,14 @@
 import pytest
 
-from app.models.cv_document_v2 import CVDocumentV2, CVUnknownBlock
+from app.models.cv_document_v2 import (
+    ContentOrigin,
+    CVDocumentV2,
+    CVParagraphBlock,
+    CVReconstructionDiagnostics,
+    CVSection,
+    CVSourceCoverageDiagnostics,
+    CVUnknownBlock,
+)
 from app.services.cv_reconstruction_service import (
     reconstruct_cv_text,
     reconstruction_diagnostics,
@@ -114,4 +122,99 @@ def test_current_multicol_reconstruction_without_coverage_is_rejected() -> None:
     doc = reconstruct_cv_text(source)
     assert len(doc.sections) >= 2
     with pytest.raises(ValueError, match="source coverage diagnostics are missing"):
+        validate_reconstruction_gate(doc)
+
+
+def _provenance_gap_doc(
+    *,
+    carrier_origin: ContentOrigin = ContentOrigin.EXTRACTED,
+    with_reviewed_block: bool = False,
+    keep_carrier: bool = True,
+    doc_warnings: list[str] | None = None,
+) -> CVDocumentV2:
+    blocks: list[CVParagraphBlock] = []
+    if keep_carrier:
+        blocks.append(
+            CVParagraphBlock(
+                block_id="b-gap",
+                text="Built data pipelines.",
+                origin=carrier_origin,
+                reconstruction_warnings=["missing_line_provenance"],
+            )
+        )
+    blocks.append(
+        CVParagraphBlock(
+            block_id="b-ok",
+            text="Led a team of three.",
+            origin=ContentOrigin.USER_EDIT
+            if with_reviewed_block
+            else ContentOrigin.EXTRACTED,
+        )
+    )
+    return CVDocumentV2(
+        sections=[
+            CVSection(
+                id="experience",
+                type="experience",
+                title="EXPERIENCE",
+                blocks=blocks,
+            )
+        ],
+        reconstruction_warnings=(
+            doc_warnings if doc_warnings is not None else ["missing_line_provenance"]
+        ),
+        reconstruction_diagnostics=CVReconstructionDiagnostics(
+            source_coverage=CVSourceCoverageDiagnostics(
+                raw_block_count=2,
+                accounted_block_count=2,
+                significant_character_count=10,
+                mapped_character_count=10,
+                coverage_ratio=1.0,
+            )
+        ),
+    )
+
+
+def test_gate_still_rejects_untouched_provenance_gap() -> None:
+    doc = _provenance_gap_doc()
+    with pytest.raises(ValueError, match="missing_line_provenance"):
+        validate_reconstruction_gate(doc)
+
+
+def test_gate_allows_user_edited_provenance_carrier() -> None:
+    doc = _provenance_gap_doc(carrier_origin=ContentOrigin.USER_EDIT)
+    validate_reconstruction_gate(doc)
+
+
+def test_gate_allows_provenance_gap_with_review_evidence_elsewhere() -> None:
+    doc = _provenance_gap_doc(with_reviewed_block=True)
+    validate_reconstruction_gate(doc)
+
+
+def test_gate_allows_stale_provenance_lift_after_block_removal() -> None:
+    doc = _provenance_gap_doc(keep_carrier=False)
+    validate_reconstruction_gate(doc)
+
+
+def test_gate_exemption_is_scoped_to_provenance_warning() -> None:
+    doc = _provenance_gap_doc(
+        with_reviewed_block=True,
+        doc_warnings=["missing_line_provenance", "ambiguous_entry_boundary"],
+    )
+    with pytest.raises(ValueError, match="ambiguous_entry_boundary"):
+        validate_reconstruction_gate(doc)
+
+
+def test_gate_allows_attested_doc_with_untouched_provenance_gap() -> None:
+    doc = _provenance_gap_doc()
+    doc.review_attested = True
+    validate_reconstruction_gate(doc)
+
+
+def test_gate_attestation_does_not_cover_other_critical_warnings() -> None:
+    doc = _provenance_gap_doc(
+        doc_warnings=["missing_line_provenance", "duplicate_line_ownership"],
+    )
+    doc.review_attested = True
+    with pytest.raises(ValueError, match="duplicate_line_ownership"):
         validate_reconstruction_gate(doc)
