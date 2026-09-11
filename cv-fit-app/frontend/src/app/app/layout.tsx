@@ -9,6 +9,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { pingAPI, extractPdfAPI } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
+import FlowStepIndicator from "@/components/workspace/FlowStepIndicator";
 
 function TopBar() {
   const { cvFileName, jdText, jdFileName, hasData, selectedCvId, cvList, isCvListLoading, selectCV, refreshCvList, updateWorkspace } = useWorkspace();
@@ -92,11 +93,11 @@ function TopBar() {
                           setPickerOpen(false);
                         }}
                         className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition-colors ${
-                          selected ? "bg-[#6A9B5E]/5 font-bold text-[#2F4F4F]" : "text-gray-600 hover:bg-gray-50"
+                          selected ? "bg-[#2D7A58]/5 font-bold text-[#2F4F4F]" : "text-gray-600 hover:bg-gray-50"
                         }`}
                       >
                         <span className="min-w-0 flex-1 truncate">{cv.cv_filename}</span>
-                        {selected && <Check size={13} className="text-[#6A9B5E] shrink-0" />}
+                        {selected && <Check size={13} className="text-[#2D7A58] shrink-0" />}
                       </button>
                     );
                   })
@@ -209,7 +210,7 @@ function TopBar() {
                       setJdDraftName(null);
                       setJdOpen(false);
                     }}
-                    className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-bold text-gray-400 hover:text-[#B22222] hover:bg-red-50 cursor-pointer"
+                    className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-bold text-red-600/70 hover:text-red-700 hover:bg-red-50 cursor-pointer"
                   >
                     <Trash2 size={12} />
                     Xóa JD
@@ -233,14 +234,21 @@ function TopBar() {
         )}
       </div>
 
+      {/* Center: Flow Step Indicator */}
+      <FlowStepIndicator />
+
       {/* Right: change data button */}
-      {hasData && <button
-        onClick={() => router.push("/app/setup")}
-        className="flex items-center gap-1.5 text-xs text-gray-500 font-medium border border-gray-200 rounded-xl px-3 py-1.5 hover:bg-gray-50 transition-colors"
-      >
-        <RefreshCw size={12} />
-        Thay đổi dữ liệu
-      </button>}
+      <div className="flex items-center gap-2 shrink-0">
+        {hasData && (
+          <button
+            onClick={() => router.push("/app/setup")}
+            className="flex items-center gap-1.5 text-xs text-gray-500 font-medium border border-gray-200 rounded-xl px-3 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer"
+          >
+            <RefreshCw size={12} />
+            Thay đổi dữ liệu
+          </button>
+        )}
+      </div>
     </div>
   );
 }

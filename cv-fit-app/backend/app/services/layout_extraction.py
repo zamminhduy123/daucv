@@ -19,6 +19,10 @@ from typing import Any
 import fitz
 import pdfplumber
 
+from app.models.cv_document_v2 import (
+    unwrap_google_redirect_url,
+    unwrap_google_urls_in_text,
+)
 from app.models.cv_raw_extraction import (
     ExtractionDecision,
     ExtractionMethod,
@@ -763,6 +767,7 @@ def extract_native_blocks(pdf_bytes: bytes) -> RawExtraction:
                     if uri.startswith("mailto:")
                     else (uri[4:] if uri.startswith("tel:") else uri)
                 )
+                clean_uri = unwrap_google_redirect_url(clean_uri)
                 page_links.append({"uri": clean_uri, "rect": fitz.Rect(from_rect)})
 
         page_dict = page.get_text("dict", sort=False)
@@ -783,6 +788,7 @@ def extract_native_blocks(pdf_bytes: bytes) -> RawExtraction:
                 )
                 if not text:
                     continue
+                text = unwrap_google_urls_in_text(text)
                 bbox = native_line.get("bbox")
                 if not bbox or len(bbox) < 4:
                     continue
@@ -791,7 +797,7 @@ def extract_native_blocks(pdf_bytes: bytes) -> RawExtraction:
                 matching_uris: list[str] = []
                 for link_item in page_links:
                     if line_rect.intersects(link_item["rect"]):
-                        uri = link_item["uri"]
+                        uri = unwrap_google_redirect_url(link_item["uri"])
                         if uri not in matching_uris and uri not in text:
                             matching_uris.append(uri)
                 if matching_uris:

@@ -1,7 +1,7 @@
 "use client";
 
 import type { CVAnalysisResponse, CVEvaluationReport, PrioritizedKeyword } from "@/types";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import {
   Code2,
   Briefcase,
@@ -209,18 +209,22 @@ const PIPELINE_CARD_COPY = {
 type PipelineScoreKey = keyof typeof PIPELINE_CARD_COPY;
 
 function scoreStrength(score: number) {
-  if (score >= 93) return "Excellent";
-  if (score >= 91) return "Strong";
-  if (score >= 75) return "Good";
-  return "Needs work";
+  if (score >= 93) return "Xuất sắc";
+  if (score >= 91) return "Rất tốt";
+  if (score >= 75) return "Tốt";
+  return "Cần cải thiện";
 }
 
 function displayGrade(grade: CVEvaluationReport["match_grade"], score: number) {
-  if (grade) return grade.replaceAll("_", " ");
-  if (score >= 90) return "EXCELLENT";
-  if (score >= 75) return "STRONG";
-  if (score >= 60) return "MODERATE";
-  return "NEEDS IMPROVEMENT";
+  if (grade === "EXCELLENT") return "Xuất sắc";
+  if (grade === "STRONG_FIT") return "Rất phù hợp";
+  if (grade === "MODERATE_FIT") return "Phù hợp";
+  if (grade === "WEAK_FIT") return "Ít phù hợp";
+  if (grade === "NEEDS_IMPROVEMENT") return "Cần cải thiện";
+  if (score >= 90) return "Xuất sắc";
+  if (score >= 75) return "Rất tốt";
+  if (score >= 60) return "Khá";
+  return "Cần cải thiện";
 }
 
 function LargeScoreRing({ score }: { score: number }) {
@@ -230,7 +234,12 @@ function LargeScoreRing({ score }: { score: number }) {
   const offset = circumference - (safeScore / 100) * circumference;
 
   return (
-    <div className="relative mx-auto h-[180px] w-[180px]">
+    <motion.div
+      initial={{ scale: 0.88, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 240, damping: 22 }}
+      className="relative mx-auto h-[180px] w-[180px]"
+    >
       <svg viewBox="0 0 280 280" className="h-full w-full -rotate-90" aria-label={`${safeScore} trên 100`}>
         <circle cx="140" cy="140" r={radius} fill="none" stroke="#edf0f4" strokeWidth="17" />
         <circle
@@ -246,13 +255,34 @@ function LargeScoreRing({ score }: { score: number }) {
           className="transition-[stroke-dashoffset] duration-1000 ease-out"
         />
       </svg>
-      <Sparkles className="absolute right-[13px] top-[3px] h-7 w-7 text-[#66dcae]" strokeWidth={1.5} />
-      <Sparkles className="absolute right-[0px] top-[0px] h-3 w-3 text-[#66dcae]" strokeWidth={1.5} />
+      <motion.div
+        initial={{ scale: 0, rotate: -25 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ delay: 0.35, type: "spring", stiffness: 300, damping: 15 }}
+        className="absolute right-[13px] top-[3px]"
+      >
+        <Sparkles className="h-7 w-7 text-[#66dcae]" strokeWidth={1.5} />
+      </motion.div>
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: 0.5, type: "spring" }}
+        className="absolute right-[0px] top-[0px]"
+      >
+        <Sparkles className="h-3 w-3 text-[#66dcae]" strokeWidth={1.5} />
+      </motion.div>
       <div className="absolute inset-0 flex flex-col items-center justify-center pt-1">
-        <span className="text-[3rem] font-bold leading-none tracking-[-0.07em] text-[#101d38]">{safeScore}</span>
+        <motion.span
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.4 }}
+          className="text-[3rem] font-bold leading-none tracking-[-0.07em] text-[#101d38]"
+        >
+          {safeScore}
+        </motion.span>
         <span className="mt-1 text-[1rem] font-semibold tracking-[-0.03em] text-[#64708a]">/100</span>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -283,7 +313,7 @@ function PipelineMetricCard({
           className="rounded-md px-2.5 py-1 text-[0.68rem] font-semibold whitespace-nowrap"
           style={{ color: metric.accent, backgroundColor: metric.badgeBackground }}
         >
-          Strength: {scoreStrength(safeScore)}
+          Mức độ: {scoreStrength(safeScore)}
         </span>
       </div>
 
@@ -321,9 +351,9 @@ function PipelineMatchDashboard({ report }: { report: CVEvaluationReport }) {
         className="mx-auto max-w-[1660px] rounded-[22px] border border-[#e8edf4] bg-white px-4 py-5 text-[#101d38] shadow-[0_10px_26px_rgba(63,94,143,0.08)] sm:px-6 lg:px-8 lg:py-5"
       >
         <header className="mb-4">
-          <h1 className="text-[1.5rem] font-bold leading-tight tracking-[-0.04em] text-[#132957] sm:text-[1.75rem]">Overall Score</h1>
+          <h1 className="text-[1.5rem] font-bold leading-tight tracking-[-0.04em] text-[#132957] sm:text-[1.75rem]">Điểm tổng quan</h1>
           <p className="mt-1 text-[0.76rem] leading-4 text-[#68758f] sm:text-[0.84rem]">
-            {report.executive_summary ?? "General CV Audit: Candidate receives a complete quality assessment."}
+            {report.executive_summary ?? "Đánh giá chất lượng CV toàn diện: Ứng viên nhận được báo cáo phân tích chi tiết."}
           </p>
         </header>
 
@@ -331,20 +361,20 @@ function PipelineMatchDashboard({ report }: { report: CVEvaluationReport }) {
           <motion.div
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex  flex-col rounded-[16px] border border-[#e3e8ef] bg-white px-4 py-4 sm:px-5"
+            className="flex flex-col rounded-[16px] border border-[#e3e8ef] bg-white px-4 py-4 sm:px-5"
           >
             <div className="flex flex-col flex-1 items-center justify-center">
               <LargeScoreRing score={score} />
               <div className="mt-0 text-center">
                 <p className="text-[1rem] font-bold uppercase tracking-[-0.03em] text-[#0eaa70]">{grade}</p>
-                <p className="mt-0.5 text-[0.76rem] text-[#6d7992]">CV quality</p>
+                <p className="mt-0.5 text-[0.76rem] text-[#6d7992]">Chất lượng CV</p>
               </div>
             </div>
             <div className="flex items-center gap-2.5 rounded-[11px] bg-[#effaf5] px-3 py-2.5 text-[#12213f]">
               <CheckCircle className="h-6 w-6 shrink-0 text-[#159b6e]" strokeWidth={1.8} />
               <p className="text-[0.72rem] leading-4">
-                Your CV is strong and well-optimized.<br />
-                Keep up the great work!
+                CV của bạn có cấu trúc tốt và mức độ phù hợp cao.<br />
+                Hãy tiếp tục phát huy thế mạnh!
               </p>
             </div>
           </motion.div>

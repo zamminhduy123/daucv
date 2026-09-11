@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from enum import Enum
 from hashlib import sha256
 from typing import Any, Literal
+from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, model_validator
@@ -95,6 +96,23 @@ _GEOGRAPHIC_TOKEN_RE = re.compile(
 )
 
 
+_EMPTY_PARENS_RE = re.compile(r"\(\s*\)|（\s*）|\[\s*\]|\{\s*\}")
+_DANGLING_SEPARATORS_RE = re.compile(r"^[\s|•·–—/,-]+|[\s|•·–—/,-]+$")
+
+
+def _sanitize_entry_text(text: Any) -> str | None:
+    """Clean empty parentheses, dangling separators, and normalize whitespace."""
+    if not isinstance(text, str):
+        return None
+    val = _EMPTY_PARENS_RE.sub("", text)
+    prev = None
+    while prev != val:
+        prev = val
+        val = _DANGLING_SEPARATORS_RE.sub("", val).strip()
+        val = _EMPTY_PARENS_RE.sub("", val)
+    return val if val else None
+
+
 class CVEntryBlock(CVBlockBase):
     """A record with a title line (bold) and optional subtitle/date/organization."""
 
@@ -105,6 +123,21 @@ class CVEntryBlock(CVBlockBase):
     location: str | None = None
     date: str | None = None
     bullets: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def sanitize_entry_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        cleaned = dict(data)
+        for field in ("title", "subtitle", "organization", "location", "date"):
+            if field in cleaned and cleaned[field] is not None:
+                sanitized = _sanitize_entry_text(cleaned[field])
+                if field == "title":
+                    cleaned[field] = sanitized or ""
+                else:
+                    cleaned[field] = sanitized
+        return cleaned
 
     @model_validator(mode="after")
     def sanitize_location_title_swap(self) -> "CVEntryBlock":
@@ -178,6 +211,21 @@ class CVPublicationBlock(CVBlockBase):
     date: str | None = None
     status: str | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def sanitize_publication_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        cleaned = dict(data)
+        for field in ("title", "authors", "venue", "date", "status"):
+            if field in cleaned and cleaned[field] is not None:
+                sanitized = _sanitize_entry_text(cleaned[field])
+                if field == "title":
+                    cleaned[field] = sanitized or ""
+                else:
+                    cleaned[field] = sanitized
+        return cleaned
+
 
 class CVEducationBlock(CVBlockBase):
     """An education record (institution, degree, date, etc.)."""
@@ -189,6 +237,17 @@ class CVEducationBlock(CVBlockBase):
     location: str | None = None
     date: str | None = None
     details: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def sanitize_education_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        cleaned = dict(data)
+        for field in ("institution", "degree", "field", "location", "date"):
+            if field in cleaned and cleaned[field] is not None:
+                cleaned[field] = _sanitize_entry_text(cleaned[field])
+        return cleaned
 
 
 class CVUnknownBlock(CVBlockBase):
@@ -241,6 +300,101 @@ _LINK_PATTERN = re.compile(
     r"(?:https?://|www\.)[^\s|•,;]+|(?:linkedin|github)\.com/[^\s|•,;]+",
     re.IGNORECASE,
 )
+_GOOGLE_TRACKING_PARAM_RE = re.compile(
+    r"[?&](?:sa|ust|usg|source|ved|opi|sntz)=[^&#\s]*",
+    re.IGNORECASE,
+)
+_GOOGLE_REDIRECT_URL_RE = re.compile(
+    r"https?://(?:[a-zA-Z0-9.-]+\.)?google\.[a-z.]+/url\?[^\s)\]>]+",
+    re.IGNORECASE,
+)
+_NON_NAME_CHARS_RE = re.compile(r"[@<>{}[\]\\/~_+=^%$#*0-9]")
+
+
+def unwrap_google_redirect_url(url: str) -> str:
+    """Unwrap google.com/url?q=<real> redirects and discard Google tracking params."""
+    if not isinstance(url, str) or not url:
+        return url
+    if "google." not in url or "/url" not in url:
+        return url
+    try:
+        to_parse = url if "://" in url else f"https://{url}"
+        parsed = urlparse(to_parse)
+        netloc_parts = parsed.netloc.lower().split(":")
+        domain = netloc_parts[0]
+        if (
+            domain == "google.com"
+            or domain.endswith(".google.com")
+            or ".google." in domain
+        ) and parsed.path.rstrip("/") == "/url":
+            qs = parse_qs(parsed.query, keep_blank_values=False)
+            targets = qs.get("q") or qs.get("url")
+            if targets and targets[0]:
+                clean_target = _GOOGLE_TRACKING_PARAM_RE.sub("", targets[0]).rstrip(
+                    "?&"
+                )
+                return clean_target
+    except Exception:
+        pass
+    return url
+
+
+def unwrap_google_urls_in_text(text: str) -> str:
+    """Find and unwrap all google redirect URLs within free text."""
+    if (
+        not isinstance(text, str)
+        or not text
+        or "google." not in text
+        or "/url" not in text
+    ):
+        return text
+
+    def _replace_match(m: re.Match[str]) -> str:
+        raw_match = m.group(0)
+        trailing_punct = ""
+        while raw_match and raw_match[-1] in ".,;:)]>\"'":
+            trailing_punct = raw_match[-1] + trailing_punct
+            raw_match = raw_match[:-1]
+        unwrapped = unwrap_google_redirect_url(raw_match)
+        return unwrapped + trailing_punct
+
+    return _GOOGLE_REDIRECT_URL_RE.sub(_replace_match, text)
+
+
+def _looks_like_person_name(text: str) -> bool:
+    """Check if text is shaped like a human person's name.
+
+    Prefers 2-5 word Title Case or UPPERCASE strings (Unicode-aware).
+    Rejects emails, URLs, phones, job titles, headings, and locations.
+    """
+    if not isinstance(text, str):
+        return False
+    stripped = text.strip()
+    if not stripped:
+        return False
+    if _NON_NAME_CHARS_RE.search(stripped):
+        return False
+    if (
+        _EMAIL_PATTERN.search(stripped)
+        or _LINK_PATTERN.search(stripped)
+        or _PHONE_PATTERN.search(stripped)
+    ):
+        return False
+    if _JOB_TITLE_KEYWORDS.search(stripped):
+        return False
+    if _GEOGRAPHIC_TOKEN_RE.search(stripped):
+        return False
+
+    words = stripped.split()
+    if len(words) < 1 or len(words) > 5:
+        return False
+    if not any(len(w) >= 2 for w in words):
+        return False
+
+    cased_words = sum(1 for w in words if w.istitle() or w.isupper())
+    if len(words) == 1:
+        return cased_words == 1 and len(words[0]) >= 3
+    return cased_words >= len(words) - 1
 
 
 def _non_empty_string(value: object) -> str | None:
@@ -270,7 +424,7 @@ def _links_from_contact_lines(lines: list[str]) -> list[str]:
     links: list[str] = []
     for line in lines:
         for match in _LINK_PATTERN.finditer(line):
-            link = match.group(0).rstrip(".)]")
+            link = unwrap_google_redirect_url(match.group(0).rstrip(".)]"))
             if link not in links:
                 links.append(link)
     return links
@@ -377,12 +531,7 @@ class CVIdentity(BaseModel):
         normalized = dict(data)
         full_name = _non_empty_string(normalized.get("full_name"))
         legacy_name = _non_empty_string(normalized.get("name"))
-        if not full_name and legacy_name:
-            normalized["full_name"] = legacy_name
-        normalized["name"] = full_name or legacy_name or ""
-
-        if headline := _non_empty_string(normalized.get("headline")):
-            normalized["headline"] = headline.rstrip(" /|-,").strip()
+        headline = _non_empty_string(normalized.get("headline"))
 
         raw_legacy_contacts = normalized.get("contact_lines")
         if raw_legacy_contacts is not None and not isinstance(
@@ -398,6 +547,67 @@ class CVIdentity(BaseModel):
             if raw_legacy_contacts
             else []
         )
+
+        # -----------------------------------------------------------------
+        # Name & Email Swap / Guard Validator:
+        # full_name must NEVER be an email. If candidate name matches email,
+        # find real name in headline or contact_lines and swap.
+        # -----------------------------------------------------------------
+        candidate_name = full_name or legacy_name or ""
+        if candidate_name and (
+            "@" in candidate_name or _EMAIL_PATTERN.search(candidate_name)
+        ):
+            email_from_name = candidate_name
+            real_name: str | None = None
+
+            if headline and _looks_like_person_name(headline):
+                real_name = headline
+                headline = None
+            else:
+                for idx, contact in enumerate(legacy_contacts):
+                    if _looks_like_person_name(contact):
+                        real_name = contact
+                        legacy_contacts.pop(idx)
+                        break
+
+            if real_name:
+                normalized["full_name"] = real_name
+                normalized["name"] = real_name
+            else:
+                normalized["full_name"] = None
+                normalized["name"] = ""
+
+            if not normalized.get("email"):
+                normalized["email"] = email_from_name
+        else:
+            if not full_name and legacy_name:
+                normalized["full_name"] = legacy_name
+                normalized["name"] = legacy_name
+            elif not full_name and not legacy_name:
+                if (
+                    headline
+                    and _looks_like_person_name(headline)
+                    and not _JOB_TITLE_KEYWORDS.search(headline)
+                ):
+                    normalized["full_name"] = headline
+                    normalized["name"] = headline
+                    headline = None
+                else:
+                    for idx, contact in enumerate(legacy_contacts):
+                        if _looks_like_person_name(contact):
+                            normalized["full_name"] = contact
+                            normalized["name"] = contact
+                            legacy_contacts.pop(idx)
+                            break
+                    if not normalized.get("full_name"):
+                        normalized["name"] = ""
+            else:
+                normalized["name"] = full_name or ""
+
+        if headline:
+            normalized["headline"] = headline.rstrip(" /|-,").strip()
+        else:
+            normalized["headline"] = None
 
         all_text_sources = [
             *legacy_contacts,
@@ -421,7 +631,7 @@ class CVIdentity(BaseModel):
             if not isinstance(raw_links, (list, tuple, set)):
                 raise ValueError("links must be a list")
             explicit_links = [
-                item.strip()
+                unwrap_google_redirect_url(item.strip())
                 for item in raw_links
                 if isinstance(item, str) and item.strip()
             ]
@@ -451,6 +661,19 @@ class CVIdentity(BaseModel):
         )
 
         return normalized
+
+    @model_validator(mode="after")
+    def guard_full_name_never_email(self) -> "CVIdentity":
+        """Absolute guarantee that full_name and name never contain an email."""
+        if self.full_name and (
+            "@" in self.full_name or _EMAIL_PATTERN.search(self.full_name)
+        ):
+            if not self.email:
+                self.email = self.full_name
+            self.full_name = None
+        if self.name and ("@" in self.name or _EMAIL_PATTERN.search(self.name)):
+            self.name = ""
+        return self
 
     @model_validator(mode="after")
     def merge_field_provenance(self) -> "CVIdentity":

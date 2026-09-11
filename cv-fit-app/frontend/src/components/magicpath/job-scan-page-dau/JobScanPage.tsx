@@ -192,10 +192,10 @@ function DetailPanel({
 
         <div className="flex-1 overflow-y-auto px-5 py-6">
           <div className="flex flex-col items-center">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full border-[7px] border-[#d8ecd4] bg-[#6A9B5E] text-2xl font-black text-white">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full border-[7px] border-[#d8ecd4] bg-[#2D7A58] text-2xl font-black text-white">
               {job.matchScore}%
             </div>
-            <p className="mt-2 text-sm font-bold text-[#6A9B5E]">
+            <p className="mt-2 text-sm font-bold text-[#2D7A58]">
               {scoreLabel(job.matchScore)}
             </p>
           </div>
@@ -219,19 +219,19 @@ function DetailPanel({
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-[#687878]">
               <span className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 text-[#6A9B5E]" />
+                <MapPin className="h-3.5 w-3.5 text-[#2D7A58]" />
                 {job.location || "Việt Nam"}
               </span>
               <span className="flex items-center gap-1.5">
-                <Banknote className="h-3.5 w-3.5 text-[#6A9B5E]" />
+                <Banknote className="h-3.5 w-3.5 text-[#2D7A58]" />
                 {job.salary || "Thương lượng"}
               </span>
               <span className="flex items-center gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5 text-[#6A9B5E]" />
+                <CalendarDays className="h-3.5 w-3.5 text-[#2D7A58]" />
                 {job.postedText || "Mới đăng"}
               </span>
               <span className="flex items-center gap-1.5">
-                <UserRound className="h-3.5 w-3.5 text-[#6A9B5E]" />
+                <UserRound className="h-3.5 w-3.5 text-[#2D7A58]" />
                 {job.level && job.level !== "unknown" ? job.level : "Chưa rõ"}
               </span>
             </div>
@@ -247,7 +247,7 @@ function DetailPanel({
                   key={reason}
                   className="mb-2 flex items-start gap-2 rounded-xl bg-[#f3f8f1] p-3 text-sm text-[#4c6360]"
                 >
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#6A9B5E]" />
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2D7A58]" />
                   <span>{reason}</span>
                 </div>
               ))
@@ -291,7 +291,7 @@ function DetailPanel({
             href={job.url}
             target="_blank"
             rel="noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#6A9B5E] py-3 text-sm font-bold text-white hover:bg-[#588a50]"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2D7A58] py-3 text-sm font-bold text-white hover:bg-[#246347]"
           >
             <span>Ứng tuyển ngay</span>
             <ExternalLink className="h-4 w-4" />
@@ -299,7 +299,7 @@ function DetailPanel({
           <button
             type="button"
             onClick={() => onFullScan(job)}
-            className="w-full rounded-xl border border-[#6A9B5E] py-2.5 text-sm font-bold text-[#5c8e55] hover:bg-[#f2f8f0]"
+            className="w-full rounded-xl border border-[#2D7A58] py-2.5 text-sm font-bold text-[#246347] hover:bg-[#f2f8f0]"
           >
             Phân tích AI đầy đủ
           </button>
@@ -366,7 +366,7 @@ function CoverLetterPanel({
         <div className="flex-1 overflow-y-auto px-5 py-6">
           {isGenerating && (
             <div className="flex min-h-64 flex-col items-center justify-center text-center">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#d8ecd4] border-t-[#6A9B5E]" />
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#d8ecd4] border-t-[#2D7A58]" />
               <p className="mt-4 text-sm font-semibold text-[#60706c]">
                 Đang phân tích CV và soạn thư ứng tuyển...
               </p>
@@ -400,7 +400,7 @@ function CoverLetterPanel({
             <button
               type="button"
               onClick={() => void copyLetter()}
-              className="w-full rounded-xl bg-[#6A9B5E] py-3 text-sm font-bold text-white hover:bg-[#588a50]"
+              className="w-full rounded-xl bg-[#2D7A58] py-3 text-sm font-bold text-white hover:bg-[#246347]"
             >
               Sao chép nội dung
             </button>
@@ -527,7 +527,7 @@ function JobCard({
         <button
           type="button"
           onClick={(event) => handleButton(event, onFullScan)}
-          className="flex items-center gap-1 rounded-lg border border-[#6A9B5E] bg-[#edf8ea] px-3 py-1.5 text-xs font-extrabold text-[#477d43] shadow-sm hover:bg-[#e1f2dd]"
+          className="flex items-center gap-1 rounded-lg border border-[#2D7A58] bg-[#edf8ea] px-3 py-1.5 text-xs font-extrabold text-[#246347] shadow-sm hover:bg-[#e1f2dd]"
         >
           <Zap className="h-3.5 w-3.5" />
           Phân tích AI
@@ -537,7 +537,7 @@ function JobCard({
           target="_blank"
           rel="noreferrer"
           onClick={(event) => event.stopPropagation()}
-          className="ml-auto flex items-center gap-1 rounded-lg bg-[#6A9B5E] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#588a50]"
+          className="ml-auto flex items-center gap-1 rounded-lg bg-[#2D7A58] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#246347]"
         >
           <span>Ứng tuyển</span>
           <ExternalLink className="h-3.5 w-3.5" />
@@ -598,7 +598,7 @@ export function JobScanPage({
       <main className="mx-auto px-1 py-4 sm:px-3 lg:px-6">
         <div className="mb-7 flex flex-col justify-between gap-5 md:flex-row md:items-center">
           <div className="flex items-start gap-3">
-            <Radar className="mt-1 h-9 w-9 text-[#6A9B5E]" />
+            <Radar className="mt-1 h-9 w-9 text-[#2D7A58]" />
             <div>
               <h1 className="text-3xl font-black tracking-tight text-[#2F4F4F]">Quét Việc Làm</h1>
               <p className="mt-1 text-sm text-[#72817d]">
@@ -611,7 +611,7 @@ export function JobScanPage({
               type="button"
               onClick={onSearch}
               disabled={isLoading || selectedSources.length === 0}
-              className="flex items-center gap-2 rounded-xl bg-[#6A9B5E] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#588a50] disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex items-center gap-2 rounded-xl bg-[#2D7A58] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#246347] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
               <span>{isLoading ? "Đang quét..." : "Quét việc làm mới"}</span>
@@ -627,7 +627,7 @@ export function JobScanPage({
             <section className="rounded-2xl bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <CircleUserRound className="h-5 w-5 text-[#6A9B5E]" />
+                  <CircleUserRound className="h-5 w-5 text-[#2D7A58]" />
                   <span className="text-xs font-extrabold tracking-widest text-[#73807c]">
                     HỒ SƠ ỨNG VIÊN
                   </span>
@@ -713,7 +713,7 @@ export function JobScanPage({
 
             <section className="rounded-2xl bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2">
-                <SlidersHorizontal className="h-5 w-5 text-[#6A9B5E]" />
+                <SlidersHorizontal className="h-5 w-5 text-[#2D7A58]" />
                 <span className="text-xs font-extrabold tracking-widest text-[#73807c]">
                   TÙY CHỈNH TÌM KIẾM
                 </span>
@@ -725,7 +725,7 @@ export function JobScanPage({
                   value={targetRole}
                   onChange={(event) => onTargetRoleChange(event.target.value)}
                   placeholder="Ví dụ: Frontend Developer"
-                  className="mt-1.5 w-full rounded-xl border border-[#dfe8dc] px-3 py-2.5 text-sm text-[#2F4F4F] outline-none focus:border-[#6A9B5E]"
+                  className="mt-1.5 w-full rounded-xl border border-[#dfe8dc] px-3 py-2.5 text-sm text-[#2F4F4F] outline-none focus:border-[#2D7A58]"
                 />
               </label>
 
@@ -774,7 +774,7 @@ export function JobScanPage({
                   className="peer sr-only"
                 />
                 <span
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition ${showStretch ? "bg-[#6A9B5E]" : "bg-[#ccd5cf]"}`}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition ${showStretch ? "bg-[#2D7A58]" : "bg-[#ccd5cf]"}`}
                 >
                   <span
                     className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition ${showStretch ? "left-6" : "left-1"}`}
@@ -786,7 +786,7 @@ export function JobScanPage({
                 type="button"
                 onClick={onSearch}
                 disabled={isLoading || selectedSources.length === 0}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#6A9B5E] py-2.5 text-sm font-bold text-white hover:bg-[#588a50] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#2D7A58] py-2.5 text-sm font-bold text-white hover:bg-[#246347] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Search className="h-4 w-4" />
                 <span>Áp dụng và Quét lại</span>
@@ -795,7 +795,7 @@ export function JobScanPage({
 
             <section className="rounded-2xl bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2">
-                <Globe2 className="h-5 w-5 text-[#6A9B5E]" />
+                <Globe2 className="h-5 w-5 text-[#2D7A58]" />
                 <span className="text-xs font-extrabold tracking-widest text-[#73807c]">
                   NGUỒN TÌM VIỆC
                 </span>
@@ -829,7 +829,7 @@ export function JobScanPage({
                         onClick={() => onSourceToggle(source.id)}
                         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                           checked
-                            ? "border-[#6A9B5E] bg-[#6A9B5E] text-white"
+                            ? "border-[#2D7A58] bg-[#2D7A58] text-white"
                             : "border-[#cbd4ce]"
                         }`}
                         aria-label={`${checked ? "Tắt" : "Bật"} nguồn ${source.name}`}
@@ -875,7 +875,7 @@ export function JobScanPage({
                 aria-live="polite"
               >
                 <div className="max-w-sm">
-                  <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#d8ecd4] border-t-[#6A9B5E]" />
+                  <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#d8ecd4] border-t-[#2D7A58]" />
                   <h3 className="mt-4 text-lg font-extrabold">Đang quét việc làm</h3>
                   <p className="mt-2 min-h-10 text-sm text-[#71807b]">{loadingStep}</p>
                 </div>
@@ -890,7 +890,7 @@ export function JobScanPage({
                 <button
                   type="button"
                   onClick={onSearch}
-                  className="mt-4 rounded-xl bg-[#6A9B5E] px-4 py-2 text-sm font-bold text-white"
+                  className="mt-4 rounded-xl bg-[#2D7A58] px-4 py-2 text-sm font-bold text-white"
                 >
                   Thử lại
                 </button>
@@ -910,7 +910,7 @@ export function JobScanPage({
             {!error && !isLoading && goodMatches.length > 0 && (
               <>
                 <div className="mb-4 flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-[#6A9B5E]" />
+                  <CheckCircle2 className="h-5 w-5 text-[#2D7A58]" />
                   <h3 className="text-sm font-black tracking-wide">PHÙ HỢP TỐT NHẤT</h3>
                   <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-700">
                     {goodMatches.length} việc
@@ -930,7 +930,7 @@ export function JobScanPage({
                   <button
                     type="button"
                     onClick={() => setVisibleGoodCount((count) => count + 8)}
-                    className="mb-9 text-sm font-bold text-[#6A9B5E] hover:underline"
+                    className="mb-9 text-sm font-bold text-[#2D7A58] hover:underline"
                   >
                     Xem thêm {Math.min(remainingGoodMatches, 8)} việc phù hợp tốt nhất →
                   </button>

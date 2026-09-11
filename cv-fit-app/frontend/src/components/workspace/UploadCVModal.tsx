@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { FileText, Loader2, Upload, X } from "lucide-react";
 import { extractPdfAPI, type PdfExtractResult } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
@@ -47,18 +47,26 @@ export default function UploadCVModal({
   const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Reset-on-open without an effect (render-time adjustment keeps hook
+  // order stable and avoids cascading renders when `open` flips).
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       setName(defaultName);
       setFile(null);
       setError(null);
       setIsExtracting(false);
     }
-  }, [open, defaultName]);
+  }
 
-  useEffect(() => {
+  // Mirror an incoming async upload error into local error state without
+  // an effect (render-time adjustment; the effect version cascades).
+  const [prevUploadError, setPrevUploadError] = useState(uploadError);
+  if (uploadError !== prevUploadError) {
+    setPrevUploadError(uploadError);
     if (uploadError) setError(uploadError);
-  }, [uploadError]);
+  }
 
   if (!open) return null;
 
@@ -190,11 +198,26 @@ export default function UploadCVModal({
             </button>
           </div>
 
+          {/* PLACEHOLDER: swap src with the real good-example CV image when ready. */}
+          <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/60 p-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/good-cv-example.png"
+              alt="Mẫu CV 1 cột chuẩn"
+              className="h-24 w-auto shrink-0 rounded-md border border-gray-200 bg-white object-cover object-top"
+            />
+            <p className="text-xs leading-relaxed text-slate-600">
+              <span className="font-bold text-slate-800">Mẫu CV chuẩn:</span> file PDF{" "}
+              <span className="font-semibold">1 cột, chữ rõ</span> cho kết quả tốt nhất.
+              CV 2 cột, bảng biểu hoặc file scan có thể bị thiếu sót khi trích xuất.
+            </p>
+          </div>
+
           {isExtraSlot && (
             <p className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
               {outOfCredits
                 ? "Hết credit — cần 1 credit để mở khóa CV mới. Hãy nạp thêm."
-                : "CV thứ 2 trở đi sẽ dùng 1 credit để mở slot mới. Chỉnh sửa sau này miễn phí."}
+                : "CV thứ 2 sẽ tốn 1 credit để upload."}
             </p>
           )}
 

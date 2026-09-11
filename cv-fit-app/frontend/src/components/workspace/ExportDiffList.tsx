@@ -7,12 +7,19 @@ function DiffTokens({ tokens, side }: { tokens: WordToken[]; side: "del" | "add"
     <span>
       {tokens.map((t, i) => {
         if (t.kind === "same") return <span key={i}>{t.text}</span>;
-        const highlight =
-          side === "del" ? "bg-red-300/70 text-red-950 rounded px-0.5" : "bg-green-300/70 text-green-950 rounded px-0.5";
+        if (side === "del") {
+          return (
+            <del key={i} className="no-line-through bg-red-200/80 text-red-950 rounded px-1 py-0.5 font-medium">
+              <span className="sr-only">Nội dung cũ: </span>
+              {t.text}
+            </del>
+          );
+        }
         return (
-          <span key={i} className={highlight}>
+          <ins key={i} className="no-underline bg-emerald-200/80 text-emerald-950 rounded px-1 py-0.5 font-medium">
+            <span className="sr-only">Nội dung mới: </span>
             {t.text}
-          </span>
+          </ins>
         );
       })}
     </span>
@@ -20,9 +27,9 @@ function DiffTokens({ tokens, side }: { tokens: WordToken[]; side: "del" | "add"
 }
 
 /**
- * GitHub-style unified diff list for the export screen.
- * Each changed bullet/paragraph renders as a red (before) / green (after)
- * row pair with word-level highlights, grouped under its section.
+ * Clean semantic diff list for the export screen.
+ * Each changed bullet/paragraph renders as a before/after row pair
+ * with word-level highlights using semantic <del> / <ins>, grouped under its section.
  */
 export default function ExportDiffList({ diffs }: { diffs: BlockDiff[] }) {
   if (diffs.length === 0) {
@@ -46,7 +53,7 @@ export default function ExportDiffList({ diffs }: { diffs: BlockDiff[] }) {
   return (
     <div className="space-y-4">
       {[...grouped.entries()].map(([section, items]) => (
-        <div key={section} className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        <div key={section} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xs">
           <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/80 px-4 py-2">
             <span className="text-xs font-bold text-slate-800">{section}</span>
             <span className="rounded-full bg-gray-200/70 px-2 py-0.5 text-[11px] font-bold text-slate-600">
@@ -55,17 +62,19 @@ export default function ExportDiffList({ diffs }: { diffs: BlockDiff[] }) {
           </div>
           <div className="divide-y divide-gray-100">
             {items.map((d) => (
-              <div key={d.id} className="grid grid-cols-1 md:grid-cols-2">
-                <div className="border-l-4 border-l-red-400 bg-red-50/60 px-4 py-3">
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-red-500">
+              <div key={d.id} className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                <div className="bg-red-50/30 px-4 py-3">
+                  <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-red-700">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
                     Trước · {d.label}
                   </p>
                   <p className="text-[13px] leading-relaxed text-slate-800">
                     <DiffTokens tokens={d.beforeWords} side="del" />
                   </p>
                 </div>
-                <div className="border-l-4 border-l-green-500 bg-green-50/60 px-4 py-3 md:border-l md:border-l-green-500">
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-green-600">
+                <div className="bg-emerald-50/30 px-4 py-3">
+                  <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-emerald-800">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#2D7A58]" />
                     Sau · {d.label}
                   </p>
                   <p className="text-[13px] leading-relaxed text-slate-900">

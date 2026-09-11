@@ -60,6 +60,15 @@ import ReviewSkeleton from "@/components/workspace/ReviewSkeleton";
 const CONTACT_MISSING_NOTE =
   "Chưa có thông tin này trong CV gốc — bạn điền vào đây, không phải dữ liệu được trích xuất.";
 
+/** Reconstruction warnings that mean "complicated layout, expect gaps". */
+const COMPLEXITY_WARNING_LABELS: Record<string, string> = {
+  possible_column_order_problem: "bố cục nhiều cột",
+  column_order_mismatch: "thứ tự cột bị xáo trộn",
+  embedded_headings: "tiêu đề lẫn trong nội dung",
+  summary_contains_embedded_headings: "tiêu đề lẫn trong tóm tắt",
+  classified_section_collapse: "không tách được các mục",
+};
+
 function isMissingContact(identity: CVDocumentV2["identity"], key: "email" | "phone") {
   const value = (identity as unknown as Record<string, string | string[] | null | undefined>)[key];
   return !value || !String(value).trim();
@@ -159,34 +168,39 @@ function SpacingControlRow({
         <span>{label}</span>
         <span className="font-semibold text-slate-900">{displayVal}</span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         <input
           type="range"
           min={min}
           max={max}
           step={step}
           value={value}
+          aria-label={label}
+          aria-valuenow={value}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuetext={displayVal}
           onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="flex-1 accent-[#2D7A58] cursor-pointer h-1.5 bg-gray-200 rounded-lg appearance-none"
+          className="flex-1 accent-[#2D7A58] cursor-pointer h-2 bg-gray-200 rounded-lg appearance-none"
         />
         <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
           <button
             type="button"
             onClick={() => handleStep(-1)}
             disabled={value <= min}
-            className="h-5 w-5 flex items-center justify-center rounded text-slate-600 hover:bg-white disabled:opacity-40 cursor-pointer"
+            className="relative after:absolute after:-inset-2.5 after:content-[''] h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:bg-white disabled:opacity-40 cursor-pointer"
             aria-label={`Giảm ${label}`}
           >
-            <Minus size={11} />
+            <Minus size={12} />
           </button>
           <button
             type="button"
             onClick={() => handleStep(1)}
             disabled={value >= max}
-            className="h-5 w-5 flex items-center justify-center rounded text-slate-600 hover:bg-white disabled:opacity-40 cursor-pointer"
+            className="relative after:absolute after:-inset-2.5 after:content-[''] h-6 w-6 flex items-center justify-center rounded text-slate-600 hover:bg-white disabled:opacity-40 cursor-pointer"
             aria-label={`Tăng ${label}`}
           >
-            <Plus size={11} />
+            <Plus size={12} />
           </button>
         </div>
       </div>
@@ -562,6 +576,7 @@ export default function ReviewPage() {
   const handleSave = () => persistDraft();
 
   const [showChooser, setShowChooser] = useState(false);
+  const [complexDismissedFor, setComplexDismissedFor] = useState<string | null>(null);
 
   // Deep link from the CV library action sheet: ?features=1 auto-opens the
   // chooser once the draft is ready (never on garbage — see canUseFeatures).
@@ -625,11 +640,6 @@ export default function ReviewPage() {
     await handleAnalyze();
   };
 
-  const handleSectionSave = (tabId: string) => {
-    const tabObj = tabs.find((t) => t.id === tabId);
-    return persistDraft(tabObj?.label ?? "mục này");
-  };
-
   const handleAnalyze = async () => {
     if (!draft || !selectedCvId || state.isAnalyzing) return;
     setState((s) => ({ ...s, isAnalyzing: true }));
@@ -671,6 +681,15 @@ export default function ReviewPage() {
     }
   };
 
+  const complexityReasons = useMemo(() => {
+    if (!draft) return [] as string[];
+    const reasons = (draft.reconstruction_warnings ?? [])
+      .map((w) => COMPLEXITY_WARNING_LABELS[w])
+      .filter((v): v is string => Boolean(v));
+    if (rawExtractionRef?.method === "ocr") reasons.unshift("file scan (ảnh)");
+    return [...new Set(reasons)];
+  }, [draft, rawExtractionRef?.method]);
+
   if (state.prefillError) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center bg-[#FBFBFA]">
@@ -694,39 +713,79 @@ export default function ReviewPage() {
   const contactMissingEmail = isMissingContact(draft.identity, "email");
   const contactMissingPhone = isMissingContact(draft.identity, "phone");
 
+  const showComplexityBanner =
+    complexityReasons.length > 0 && complexDismissedFor !== selectedCvId;
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#FBFBFA]">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 bg-white border-b border-gray-100 shrink-0">
-        <div className="flex items-center gap-3">
+      {/* Unified Review Workspace Top Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-4 py-2 bg-white border-b border-gray-100 shrink-0">
+        {/* Left: Back button, CV title, and Section Selector */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => router.push("/app/setup")}
-            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-slate-800 transition-colors"
+            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-slate-800 transition-colors cursor-pointer"
             title="Quay lại danh sách CV"
             aria-label="Quay lại danh sách CV"
           >
-            <ArrowLeft size={17} />
+            <ArrowLeft size={16} />
           </button>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-slate-800 tracking-tight">
-              {cvFileName || "CV_NTMDuy.pdf"}
+          <div className="flex items-center gap-1.5">
+            <span
+              className="text-xs font-bold text-slate-800 tracking-tight max-w-[120px] sm:max-w-[150px] truncate"
+              title={cvFileName || "Bản nháp CV"}
+            >
+              {cvFileName || "Bản nháp CV"}
             </span>
             <span
-              className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#EAF5EC] text-[#2D7A58]"
-              title={state.snapshotDirty ? "Có thay đổi chưa lưu" : "Đã lưu tự động / Sẵn sàng"}
+              className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#EAF5EC] text-[#2D7A58]"
+              title={state.snapshotDirty ? "Có thay đổi chưa lưu" : "Sẵn sàng"}
             >
-              <Check size={12} strokeWidth={2.5} />
+              <Check size={10} strokeWidth={2.5} />
             </span>
+          </div>
+
+          <span className="hidden sm:block h-3.5 w-px bg-gray-200 mx-0.5" />
+
+          {/* Section Selector Dropdown */}
+          <div className="relative">
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value)}
+              className="appearance-none rounded-xl border border-gray-200 bg-white pl-8 pr-7 py-1 text-xs font-semibold text-slate-800 hover:border-gray-300 focus:border-[#2D7A58] focus:outline-none cursor-pointer shadow-2xs"
+              aria-label="Chọn phần CV để chỉnh sửa"
+            >
+              {tabs.map((tab) => {
+                const dirty = isTabDirty(tab.id);
+                return (
+                  <option key={tab.id} value={tab.id}>
+                    {tab.label} {dirty ? "• (Chưa lưu)" : ""}
+                  </option>
+                );
+              })}
+            </select>
+            <div className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#2D7A58]">
+              {(() => {
+                const currentTab = tabs.find((t) => t.id === activeTab);
+                const IconComponent = currentTab ? getSectionMeta(currentTab.type, currentTab.label).icon : User;
+                return <IconComponent size={13} />;
+              })()}
+            </div>
+            <ChevronDown size={11} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" />
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-400 font-medium">Giao diện:</span>
+        {/* Center: Design Template & Typography Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Design Selector */}
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-400 font-medium hidden xl:inline">Mẫu:</span>
             <select
               value={state.design}
               onChange={(e) => setState((s) => ({ ...s, design: e.target.value as CVDesign }))}
-              className="rounded-xl border border-gray-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-gray-300 focus:border-[#2D7A58] focus:outline-none focus:ring-2 focus:ring-[#2D7A58]/10"
+              className="rounded-xl border border-gray-200/90 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:border-gray-300 focus:border-[#2D7A58] focus:outline-none cursor-pointer"
+              aria-label="Chọn mẫu CV"
             >
               {CV_DESIGNS.map((d) => (
                 <option key={d.value} value={d.value}>
@@ -736,24 +795,179 @@ export default function ReviewPage() {
             </select>
           </div>
 
+          {/* Font Family */}
+          <div className="relative">
+            <select
+              value={typography.fontFamily}
+              onChange={(e) => setTypography((t) => ({ ...t, fontFamily: e.target.value }))}
+              className="appearance-none rounded-xl border border-gray-200 bg-white pl-6 pr-6 py-1 text-xs font-medium text-slate-700 hover:border-gray-300 focus:border-[#2D7A58] focus:outline-none cursor-pointer"
+              aria-label="Kiểu font chữ"
+            >
+              <option value="'Times New Roman'">Times New Roman</option>
+              <option value="Inter">Inter</option>
+              <option value="Roboto">Roboto</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Merriweather">Merriweather</option>
+              <option value="Arial">Arial</option>
+            </select>
+            <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[11px] font-bold text-gray-500">
+              Aa
+            </span>
+            <ChevronDown size={11} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          </div>
+
+          {/* Base Font Size Stepper */}
+          <div className="inline-flex items-center rounded-xl border border-gray-200 bg-white p-0.5 shadow-2xs">
+            <button
+              type="button"
+              onClick={() =>
+                setTypography((t) => ({
+                  ...t,
+                  baseFontSize: Math.max(8.0, +(t.baseFontSize - 0.5).toFixed(1)),
+                }))
+              }
+              disabled={typography.baseFontSize <= 8.0}
+              className="relative after:absolute after:-inset-2.5 after:content-[''] flex h-6 w-6 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              title="Giảm cỡ chữ (0.5pt)"
+              aria-label="Giảm cỡ chữ"
+            >
+              <Minus size={12} />
+            </button>
+            <div className="flex items-center gap-1 px-1.5 text-xs font-semibold text-slate-700 min-w-[50px] justify-center select-none">
+              <Type size={11} className="text-slate-400" />
+              <span>{typography.baseFontSize.toFixed(1)} pt</span>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setTypography((t) => ({
+                  ...t,
+                  baseFontSize: Math.min(13.0, +(t.baseFontSize + 0.5).toFixed(1)),
+                }))
+              }
+              disabled={typography.baseFontSize >= 13.0}
+              className="relative after:absolute after:-inset-2.5 after:content-[''] flex h-6 w-6 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              title="Tăng cỡ chữ (0.5pt)"
+              aria-label="Tăng cỡ chữ"
+            >
+              <Plus size={12} />
+            </button>
+          </div>
+
+          {/* Spacing & Layout Popover */}
+          <div className="relative" ref={spacingPopoverRef}>
+            <button
+              type="button"
+              onClick={() => setShowSpacingPopover((v) => !v)}
+              className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1 text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
+                showSpacingPopover
+                  ? "border-[#2D7A58] bg-[#EBF7EE] text-[#2D7A58]"
+                  : "border-gray-200 bg-white text-slate-700 hover:border-gray-300 hover:bg-slate-50"
+              }`}
+              aria-expanded={showSpacingPopover}
+              aria-label="Cài đặt giãn cách và bố cục"
+            >
+              <SlidersHorizontal size={12} />
+              <span className="hidden md:inline">Giãn cách</span>
+              <ChevronDown
+                size={11}
+                className={`text-gray-400 transition-transform duration-200 ${
+                  showSpacingPopover ? "rotate-180 text-[#2D7A58]" : ""
+                }`}
+              />
+            </button>
+
+            {showSpacingPopover && (
+              <div className="absolute right-0 top-full mt-2 z-50 w-80 rounded-2xl border border-gray-200 bg-white p-4 shadow-xl">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <SlidersHorizontal size={13} className="text-[#2D7A58]" />
+                    Bố cục & Khoảng cách
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setTypography((t) => ({ ...t, ...DEFAULT_TYPOGRAPHY }))}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-[#2D7A58] transition-colors cursor-pointer"
+                    title="Đặt lại thông số mặc định"
+                  >
+                    <RotateCcw size={11} />
+                    Mặc định
+                  </button>
+                </div>
+
+                <div className="space-y-3.5">
+                  <SpacingControlRow
+                    label="Khoảng cách phần"
+                    value={typography.sectionSpacing}
+                    unit="mm"
+                    min={0}
+                    max={10.0}
+                    step={0.5}
+                    onChange={(val) => setTypography((t) => ({ ...t, sectionSpacing: val }))}
+                  />
+                  <SpacingControlRow
+                    label="Khoảng cách mục"
+                    value={typography.itemSpacing}
+                    unit="mm"
+                    min={0}
+                    max={8.0}
+                    step={0.5}
+                    onChange={(val) => setTypography((t) => ({ ...t, itemSpacing: val }))}
+                  />
+                  <SpacingControlRow
+                    label="Độ giãn dòng"
+                    value={typography.lineHeight}
+                    unit="x"
+                    min={1.0}
+                    max={1.80}
+                    step={0.05}
+                    precision={2}
+                    displayFormat={(v) => `${v.toFixed(2)}x`}
+                    onChange={(val) => setTypography((t) => ({ ...t, lineHeight: val }))}
+                  />
+                  <SpacingControlRow
+                    label="Lề trang"
+                    value={typography.pageMargin}
+                    unit="mm"
+                    min={0}
+                    max={20}
+                    step={1}
+                    precision={0}
+                    onChange={(val) => setTypography((t) => ({ ...t, pageMargin: val }))}
+                  />
+                </div>
+
+                {/* Pro-tip */}
+                <div className="mt-3.5 pt-2.5 border-t border-gray-100 text-[11px] text-slate-500 leading-relaxed bg-[#F8FAF9] -mx-4 -mb-4 p-3 rounded-b-2xl">
+                  💡 <span className="font-medium text-slate-700">Mẹo:</span> Giảm khoảng cách mục hoặc lề trang nếu CV bị tràn sang trang 2 chỉ một vài dòng.
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Sticky Save Draft & Primary Continue */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleSave}
             disabled={state.isSaving}
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold shadow-xs transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
               state.snapshotDirty
                 ? "border-[#2D7A58]/30 bg-[#EAF5EC] text-[#2D7A58] hover:bg-[#d9ede0]"
                 : "border-gray-200/90 bg-white text-slate-700 hover:bg-gray-50"
             }`}
+            title="Lưu bản nháp CV vào hệ thống"
           >
             {state.isSaving ? (
               <Loader2 size={13} className="animate-spin text-[#2D7A58]" />
             ) : (
               <Save size={13} className={state.snapshotDirty ? "text-[#2D7A58]" : "text-gray-500"} />
             )}
-            Lưu nháp
+            <span>Lưu nháp</span>
             {state.snapshotDirty && (
-              <span className="h-1.5 w-1.5 rounded-full bg-[#2D7A58]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#2D7A58] animate-pulse" />
             )}
           </button>
 
@@ -761,209 +975,51 @@ export default function ReviewPage() {
             type="button"
             onClick={handleSaveAndContinue}
             disabled={state.isAnalyzing || state.isSaving}
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#2D7A58] px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#246347] disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#2D7A58] px-3.5 py-1 text-xs font-bold text-white shadow-xs hover:bg-[#246347] disabled:opacity-60 disabled:cursor-not-allowed transition-all cursor-pointer"
           >
             {state.isAnalyzing ? (
               <>
                 <Loader2 size={13} className="animate-spin" />
-                Đang chuẩn bị...
+                <span>Đang chuẩn bị...</span>
               </>
             ) : (
               <>
-                Lưu & Tiếp tục
-                <Sparkles size={13} />
+                <span>Lưu & Tiếp tục</span>
+                <Sparkles size={12} />
               </>
             )}
           </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2.5 px-6 py-2 bg-white border-b border-gray-100 shrink-0">
-        {/* Section Selector Dropdown */}
-        <div className="relative">
-          <select
-            value={activeTab}
-            onChange={(e) => setActiveTab(e.target.value)}
-            className="appearance-none rounded-xl border border-gray-200 bg-white pl-9 pr-8 py-1.5 text-xs font-semibold text-slate-800 hover:border-gray-300 focus:border-[#2D7A58] focus:outline-none cursor-pointer shadow-2xs"
-            aria-label="Chọn phần CV để chỉnh sửa"
-          >
-            {tabs.map((tab) => {
-              const dirty = isTabDirty(tab.id);
-              return (
-                <option key={tab.id} value={tab.id}>
-                  {tab.label} {dirty ? "• (Chưa lưu)" : ""}
-                </option>
-              );
-            })}
-          </select>
-          <div className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#2D7A58]">
-            {(() => {
-              const currentTab = tabs.find((t) => t.id === activeTab);
-              const IconComponent = currentTab ? getSectionMeta(currentTab.type, currentTab.label).icon : User;
-              return <IconComponent size={14} />;
-            })()}
-          </div>
-          <ChevronDown size={12} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        </div>
-
-        {/* Subtle vertical divider */}
-        <div className="h-4 w-px bg-gray-200 mx-0.5" />
-
-        {/* Font Family */}
-        <div className="relative">
-          <select
-            value={typography.fontFamily}
-            onChange={(e) => setTypography((t) => ({ ...t, fontFamily: e.target.value }))}
-            className="appearance-none rounded-xl border border-gray-200 bg-white pl-8 pr-7 py-1.5 text-xs font-medium text-slate-700 hover:border-gray-300 focus:border-[#2D7A58] focus:outline-none cursor-pointer"
-            aria-label="Kiểu font chữ"
-          >
-            <option value="'Times New Roman'">Times New Roman</option>
-            <option value="Inter">Inter</option>
-            <option value="Roboto">Roboto</option>
-            <option value="Georgia">Georgia</option>
-            <option value="Merriweather">Merriweather</option>
-            <option value="Arial">Arial</option>
-          </select>
-          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500">
-            Aa
-          </span>
-          <ChevronDown size={12} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        </div>
-
-        {/* Base Font Size Stepper */}
-        <div className="inline-flex items-center rounded-xl border border-gray-200 bg-white p-0.5 shadow-2xs">
-          <button
-            type="button"
-            onClick={() =>
-              setTypography((t) => ({
-                ...t,
-                baseFontSize: Math.max(8.0, +(t.baseFontSize - 0.5).toFixed(1)),
-              }))
-            }
-            disabled={typography.baseFontSize <= 8.0}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-            title="Giảm cỡ chữ (0.5pt)"
-            aria-label="Giảm cỡ chữ"
-          >
-            <Minus size={13} />
-          </button>
-          <div className="flex items-center gap-1 px-2 text-xs font-semibold text-slate-700 min-w-[58px] justify-center select-none">
-            <Type size={12} className="text-slate-400" />
-            <span>{typography.baseFontSize.toFixed(1)} pt</span>
-          </div>
-          <button
-            type="button"
-            onClick={() =>
-              setTypography((t) => ({
-                ...t,
-                baseFontSize: Math.min(13.0, +(t.baseFontSize + 0.5).toFixed(1)),
-              }))
-            }
-            disabled={typography.baseFontSize >= 13.0}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-            title="Tăng cỡ chữ (0.5pt)"
-            aria-label="Tăng cỡ chữ"
-          >
-            <Plus size={13} />
-          </button>
-        </div>
-
-        {/* Spacing & Layout Popover */}
-        <div className="relative" ref={spacingPopoverRef}>
-          <button
-            type="button"
-            onClick={() => setShowSpacingPopover((v) => !v)}
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
-              showSpacingPopover
-                ? "border-[#2D7A58] bg-[#EBF7EE] text-[#2D7A58]"
-                : "border-gray-200 bg-white text-slate-700 hover:border-gray-300 hover:bg-slate-50"
-            }`}
-            aria-expanded={showSpacingPopover}
-            aria-label="Cài đặt giãn cách và bố cục"
-          >
-            <SlidersHorizontal size={13} />
-            <span>Giãn cách</span>
-            <ChevronDown
-              size={12}
-              className={`text-gray-400 transition-transform duration-200 ${
-                showSpacingPopover ? "rotate-180 text-[#2D7A58]" : ""
-              }`}
-            />
-          </button>
-
-          {showSpacingPopover && (
-            <div className="absolute left-0 top-full mt-2 z-50 w-80 rounded-2xl border border-gray-200 bg-white p-4 shadow-xl">
-              {/* Header */}
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
-                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <SlidersHorizontal size={13} className="text-[#2D7A58]" />
-                  Bố cục & Khoảng cách
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setTypography((t) => ({ ...t, ...DEFAULT_TYPOGRAPHY }))}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-[#2D7A58] transition-colors cursor-pointer"
-                  title="Đặt lại thông số mặc định"
-                >
-                  <RotateCcw size={11} />
-                  Mặc định
-                </button>
-              </div>
-
-              <div className="space-y-3.5">
-                <SpacingControlRow
-                  label="Khoảng cách phần"
-                  value={typography.sectionSpacing}
-                  unit="mm"
-                  min={0}
-                  max={10.0}
-                  step={0.5}
-                  onChange={(val) => setTypography((t) => ({ ...t, sectionSpacing: val }))}
-                />
-                <SpacingControlRow
-                  label="Khoảng cách mục"
-                  value={typography.itemSpacing}
-                  unit="mm"
-                  min={0}
-                  max={8.0}
-                  step={0.5}
-                  onChange={(val) => setTypography((t) => ({ ...t, itemSpacing: val }))}
-                />
-                <SpacingControlRow
-                  label="Độ giãn dòng"
-                  value={typography.lineHeight}
-                  unit="x"
-                  min={1.0}
-                  max={1.80}
-                  step={0.05}
-                  precision={2}
-                  displayFormat={(v) => `${v.toFixed(2)}x`}
-                  onChange={(val) => setTypography((t) => ({ ...t, lineHeight: val }))}
-                />
-                <SpacingControlRow
-                  label="Lề trang"
-                  value={typography.pageMargin}
-                  unit="mm"
-                  min={0}
-                  max={20}
-                  step={1}
-                  precision={0}
-                  onChange={(val) => setTypography((t) => ({ ...t, pageMargin: val }))}
-                />
-              </div>
-
-              {/* Pro-tip */}
-              <div className="mt-3.5 pt-2.5 border-t border-gray-100 text-[11px] text-slate-500 leading-relaxed bg-[#F8FAF9] -mx-4 -mb-4 p-3 rounded-b-2xl">
-                💡 <span className="font-medium text-slate-700">Mẹo:</span> Giảm khoảng cách mục hoặc lề trang nếu CV bị tràn sang trang 2 chỉ một vài dòng.
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_450px] xl:grid-cols-[1fr_530px] 2xl:grid-cols-[1fr_610px] overflow-hidden">
         <div className="flex min-h-0 flex-col overflow-hidden bg-white border-r border-gray-200">
           <div className="flex-1 overflow-y-auto px-8 py-6 bg-white">
+            {showComplexityBanner && (
+              <div className="max-w-3xl mx-auto mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-bold text-amber-900">CV này có định dạng phức tạp ({complexityReasons.join(", ")})</p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-800">
+                  Trích xuất có thể thiếu sót. Bạn có thể tiếp tục soát tay từng mục,
+                  hoặc tải lên bản PDF 1 cột đơn giản để có kết quả tốt nhất.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setComplexDismissedFor(selectedCvId)}
+                    className="rounded-xl bg-amber-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-amber-700 cursor-pointer"
+                  >
+                    Tiếp tục soát tay
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/app/setup")}
+                    className="rounded-xl border border-amber-300 bg-white px-3.5 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100 cursor-pointer"
+                  >
+                    Tải CV khác
+                  </button>
+                </div>
+              </div>
+            )}
             {tabs.map((tab) => {
               if (tab.id !== activeTab) return null;
               const { icon: TabIcon, subtitle } = getSectionMeta(tab.type, tab.label);
@@ -985,24 +1041,11 @@ export default function ReviewPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {tabDirty && (
-                        <span className="text-[11px] text-amber-600 font-medium flex items-center gap-1 mr-1">
+                        <span className="text-[11px] text-amber-600 font-medium flex items-center gap-1">
                           <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
                           Chưa lưu
                         </span>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => handleSectionSave(tab.id)}
-                        disabled={state.isSaving}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#2D7A58] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#246347] disabled:opacity-50 transition-all cursor-pointer"
-                      >
-                        {state.isSaving ? (
-                          <Loader2 size={13} className="animate-spin" />
-                        ) : (
-                          <Save size={13} />
-                        )}
-                        Lưu mục này
-                      </button>
                     </div>
                   </div>
 
@@ -1058,28 +1101,15 @@ export default function ReviewPage() {
                       {tabDirty ? (
                         <span className="text-xs text-amber-600 font-medium flex items-center gap-1.5">
                           <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                          Có thay đổi chưa lưu trong mục này
+                          Có thay đổi chưa lưu
                         </span>
                       ) : (
                         <span className="text-xs text-gray-400 flex items-center gap-1.5">
                           <Check size={14} className="text-[#2D7A58]" />
-                          Mục này đã được lưu
+                          Mục này đã đồng bộ
                         </span>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleSectionSave(tab.id)}
-                      disabled={state.isSaving}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#2D7A58] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#246347] disabled:opacity-50 transition-all cursor-pointer"
-                    >
-                      {state.isSaving ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <Save size={14} />
-                      )}
-                      Lưu thay đổi mục này
-                    </button>
                   </div>
                 </div>
               );

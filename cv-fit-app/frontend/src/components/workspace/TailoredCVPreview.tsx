@@ -111,7 +111,7 @@ export default function TailoredCVPreview({
           <button
             type="button"
             onClick={onDownload}
-            className="rounded-xl bg-[#6A9B5E] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#6A9B5E]/20 transition hover:bg-[#5a874e] active:scale-95"
+            className="rounded-xl bg-[#2D7A58] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#2D7A58]/20 transition hover:bg-[#246347] active:scale-95"
           >
             Tải PDF
           </button>

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, Briefcase, Download, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 
 import LoadingOverlay from "@/components/workspace/LoadingOverlay";
 import MatchDashboard from "@/components/workspace/MatchDashboard";
@@ -400,40 +400,44 @@ export default function AnalyzerPage() {
             </div>
           )}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="flex flex-wrap gap-4 justify-center mt-4"
+            transition={{ delay: 0.35 }}
+            className="flex flex-wrap items-center justify-center gap-3.5 mt-6"
           >
-            <button
-              onClick={() => router.push("/app/jobs")}
-              className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2 cursor-pointer"
-            >
-              <Briefcase className="w-5 h-5" />
-              Tìm việc phù hợp
-            </button>
             {analysisResult.tailoring ? (
               <button
+                type="button"
                 onClick={handleSaveTailoredCV}
                 disabled={isSavingTailoredCV}
-                className="px-8 py-4 bg-[var(--primary)] text-white rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#2D7A58] px-8 py-3.5 text-base font-bold text-white shadow-md transition-all hover:bg-[#246347] active:scale-[0.98] disabled:opacity-60 cursor-pointer"
               >
                 <Download className="w-5 h-5" />
                 {isSavingTailoredCV ? "Đang lưu CV..." : "Lưu & xuất CV đã tối ưu"}
               </button>
             ) : (
               <button
+                type="button"
                 onClick={handleTailorCV}
                 disabled={isTailoring}
-                className="px-8 py-4 bg-[var(--primary)] text-white rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#2D7A58] px-8 py-3.5 text-base font-bold text-white shadow-md transition-all hover:bg-[#246347] active:scale-[0.98] disabled:opacity-60 cursor-pointer"
               >
                 <Sparkles className="w-5 h-5" />
                 {isTailoring ? "Đang tối ưu CV..." : "Tạo CV đã tối ưu"}
               </button>
             )}
             <button
+              type="button"
+              onClick={() => router.push("/app/jobs")}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-300 bg-white px-6 py-3.5 text-sm font-semibold text-emerald-800 shadow-sm transition-all hover:bg-emerald-50 active:scale-[0.98] cursor-pointer"
+            >
+              <Briefcase className="w-4 h-4 text-emerald-700" />
+              Tìm việc phù hợp
+            </button>
+            <button
+              type="button"
               onClick={() => router.push("/app/setup")}
-              className="px-8 py-4 bg-white text-[#2F4F4F] rounded-2xl font-semibold hover:scale-105 transition-all border-2 border-[var(--primary)]/20"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 active:scale-[0.98] cursor-pointer"
             >
               Phân tích CV khác
             </button>

@@ -17,6 +17,7 @@ import {
   Type,
 } from "lucide-react";
 import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 import { CVIframe } from "@/components/workspace/LocalCVPreview";
 import ExportDiffList from "@/components/workspace/ExportDiffList";
@@ -79,34 +80,39 @@ function SpacingRow({
         <span>{label}</span>
         <span className="font-semibold text-slate-900">{display}</span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         <input
           type="range"
           min={min}
           max={max}
           step={step}
           value={value}
+          aria-label={label}
+          aria-valuenow={value}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuetext={display}
           onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="h-1.5 flex-1 cursor-pointer appearance-none rounded-lg bg-gray-200 accent-[#2D7A58]"
+          className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-gray-200 accent-[#2D7A58]"
         />
         <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
           <button
             type="button"
             onClick={() => stepBy(-1)}
             disabled={value <= min}
-            className="flex h-5 w-5 cursor-pointer items-center justify-center rounded text-slate-600 hover:bg-white disabled:opacity-40"
+            className="relative after:absolute after:-inset-2.5 after:content-[''] flex h-6 w-6 cursor-pointer items-center justify-center rounded text-slate-600 hover:bg-white disabled:opacity-40"
             aria-label={`Giảm ${label}`}
           >
-            <Minus size={11} />
+            <Minus size={12} />
           </button>
           <button
             type="button"
             onClick={() => stepBy(1)}
             disabled={value >= max}
-            className="flex h-5 w-5 cursor-pointer items-center justify-center rounded text-slate-600 hover:bg-white disabled:opacity-40"
+            className="relative after:absolute after:-inset-2.5 after:content-[''] flex h-6 w-6 cursor-pointer items-center justify-center rounded text-slate-600 hover:bg-white disabled:opacity-40"
             aria-label={`Tăng ${label}`}
           >
-            <Plus size={11} />
+            <Plus size={12} />
           </button>
         </div>
       </div>
@@ -207,9 +213,21 @@ function ExportScreen() {
       const label = [selected.target_role, selected.company_name].filter(Boolean).join("-") || "tailored-cv";
       anchor.href = url;
       anchor.download = `${label.replace(/[^a-zA-Z0-9À-ỹ_-]+/g, "-")}.pdf`;
+      document.body.appendChild(anchor);
       anchor.click();
+      document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
-      toast.success("Đã tải PDF thành công.");
+      try {
+        confetti({
+          particleCount: 85,
+          spread: 70,
+          origin: { y: 0.65 },
+          colors: ["#2D7A58", "#12b67a", "#66dcae", "#3d7fe8", "#fbbf24"],
+        });
+      } catch {
+        // Ignore if canvas not supported in headless environments
+      }
+      toast.success("Đã tải PDF thành công! Chúc bạn ứng tuyển thuận lợi 🎯");
     } catch (err) {
       toast.error(apiErrorMessage(err));
     } finally {
@@ -228,6 +246,24 @@ function ExportScreen() {
           className="cursor-pointer rounded-xl bg-[#2D7A58] px-4 py-2 text-xs font-bold text-white"
         >
           Về thư viện CV
+        </button>
+      </div>
+    );
+  }
+
+  if (versions && versions.length === 0) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 p-6 text-center">
+        <p className="text-base font-bold text-slate-800">Chưa có bản CV tối ưu nào để xuất file.</p>
+        <p className="max-w-md text-xs text-slate-500">
+          Hãy hoàn thành bước Phân tích & Tối ưu để tạo bản CV phù hợp nhất trước khi so sánh và xuất PDF.
+        </p>
+        <button
+          type="button"
+          onClick={() => router.push("/app/setup")}
+          className="mt-2 cursor-pointer rounded-xl bg-[#2D7A58] px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[#246347] transition-all"
+        >
+          Bắt đầu quy trình tối ưu CV
         </button>
       </div>
     );
@@ -439,8 +475,25 @@ function ExportScreen() {
         {view === "side-by-side" && (
           <div className="mx-auto max-w-7xl">
             {diffs.length > 0 && (
-              <div className="mb-4">
-                <ExportDiffList diffs={diffs} />
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-emerald-200/80 bg-white px-4 py-2.5 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EAF5EC] text-[#2D7A58] text-xs font-bold">
+                    ✓
+                  </span>
+                  <span className="text-xs font-semibold text-slate-800">
+                    Đã áp dụng {diffs.length} thay đổi tối ưu an toàn
+                  </span>
+                  <span className="hidden sm:inline text-xs text-slate-500">
+                    · Xem trực tiếp các từ ngữ được tô màu trong bản xem trước
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setView("diff")}
+                  className="text-xs font-bold text-[#2D7A58] hover:underline cursor-pointer"
+                >
+                  Xem chi tiết ở tab Diff →
+                </button>
               </div>
             )}
             <div className="grid items-start gap-4 lg:grid-cols-2">
@@ -450,7 +503,7 @@ function ExportScreen() {
                   Trước · CV đã sửa
                 </p>
                 {beforeHtml ? (
-                  <CVIframe html={beforeHtml} />
+                  <CVIframe html={beforeHtml} title="Bản xem trước CV gốc trước khi tối ưu" />
                 ) : (
                   <div className="rounded-xl border border-dashed border-gray-200 bg-white p-8 text-center text-xs text-gray-400">
                     Không có bản gốc để so sánh.
@@ -462,7 +515,7 @@ function ExportScreen() {
                   <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#2D7A58]" />
                   Sau · CV tối ưu ({diffs.length} thay đổi)
                 </p>
-                <CVIframe html={afterHtml} />
+                <CVIframe html={afterHtml} title="Bản xem trước CV sau khi tối ưu" />
               </div>
             </div>
           </div>
@@ -470,7 +523,7 @@ function ExportScreen() {
 
         {view === "final" && (
           <div className="mx-auto max-w-3xl">
-            <CVIframe html={afterHtml} />
+            <CVIframe html={afterHtml} title="Bản xem trước CV hoàn thiện" />
           </div>
         )}
       </div>

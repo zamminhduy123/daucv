@@ -44,6 +44,7 @@ from app.models.cv_document_v2 import (
     CVSection,
     CVSkillGroupBlock,
     CVUnknownBlock,
+    unwrap_google_redirect_url,
 )
 from app.models.cv_raw_extraction import RawExtraction
 from app.prompts.system_prompts import (
@@ -52,6 +53,7 @@ from app.prompts.system_prompts import (
     format_source_atoms,
 )
 from app.services.ai_service import call_llm_with_fallback
+from app.services.cv_range_plan_service import _looks_like_name
 from app.services.cv_reconstruction_service import (
     InvalidSourceReferenceError,
     canonical_cv_hash,
@@ -340,22 +342,58 @@ def _audit_section_plan(
 def _deterministic_identity_plan(atoms: list[SourceAtom]) -> AtomIdentityPlan:
     """Assign CV header fields without requiring an LLM pointer plan."""
     plan = AtomIdentityPlan()
-    for index, atom in enumerate(atoms):
-        if index == 0:
-            plan.full_name_atom_ids = [atom.atom_id]
-        elif index == 1:
-            plan.headline_atom_ids = [atom.atom_id]
-        if _EMAIL_RE.search(atom.text):
+    name_atom_id: str | None = None
+    headline_atom_id: str | None = None
+
+    for atom in atoms:
+        text = atom.text.strip()
+        if _EMAIL_RE.search(text):
             plan.email_atom_ids.append(atom.atom_id)
-        if _PHONE_RE.search(atom.text):
+        if _PHONE_RE.search(text):
             plan.phone_atom_ids.append(atom.atom_id)
-        if _LINK_RE.search(atom.text) or atom.text.casefold() in {
+        if _LINK_RE.search(text) or text.casefold() in {
             "linkedin",
             "github",
             "website",
             "google scholar",
         }:
             plan.link_atom_id_groups.append([atom.atom_id])
+
+    # Scan the first few atoms for candidate name
+    for atom in atoms[:4]:
+        text = atom.text.strip()
+        if not text:
+            continue
+        if atom.atom_id in plan.email_atom_ids or atom.atom_id in plan.phone_atom_ids:
+            continue
+        if _looks_like_name(text):
+            name_atom_id = atom.atom_id
+            break
+
+    if name_atom_id:
+        plan.full_name_atom_ids = [name_atom_id]
+        for atom in atoms[:4]:
+            if (
+                atom.atom_id != name_atom_id
+                and atom.atom_id not in plan.email_atom_ids
+                and atom.atom_id not in plan.phone_atom_ids
+                and not any(atom.atom_id in grp for grp in plan.link_atom_id_groups)
+            ):
+                headline_atom_id = atom.atom_id
+                break
+        if headline_atom_id:
+            plan.headline_atom_ids = [headline_atom_id]
+    elif atoms:
+        first_text = atoms[0].text.strip()
+        if not _EMAIL_RE.search(first_text) and "@" not in first_text:
+            plan.full_name_atom_ids = [atoms[0].atom_id]
+        if (
+            len(atoms) > 1
+            and not _EMAIL_RE.search(atoms[1].text.strip())
+            and "@" not in atoms[1].text.strip()
+        ):
+            plan.headline_atom_ids = [atoms[1].atom_id]
+
     return plan
 
 
@@ -502,9 +540,11 @@ def assemble_block_plan_document(
     link_sources: dict[str, list[str]] = {}
     for group in identity_plan.link_atom_id_groups:
         value = _identity_value(group, atom_map, _LINK_RE)
-        if value and value not in link_sources:
-            links.append(value)
-            link_sources[value] = _block_ids(group, atom_map)
+        if value:
+            clean_value = unwrap_google_redirect_url(value)
+            if clean_value not in link_sources:
+                links.append(clean_value)
+                link_sources[clean_value] = _block_ids(group, atom_map)
     identity = CVIdentity(
         full_name=_identity_value(identity_plan.full_name_atom_ids, atom_map),
         headline=_identity_value(identity_plan.headline_atom_ids, atom_map),

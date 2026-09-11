@@ -218,3 +218,64 @@ def test_gate_attestation_does_not_cover_other_critical_warnings() -> None:
     doc.review_attested = True
     with pytest.raises(ValueError, match="duplicate_line_ownership"):
         validate_reconstruction_gate(doc)
+
+
+def test_backfill_source_block_citations_from_line_ids() -> None:
+    from app.models.cv_raw_extraction import (
+        ExtractionMethod,
+        RawBlock,
+        RawExtraction,
+        RawPage,
+    )
+    from app.services.cv_reconstruction_service import backfill_source_block_citations
+
+    raw = RawExtraction(
+        method=ExtractionMethod.NATIVE_BLOCKS,
+        pages=[
+            RawPage(
+                page=1,
+                blocks=[
+                    RawBlock(
+                        block_id="p1-b1",
+                        page=1,
+                        text="Built APIs.",
+                        extraction_method=ExtractionMethod.NATIVE_BLOCKS,
+                    ),
+                    RawBlock(
+                        block_id="p1-b2",
+                        page=1,
+                        text="Led team.",
+                        extraction_method=ExtractionMethod.NATIVE_BLOCKS,
+                    ),
+                ],
+            )
+        ],
+    )
+    doc = CVDocumentV2(
+        sections=[
+            CVSection(
+                id="experience",
+                type="experience",
+                title="EXPERIENCE",
+                blocks=[
+                    CVParagraphBlock(
+                        block_id="b-cited",
+                        text="Built APIs.",
+                        source_line_ids=["p1-b1"],
+                    ),
+                    CVParagraphBlock(
+                        block_id="b-user",
+                        text="User added.",
+                        origin=ContentOrigin.USER_EDIT,
+                    ),
+                ],
+            )
+        ],
+    )
+    filled = backfill_source_block_citations(doc, raw)
+    assert filled == 1
+    by_id = {b.block_id: b for s in doc.sections for b in s.blocks}
+    assert by_id["b-cited"].source_block_ids == ["p1-b1"]
+    assert by_id["b-user"].source_block_ids == []
+    # Idempotent: second run fills nothing and never overrides.
+    assert backfill_source_block_citations(doc, raw) == 0

@@ -1066,3 +1066,44 @@ def test_references_heading_is_own_section() -> None:
 
     assert classify_heading("References") is not None
     assert classify_heading("References")[0] == "custom"
+
+
+def test_looks_like_name_rejects_email_and_job_title() -> None:
+    from app.services.cv_range_plan_service import _looks_like_name
+
+    assert _looks_like_name("phamvinh257@gmail.com") is False
+    assert _looks_like_name("Senior AI Engineer") is False
+    assert _looks_like_name("AI Researcher") is False
+    assert _looks_like_name("PHAM HONG VINH") is True
+    assert _looks_like_name("TRẦN VĂN AN") is True
+
+
+def test_build_identity_swaps_email_and_name_candidate() -> None:
+    from app.models.cv_range_plan import SourceLedgerAtom
+    from app.services.cv_range_plan_service import _build_identity
+
+    def atom(i: int, text: str) -> SourceLedgerAtom:
+        return SourceLedgerAtom(
+            index=i,
+            block_id=f"p{i}",
+            text=text,
+            page=1,
+            reading_order=i,
+            start_offset=0,
+            end_offset=len(text),
+        )
+
+    preamble = [
+        atom(0, "phamvinh257@gmail.com"),
+        atom(1, "PHAM HONG VINH"),
+        atom(2, "Senior AI Engineer"),
+        atom(
+            3,
+            "https://www.google.com/url?q=https://linkedin.com/in/phvinh2000&sa=D&usg=XYZ",
+        ),
+    ]
+    identity, assigned = _build_identity(preamble)
+    assert identity.full_name == "PHAM HONG VINH"
+    assert identity.email == "phamvinh257@gmail.com"
+    assert identity.headline == "Senior AI Engineer"
+    assert identity.links == ["https://linkedin.com/in/phvinh2000"]

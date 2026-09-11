@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Upload, FileText, X, CheckCircle, AlertTriangle, Sparkles, Mic, Loader2, PenTool, Briefcase, ArrowLeft } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import type { LayoutLine, RawExtractionReference, WorkspaceInputs } from "@/types";
 import { wordCount } from "@/lib/utils";
 import { extractPdfAPI, type PdfExtractResult } from "@/lib/api";

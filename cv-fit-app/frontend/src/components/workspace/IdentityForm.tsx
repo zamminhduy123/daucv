@@ -164,7 +164,7 @@ export default function IdentityForm({ identity, onChange, onHiddenChange }: Ide
                     const next = links.filter((_, i) => i !== index);
                     setField("links", next);
                   }}
-                  className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                  className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-700 transition-colors"
                   aria-label="Xóa liên kết"
                 >
                   ✕

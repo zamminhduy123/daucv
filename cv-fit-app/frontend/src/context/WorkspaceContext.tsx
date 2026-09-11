@@ -107,6 +107,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadedStorageKey, setLoadedStorageKey] = useState<string | null>(null);
   const cleanupInFlight = useRef(new Set<string>());
+  const deletedCvIdsRef = useRef(new Set<string>());
+  const cvListFetchIdRef = useRef(0);
   const cvListRef = useRef<UserCV[]>([]);
   const stateRef = useRef(state);
   useEffect(() => {
@@ -159,6 +161,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
 
     queueMicrotask(() => {
+      if (nextState.cvText) {
+        lastSavedCV.current = {
+          id: nextState.selectedCvId ?? undefined,
+          text: nextState.cvText,
+          filename: nextState.cvFileName,
+        };
+      }
       setState(nextState);
       setCache(nextCache);
       setIsLoaded(true);
@@ -226,19 +235,26 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     if (status !== "authenticated") {
       setCvList([]);
       setCvListError(null);
+      setIsCvListLoading(false);
       return;
     }
+    const fetchId = ++cvListFetchIdRef.current;
     setIsCvListLoading(true);
     setCvListError(null);
     try {
       const res = await listUserCVsAPI();
-      setCvList(res.cvs ?? []);
+      if (fetchId !== cvListFetchIdRef.current) return;
+      const validCvs = (res.cvs ?? []).filter((cv) => !deletedCvIdsRef.current.has(cv.id));
+      setCvList(validCvs);
     } catch (err) {
+      if (fetchId !== cvListFetchIdRef.current) return;
       console.error("Failed to load CV list:", formatCaughtError(err));
       setCvList([]);
       setCvListError(apiErrorMessage(err));
     } finally {
-      setIsCvListLoading(false);
+      if (fetchId === cvListFetchIdRef.current) {
+        setIsCvListLoading(false);
+      }
     }
   }, [status]);
 
@@ -246,27 +262,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   // the user picks a CV explicitly (strict no-active rule).
   useEffect(() => {
     if (!isLoaded || loadedStorageKey !== stateStorageKey) return;
-    if (status !== "authenticated") {
-      queueMicrotask(() => {
-        setCvList([]);
-        setCvListError(null);
-        setIsCvListLoading(false);
-      });
-      return;
-    }
-    listUserCVsAPI()
-      .then((res) => {
-        setCvList(res.cvs ?? []);
-        setCvListError(null);
-        setIsCvListLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to load CV list:", formatCaughtError(err));
-        setCvList([]);
-        setCvListError(apiErrorMessage(err));
-        setIsCvListLoading(false);
-      });
-  }, [isLoaded, loadedStorageKey, stateStorageKey, status]);
+    queueMicrotask(() => {
+      void refreshCvList();
+    });
+  }, [isLoaded, loadedStorageKey, stateStorageKey, refreshCvList]);
 
   // Debounced save for text modifications (create-or-update the selected CV)
   useEffect(() => {
@@ -297,6 +296,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       const textToSave = state.cvText;
       const fileToSave = state.cvFileName;
       const selectedId = state.selectedCvId;
+      if (selectedId && deletedCvIdsRef.current.has(selectedId)) {
+        return;
+      }
       const rawRefId = state.rawExtractionRef?.id;
       const save = selectedId
         // Update the explicitly selected CV in place
@@ -459,12 +461,15 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [status, refreshProfile, refreshCvList]);
 
   const deleteCV = useCallback(async (id: string) => {
+    deletedCvIdsRef.current.add(id);
+    cvListFetchIdRef.current++;
+
     clearCachedStructuredDoc(id, userId);
     const isSelected = stateRef.current.selectedCvId === id;
     if (isSelected) {
       // Total, immediate clear: no fallback selection (strict no-active rule).
       // Text must never linger as ghost state after its source row is gone.
-      lastSavedCV.current = null;
+      lastSavedCV.current = { id: undefined, text: "", filename: DEFAULT_CV_FILENAME };
       setState((s) => {
         const invalidated = invalidateRawExtraction(s);
         return {
@@ -485,8 +490,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         await deleteUserCVAPI(id);
         await refreshProfile(true);
       } catch (err) {
+        deletedCvIdsRef.current.delete(id);
         console.error("Failed to delete CV:", formatCaughtError(err));
         await refreshCvList();
+        throw err;
       }
     }
   }, [status, refreshProfile, refreshCvList, userId]);

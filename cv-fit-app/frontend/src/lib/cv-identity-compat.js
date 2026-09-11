@@ -14,6 +14,34 @@ const CONTACT_LABELS = new Set([
   "github",
 ]);
 
+const GOOGLE_TRACKING_PARAM_RE = /[?&](?:sa|ust|usg|source|ved|opi|sntz)=[^&#\s]*/gi;
+
+/**
+ * @param {string} url
+ * @returns {string}
+ */
+export function unwrapGoogleRedirectUrl(url) {
+  if (!url || typeof url !== "string") return url;
+  if (!url.includes("google.") || !url.includes("/url")) return url;
+  try {
+    const toParse = url.includes("://") ? url : `https://${url}`;
+    const parsed = new URL(toParse);
+    const domain = parsed.hostname.toLowerCase();
+    if (
+      (domain === "google.com" || domain.endsWith(".google.com") || domain.includes(".google.")) &&
+      parsed.pathname === "/url"
+    ) {
+      const target = parsed.searchParams.get("q") || parsed.searchParams.get("url");
+      if (target) {
+        return target.replace(GOOGLE_TRACKING_PARAM_RE, "").replace(/[?&]+$/, "");
+      }
+    }
+  } catch {
+    // ignore parse error
+  }
+  return url;
+}
+
 /**
  * @typedef {object} ParsedLegacyContacts
  * @property {string | null} email
@@ -33,7 +61,7 @@ export function parseLegacyContactLines(lines) {
     .flatMap((line) => Array.from(line.matchAll(PHONE_PATTERN), (match) => match[0].trim()))
     .filter((candidate) => candidate.replace(/\D/g, "").length >= 8);
   const links = contacts
-    .flatMap((line) => Array.from(line.matchAll(LINK_PATTERN), (match) => match[0].replace(/[.)\]]+$/, "")))
+    .flatMap((line) => Array.from(line.matchAll(LINK_PATTERN), (match) => unwrapGoogleRedirectUrl(match[0].replace(/[.)\]]+$/, ""))))
     .filter((link, index, all) => all.indexOf(link) === index);
   const residual = contacts
     .flatMap(unparsedContactFragments)
@@ -53,11 +81,13 @@ export function parseLegacyContactLines(lines) {
  */
 export function identityContactLines(identity) {
   const parsed = parseLegacyContactLines(identity.contact_lines || []);
+  const rawLinks = (identity.links || []).length ? identity.links : parsed.links;
+  const unwrappedLinks = rawLinks.map(unwrapGoogleRedirectUrl);
   const canonical = [
     identity.email || parsed.email,
     identity.phone || parsed.phone,
     identity.location,
-    ...((identity.links || []).length ? identity.links : parsed.links),
+    ...unwrappedLinks,
   ].filter(Boolean);
   return [...canonical, ...parsed.residual]
     .filter((value, index, all) => all.indexOf(value) === index);

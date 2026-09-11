@@ -10,12 +10,14 @@ import type { CVDesign, CVDocumentV2 } from "@/types";
  */
 export function CVIframe({
   html,
+  title = "Bản xem trước CV",
   iframeRef: externalRef,
   onHeightChange,
   onPageCountChange,
   scrollContainerRef,
 }: {
   html: string;
+  title?: string;
   iframeRef?: React.RefObject<HTMLIFrameElement | null>;
   onHeightChange?: (h: number) => void;
   onPageCountChange?: (count: number) => void;
@@ -82,7 +84,7 @@ export function CVIframe({
           sandbox="allow-scripts allow-same-origin"
           scrolling="no"
           onLoad={measureDocument}
-          title="CV Preview"
+          title={title}
           className="origin-top-left border-0 bg-white block"
           style={{ width: 794, height, transform: `scale(${scale})`, overflow: "hidden" }}
         />
@@ -174,7 +176,7 @@ export default function LocalCVPreview({
         <div className="flex items-center gap-2.5">
           <Eye size={16} className="text-[#2D7A58]" />
           <span className="text-sm font-bold text-slate-800">Xem trước</span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EAF5EC] px-2.5 py-0.5 text-xs font-semibold text-[#2D7A58] border border-[#6A9B5E]/25">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EAF5EC] px-2.5 py-0.5 text-xs font-semibold text-[#2D7A58] border border-[#2D7A58]/25">
             <FileText size={12} />
             {pageCount} trang
           </span>

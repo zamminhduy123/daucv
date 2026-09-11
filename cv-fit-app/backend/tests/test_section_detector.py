@@ -348,6 +348,56 @@ class TestIdentityDetection:
         assert _looks_like_contact("HCMC") is True
         assert _looks_like_contact("Regular text paragraph") is False
 
+    def test_detect_identity_scans_past_email_first_line(self) -> None:
+        lines: list[ExtractedLine] = [
+            ExtractedLine(
+                text="phamvinh257@gmail.com",
+                page=0,
+                x=72,
+                y=720,
+                width=200,
+                height=12,
+            ),
+            ExtractedLine(
+                text="PHAM HONG VINH",
+                page=0,
+                x=72,
+                y=700,
+                width=200,
+                height=16,
+                font_size=18.0,
+                font_weight=700,
+            ),
+            ExtractedLine(
+                text="Senior AI Engineer",
+                page=0,
+                x=72,
+                y=680,
+                width=250,
+                height=14,
+            ),
+            ExtractedLine(
+                text="0123456789 | Hanoi, Vietnam",
+                page=0,
+                x=72,
+                y=660,
+                width=250,
+                height=12,
+            ),
+        ]
+        identity = _detect_identity(lines)
+        assert identity.name == "PHAM HONG VINH"
+        assert identity.headline == "Senior AI Engineer"
+        assert any("phamvinh257@gmail.com" in c for c in identity.contact_lines)
+        assert any("0123456789" in c for c in identity.contact_lines)
+
+    def test_name_detection_rejects_email_and_job_title(self) -> None:
+        assert _looks_like_name("phamvinh257@gmail.com") is False
+        assert _looks_like_name("Senior AI Engineer") is False
+        assert _looks_like_name("Senior Software Engineer () |") is False
+        assert _looks_like_name("TRẦN VĂN AN") is True
+        assert _looks_like_name("Phạm Hồng Vinh") is True
+
 
 # ---------------------------------------------------------------------------
 # Summary detection

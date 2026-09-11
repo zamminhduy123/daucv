@@ -40,7 +40,10 @@ export function buildCVHtml(
     .filter((section) => section.type !== "summary")
     .map((sec) => renderSection(sec))
     .join("");
-  const header = `<header><h1>${escapeHtml(visibleIdentity.full_name || visibleIdentity.name || "CV")}</h1>${visibleIdentity.headline ? `<h3>${escapeHtml(visibleIdentity.headline)}</h3>` : ""}<p class="contacts">${contacts}</p></header>`;
+  const rawDisplayName = visibleIdentity.full_name || visibleIdentity.name || "";
+  const isEmailName = Boolean(rawDisplayName && (rawDisplayName.includes("@") || /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/.test(rawDisplayName)));
+  const displayName = isEmailName ? (visibleIdentity.headline || "CV") : (rawDisplayName || "CV");
+  const header = `<header><h1>${escapeHtml(displayName)}</h1>${visibleIdentity.headline && visibleIdentity.headline !== displayName ? `<h3>${escapeHtml(visibleIdentity.headline)}</h3>` : ""}<p class="contacts">${contacts}</p></header>`;
   const body = `${summary}${sections}`;
 
   let customTypographyStyle = "";
@@ -275,15 +278,29 @@ function formatBulletText(text: string): string {
   return escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 }
 
+function cleanRenderText(text: string | null | undefined): string {
+  if (!text) return "";
+  let clean = text.replace(/\(\s*\)|（\s*）|\[\s*\]|\{\s*\}/g, "");
+  clean = clean.replace(/^[\s|•·–—/,-]+|[\s|•·–—/,-]+$/g, "");
+  return clean.trim();
+}
+
 function renderBlock(block: CVBlockType): string {
   const confidence = block.confidence ?? (block.type === "unknown" ? 0 : 1);
   const attributes = `data-block-type="${block.type}" data-confidence="${confidence.toFixed(2)}"`;
 
   if (block.type === "entry") {
-    const hasOrg = Boolean(block.organization);
-    const hasLoc = Boolean(block.location);
-    const hasDate = Boolean(block.date);
-    const hasSub = Boolean(block.subtitle);
+    const org = cleanRenderText(block.organization);
+    const loc = cleanRenderText(block.location);
+    const date = cleanRenderText(block.date);
+    const sub = cleanRenderText(block.subtitle);
+    const title = cleanRenderText(block.title);
+
+    const hasOrg = Boolean(org);
+    const hasLoc = Boolean(loc);
+    const hasDate = Boolean(date);
+    const hasSub = Boolean(sub);
+    const hasTitle = Boolean(title);
 
     let row1Left = "";
     let row1Right = "";
@@ -291,28 +308,28 @@ function renderBlock(block: CVBlockType): string {
     let row2Right = "";
 
     if (hasOrg && hasLoc) {
-      row1Left = `<span class="entry-title">${escapeHtml(block.organization!)}</span>`;
-      row1Right = `<span class="entry-meta entry-location">${escapeHtml(block.location!)}</span>`;
-      row2Left = `<span class="entry-subtitle"><em>${escapeHtml(block.title)}</em></span>` +
-        (hasSub ? ` – <span>${escapeHtml(block.subtitle!)}</span>` : "");
-      row2Right = hasDate ? `<span class="entry-meta entry-date"><em>${escapeHtml(block.date!)}</em></span>` : "";
+      row1Left = `<span class="entry-title">${escapeHtml(org)}</span>`;
+      row1Right = `<span class="entry-meta entry-location">${escapeHtml(loc)}</span>`;
+      row2Left = (hasTitle ? `<span class="entry-subtitle"><em>${escapeHtml(title)}</em></span>` : "") +
+        (hasSub ? (hasTitle ? ` – <span>${escapeHtml(sub)}</span>` : `<span>${escapeHtml(sub)}</span>`) : "");
+      row2Right = hasDate ? `<span class="entry-meta entry-date"><em>${escapeHtml(date)}</em></span>` : "";
     } else if (hasOrg) {
-      row1Left = `<span class="entry-title">${escapeHtml(block.organization!)}</span>` +
-        (block.title ? ` <span class="entry-separator">|</span> <span class="entry-subtitle"><em>${escapeHtml(block.title)}</em></span>` : "");
-      row1Right = hasDate ? `<span class="entry-meta entry-date">${escapeHtml(block.date!)}</span>` : "";
+      row1Left = `<span class="entry-title">${escapeHtml(org)}</span>` +
+        (hasTitle ? ` <span class="entry-separator">|</span> <span class="entry-subtitle"><em>${escapeHtml(title)}</em></span>` : "");
+      row1Right = hasDate ? `<span class="entry-meta entry-date">${escapeHtml(date)}</span>` : "";
       if (hasSub) {
-        row2Left = `<span class="entry-subtitle"><em>${escapeHtml(block.subtitle!)}</em></span>`;
+        row2Left = `<span class="entry-subtitle"><em>${escapeHtml(sub)}</em></span>`;
       }
     } else {
-      row1Left = `<span class="entry-title">${escapeHtml(block.title)}</span>` +
-        (hasSub ? ` <span class="entry-separator">|</span> <span class="entry-subtitle"><em>${escapeHtml(block.subtitle!)}</em></span>` : "");
+      row1Left = (hasTitle ? `<span class="entry-title">${escapeHtml(title)}</span>` : "") +
+        (hasSub ? (hasTitle ? ` <span class="entry-separator">|</span> <span class="entry-subtitle"><em>${escapeHtml(sub)}</em></span>` : `<span class="entry-subtitle"><em>${escapeHtml(sub)}</em></span>`) : "");
       if (hasDate) {
-        row1Right = `<span class="entry-meta entry-date">${escapeHtml(block.date!)}</span>`;
+        row1Right = `<span class="entry-meta entry-date">${escapeHtml(date)}</span>`;
       } else if (hasLoc) {
-        row1Right = `<span class="entry-meta entry-location">${escapeHtml(block.location!)}</span>`;
+        row1Right = `<span class="entry-meta entry-location">${escapeHtml(loc)}</span>`;
       }
       if (hasLoc && hasDate) {
-        row2Right = `<span class="entry-meta entry-location"><em>${escapeHtml(block.location!)}</em></span>`;
+        row2Right = `<span class="entry-meta entry-location"><em>${escapeHtml(loc)}</em></span>`;
       }
     }
 

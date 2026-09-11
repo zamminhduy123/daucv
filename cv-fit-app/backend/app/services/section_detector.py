@@ -24,6 +24,10 @@ from dataclasses import dataclass
 from hashlib import sha256
 
 from app.models.cv_document_v2 import (
+    _EMAIL_PATTERN,
+    _JOB_TITLE_KEYWORDS,
+    _LINK_PATTERN,
+    _PHONE_PATTERN,
     CVBlockType,
     CVDocumentV2,
     CVIdentity,
@@ -80,73 +84,96 @@ def _detect_identity(lines: list[ExtractedLine]) -> CVIdentity:
         text = line.normalized_text or line.text
         if text.strip():
             content_lines.append(line)
-        if len(content_lines) >= 5:  # only look at the first few lines
+        if len(content_lines) >= 6:  # only look at the first few lines
             break
 
     if not content_lines:
         return CVIdentity()
 
     identity = CVIdentity()
-    first = content_lines[0]
-    first_text = (first.normalized_text or first.text).strip()
 
-    # Name: short, mostly alpha words
-    if first_text and _looks_like_name(first_text):
-        identity.name = first_text
-        if len(content_lines) > 1:
-            second = content_lines[1]
+    # Scan the first 4 content lines for a person's name
+    name_idx: int | None = None
+    for idx, line in enumerate(content_lines[:4]):
+        txt = (line.normalized_text or line.text).strip()
+        if txt and _looks_like_name(txt):
+            name_idx = idx
+            break
+
+    if name_idx is not None:
+        name_line = content_lines[name_idx]
+        identity.name = (name_line.normalized_text or name_line.text).strip()
+
+        # Lines before the detected name (e.g. email/phone sorted before name)
+        for line in content_lines[:name_idx]:
+            ct = (line.normalized_text or line.text).strip()
+            if not ct:
+                continue
+            if (
+                _looks_like_headline(ct)
+                and not classify_heading(ct)
+                and not identity.headline
+            ):
+                identity.headline = ct
+            elif _looks_like_contact(ct):
+                identity.contact_lines.append(ct)
+
+        # Lines after the detected name
+        headline_end_idx = name_idx
+        if name_idx + 1 < len(content_lines) and not identity.headline:
+            second = content_lines[name_idx + 1]
             second_text = (second.normalized_text or second.text).strip()
-            headline_end_idx = 1
             if (
                 second_text
                 and _looks_like_headline(second_text)
                 and not classify_heading(second_text)
             ):
-                if (
-                    second_text.rstrip().endswith(("/", "|", "-", ","))
-                    and len(content_lines) > 2
-                ):
+                headline_end_idx = name_idx + 1
+                if second_text.rstrip().endswith(
+                    ("/", "|", "-", ",")
+                ) and name_idx + 2 < len(content_lines):
                     third_text = (
-                        content_lines[2].normalized_text or content_lines[2].text
+                        content_lines[name_idx + 2].normalized_text
+                        or content_lines[name_idx + 2].text
                     ).strip()
                     if _looks_like_headline(third_text):
                         second_text = f"{second_text} {third_text}".strip()
-                        headline_end_idx = 2
+                        headline_end_idx = name_idx + 2
                 identity.headline = second_text
 
-                for line in content_lines[headline_end_idx + 1 : 5]:
-                    ct = (line.normalized_text or line.text).strip()
-                    if ct and _looks_like_contact(ct):
-                        identity.contact_lines.append(ct)
-                return identity
-            # Second line might be contact
-            for line in content_lines[1:5]:
-                ct = (line.normalized_text or line.text).strip()
-                if ct and _looks_like_contact(ct):
-                    identity.contact_lines.append(ct)
-            return identity
+        for line in content_lines[headline_end_idx + 1 : 6]:
+            ct = (line.normalized_text or line.text).strip()
+            if not ct:
+                continue
+            if _looks_like_contact(ct):
+                identity.contact_lines.append(ct)
+            elif (
+                not identity.headline
+                and _looks_like_headline(ct)
+                and not classify_heading(ct)
+            ):
+                identity.headline = ct
+
         return identity
 
-    # No name detected — fallback: treat first line as contact if it looks like one
-    if first_text and _looks_like_contact(first_text):
-        identity.contact_lines.append(first_text)
+    # No name detected — fallback: treat first lines as contacts or headline
+    for line in content_lines[:5]:
+        ct = (line.normalized_text or line.text).strip()
+        if not ct:
+            continue
+        if _looks_like_contact(ct):
+            identity.contact_lines.append(ct)
+        elif (
+            not identity.headline
+            and _looks_like_headline(ct)
+            and not classify_heading(ct)
+        ):
+            identity.headline = ct
     return identity
 
 
-def _looks_like_name(text: str) -> bool:
-    """Return True if text looks like a person's name."""
-    stripped = text.strip()
-    if not stripped:
-        return False
-    words = stripped.split()
-    # Names are typically 1-4 words
-    if len(words) > 4:
-        return False
-    # At least one word should be ≥ 3 chars (avoid single letters, initials)
-    if not any(len(w) >= 3 for w in words):
-        return False
-    # Names shouldn't contain job keywords or common heading words
-    stop_words = {
+_NAME_STOP_WORDS = frozenset(
+    {
         "the",
         "of",
         "and",
@@ -197,13 +224,55 @@ def _looks_like_name(text: str) -> bool:
         "muc",
         "tieu",
     }
-    return not any(w.lower() in stop_words for w in words if len(w) > 2)
+)
+
+
+def _looks_like_name(text: str) -> bool:
+    """Return True if text looks like a person's name."""
+    stripped = text.strip()
+    if not stripped:
+        return False
+    # Never match email, link, phone, or symbols/digits
+    if (
+        "@" in stripped
+        or _EMAIL_PATTERN.search(stripped)
+        or _LINK_PATTERN.search(stripped)
+        or _PHONE_PATTERN.search(stripped)
+    ):
+        return False
+    if re.search(r"[@<>{}[\]\\/~_+=^%$#*0-9]", stripped):
+        return False
+    if "|" in stripped or _JOB_TITLE_KEYWORDS.search(stripped):
+        return False
+    if classify_heading(stripped) is not None:
+        return False
+
+    words = stripped.split()
+    # Names are typically 1-5 words
+    if len(words) < 1 or len(words) > 5:
+        return False
+    # At least one word should be >= 2 chars (avoid single letters, initials)
+    if not any(len(w) >= 2 for w in words):
+        return False
+    # Names shouldn't contain job keywords or common heading words
+    if any(w.lower() in _NAME_STOP_WORDS for w in words if len(w) > 2):
+        return False
+
+    # Unicode-aware Title Case or UPPERCASE check
+    cased_words = sum(1 for w in words if w.istitle() or w.isupper())
+    if len(words) == 1:
+        return cased_words == 1 and len(words[0]) >= 3
+    return cased_words >= len(words) - 1
 
 
 def _looks_like_headline(text: str) -> bool:
     """Return True if text looks like a professional headline."""
     stripped = text.strip()
     if not stripped:
+        return False
+    words = stripped.split()
+    # Headlines are short phrases, never long paragraphs
+    if len(words) < 1 or len(words) > 12:
         return False
     # Contains a pipe separator (common in headlines)
     if "|" in stripped:
@@ -230,7 +299,6 @@ def _looks_like_headline(text: str) -> bool:
     if any(kw in stripped.lower() for kw in title_keywords):
         return True
     # A headline shouldn't contain common heading keywords
-    words = stripped.split()
     heading_keywords = {
         "hoat",
         "dong",
@@ -270,8 +338,8 @@ def _looks_like_headline(text: str) -> bool:
     if any(w.lower() in heading_keywords for w in words):
         return False
     # Multiple capitalized words (title case)
-    caps = len([w for w in stripped.split() if w and w[0].isupper()])
-    return caps >= 2
+    caps = len([w for w in words if w and w[0].isupper()])
+    return caps >= 2 and len(words) <= 8
 
 
 def _looks_like_contact(text: str) -> bool:

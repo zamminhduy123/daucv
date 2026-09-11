@@ -22,6 +22,7 @@ from app.core.config import (
     LOGS_DIR,
 )
 from app.models.cv_document_v2 import (
+    _JOB_TITLE_KEYWORDS,
     CVBulletBlock,
     CVDocumentV2,
     CVEducationBlock,
@@ -33,6 +34,7 @@ from app.models.cv_document_v2 import (
     CVSection,
     CVSkillGroupBlock,
     CVUnknownBlock,
+    unwrap_google_redirect_url,
 )
 from app.models.cv_range_plan import (
     LLMSectionCursorPlanResponse,
@@ -164,14 +166,28 @@ def _looks_like_name(text: str) -> bool:
     stripped = text.strip()
     if not stripped:
         return False
-    words = stripped.split()
-    if len(words) > _MAX_NAME_WORDS:
+    if (
+        "@" in stripped
+        or _EMAIL_RE.search(stripped)
+        or _LINK_RE.search(stripped)
+        or _PHONE_RE.search(stripped)
+    ):
         return False
-    if not any(len(word) >= 3 for word in words):
+    if "|" in stripped or _JOB_TITLE_KEYWORDS.search(stripped):
+        return False
+    if re.search(r"[@<>{}[\]\\/~_+=^%$#*0-9]", stripped):
+        return False
+    words = stripped.split()
+    if len(words) > _MAX_NAME_WORDS or len(words) < 1:
+        return False
+    if not any(len(word) >= 2 for word in words):
         return False
     if any(word.lower() in _NAME_STOP_WORDS for word in words if len(word) > 2):
         return False
-    return True
+    cased_words = sum(1 for w in words if w.istitle() or w.isupper())
+    if len(words) == 1:
+        return cased_words == 1 and len(words[0]) >= 3
+    return cased_words >= len(words) - 1
 
 
 @dataclass(frozen=True)
@@ -389,7 +405,7 @@ def _build_identity(preamble: list[SourceLedgerAtom]) -> tuple[CVIdentity, set[i
             values["phone"] = atom
             prev_was_name = False
         elif match := _LINK_RE.search(text):
-            link = match.group(0).rstrip(".)]")
+            link = unwrap_google_redirect_url(match.group(0).rstrip(".)]"))
             links.append(link)
             link_sources[link] = [atom.block_id]
             prev_was_name = False
@@ -424,6 +440,25 @@ def _build_identity(preamble: list[SourceLedgerAtom]) -> tuple[CVIdentity, set[i
             prev_was_name = False
             continue
         assigned.add(atom.index)
+
+    if values["name"] and (
+        _EMAIL_RE.search(values["name"].text) or "@" in values["name"].text
+    ):
+        email_atom = values["name"]
+        candidate_name_atom = None
+        for h_atom in headline_atoms:
+            if _looks_like_name(h_atom.text):
+                candidate_name_atom = h_atom
+                break
+        if candidate_name_atom:
+            headline_atoms.remove(candidate_name_atom)
+            values["name"] = candidate_name_atom
+            name_atoms = [candidate_name_atom]
+        else:
+            values["name"] = None
+            name_atoms = []
+        if values["email"] is None:
+            values["email"] = email_atom
 
     if len(name_atoms) > 1:
         combined = " ".join(atom.text.strip() for atom in name_atoms)

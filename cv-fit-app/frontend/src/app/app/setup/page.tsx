@@ -2,15 +2,35 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Loader2, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { FileText, Loader2, Pencil, Plus, Sparkles, Trash2, X, AlertTriangle } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { toast } from "sonner";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { useAuth } from "@/context/AuthContext";
 import { connectivityMessage } from "@/lib/errorMessages";
 import { prefillCVAPI, type PdfExtractResult } from "@/lib/api";
 import { setCachedStructuredDoc } from "@/lib/document-cache";
 import UploadCVModal from "@/components/workspace/UploadCVModal";
-import CVPdfThumb from "@/components/workspace/CVPdfThumb";
 import type { RawExtractionReference } from "@/types";
+
+const gridVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05, delayChildren: 0.05, duration: 0.2 },
+  },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 14, scale: 0.98 },
+  visible: (index: number = 0) => ({
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { delay: 0.05 + index * 0.05, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as const },
+  }),
+  exit: { opacity: 0, scale: 0.96, transition: { duration: 0.18 } },
+};
 
 export default function SetupPage() {
   const router = useRouter();
@@ -28,9 +48,12 @@ export default function SetupPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; filename: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [autoOpened, setAutoOpened] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     void refreshCvList();
@@ -98,9 +121,23 @@ export default function SetupPage() {
     router.push(options?.features ? "/app/review?features=1" : "/app/review");
   };
 
-  const handleDeleteCV = async (id: string, filename: string) => {
-    if (!window.confirm(`Xóa "${filename}"? Các bản CV đã tối ưu không bị ảnh hưởng.`)) return;
-    await deleteCV(id);
+  const handleDeleteCV = (id: string, filename: string) => {
+    setConfirmDelete({ id, filename });
+  };
+
+  const executeDeleteCV = async () => {
+    if (!confirmDelete || isDeleting) return;
+    setIsDeleting(true);
+    const target = confirmDelete;
+    try {
+      await deleteCV(target.id);
+      toast.success(`Đã xóa "${target.filename}" thành công.`);
+      setConfirmDelete(null);
+    } catch {
+      toast.error("Không thể xóa CV. Vui lòng thử lại.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -142,27 +179,57 @@ export default function SetupPage() {
             Đang tải danh sách CV...
           </div>
         ) : cvList.length === 0 ? (
-          <div className="mt-8 rounded-2xl border-2 border-dashed border-gray-200 p-8 text-center">
-            <p className="text-sm font-bold text-slate-700">Bạn chưa có CV nào.</p>
-            <p className="mt-1 text-xs text-gray-500">Bấm “CV mới” để tải file PDF đầu tiên.</p>
+          <div className="mt-8 rounded-3xl border border-dashed border-gray-200 bg-white/80 p-8 md:p-12 text-center max-w-xl mx-auto shadow-xs">
+            <div className="mx-auto w-14 h-14 rounded-2xl bg-[#EAF5EC] text-[#2D7A58] flex items-center justify-center mb-4">
+              <FileText size={28} />
+            </div>
+            <h2 className="text-base font-bold text-slate-800">Bắt đầu với CV đầu tiên của bạn</h2>
+            <p className="mt-2 text-xs text-gray-500 leading-relaxed max-w-md mx-auto">
+              Tải file PDF CV hiện tại. Hệ thống sẽ bóc tách cấu trúc từng dòng, giúp bạn soát lỗi và tối ưu hoá câu từ phù hợp với yêu cầu tuyển dụng.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setUploadError(null);
+                setModalOpen(true);
+              }}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#2D7A58] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#246347] shadow-sm cursor-pointer transition-colors"
+            >
+              <Plus size={15} />
+              Tải lên CV (PDF)
+            </button>
           </div>
         ) : (
-          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-            {cvList.map((cv) => (
-              <CvCard
+          <motion.div
+            className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4"
+            variants={gridVariants}
+            initial={reduceMotion ? false : "hidden"}
+            animate="visible"
+          >
+            <AnimatePresence initial={false}>
+            {cvList.map((cv, index) => (
+              <motion.div
                 key={cv.id}
+                variants={cardVariants}
+                custom={index}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+              <CvCard
                 id={cv.id}
                 filename={cv.cv_filename}
-                pdfUrl={cv.pdf_url ?? null}
                 thumbnailFileId={cv.thumbnail_file_id ?? null}
                 hasPdf={Boolean(cv.pdf_file_id || cv.thumbnail_file_id || cv.pdf_url)}
                 text={cv.cv_text}
                 createdAt={cv.created_at}
                 onOpen={() => setActionId(cv.id)}
-                onDelete={() => void handleDeleteCV(cv.id, cv.cv_filename)}
+                onDelete={() => handleDeleteCV(cv.id, cv.cv_filename)}
               />
+              </motion.div>
             ))}
-          </div>
+            </AnimatePresence>
+          </motion.div>
         )}
       </div>
 
@@ -179,6 +246,7 @@ export default function SetupPage() {
         onUpload={(args) => void handleUpload(args)}
       />
 
+      {/* Action modal: choose review or features */}
       {actionCv && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={actionCv.cv_filename}>
           <button type="button" aria-label="Đóng" onClick={() => setActionId(null)} className="absolute inset-0 bg-slate-900/50 cursor-pointer" />
@@ -207,7 +275,46 @@ export default function SetupPage() {
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#2D7A58] px-3 py-2.5 text-xs font-bold text-white hover:bg-[#246347] cursor-pointer"
               >
                 <Sparkles size={14} />
-                Dùng tính năng
+                Chọn tính năng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* In-app confirmation modal for CV deletion (replaces native window.confirm) */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Xác nhận xóa CV">
+          <button type="button" aria-label="Hủy xóa" onClick={() => !isDeleting && setConfirmDelete(null)} className="absolute inset-0 bg-slate-900/50 cursor-pointer" />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold text-slate-900">Xóa bản CV này?</h3>
+                <p className="mt-1 text-xs text-gray-500 leading-relaxed">
+                  Bạn có chắc muốn xóa <span className="font-semibold text-slate-800 break-all">{confirmDelete.filename}</span>? Các bản CV đã tối ưu trong lịch sử sẽ không bị ảnh hưởng.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setConfirmDelete(null)}
+                className="rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => void executeDeleteCV()}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50 cursor-pointer transition-colors"
+              >
+                {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                {isDeleting ? "Đang xóa..." : "Xác nhận xóa"}
               </button>
             </div>
           </div>
@@ -221,8 +328,15 @@ function formatRelativeTime(createdAt: string): string {
   try {
     const t = new Date(createdAt).getTime();
     if (Number.isNaN(t)) return "";
-    const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
-    return mins < 1 ? "Vừa xong" : mins < 60 ? `${mins} phút trước` : `${Math.round(mins / 60)} giờ trước`;
+    const diffMs = Date.now() - t;
+    const mins = Math.max(0, Math.round(diffMs / 60000));
+    if (mins < 1) return "Vừa xong";
+    if (mins < 60) return `${mins} phút trước`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return `${hours} giờ trước`;
+    const days = Math.round(hours / 24);
+    if (days < 30) return `${days} ngày trước`;
+    return new Date(createdAt).toLocaleDateString("vi-VN");
   } catch {
     return "";
   }
@@ -231,7 +345,6 @@ function formatRelativeTime(createdAt: string): string {
 function CvCard({
   id,
   filename,
-  pdfUrl,
   thumbnailFileId,
   hasPdf,
   text,
@@ -241,7 +354,6 @@ function CvCard({
 }: {
   id: string;
   filename: string;
-  pdfUrl: string | null;
   thumbnailFileId: string | null;
   hasPdf: boolean;
   text: string;
@@ -250,52 +362,63 @@ function CvCard({
   onDelete: () => void;
 }) {
   const [thumbFailed, setThumbFailed] = useState(false);
-  const [pdfFailed, setPdfFailed] = useState(false);
   const [edited, setEdited] = useState("");
 
   useEffect(() => {
     setThumbFailed(false);
-    setPdfFailed(false);
-  }, [id, pdfUrl, thumbnailFileId]);
+  }, [id, thumbnailFileId]);
 
   useEffect(() => {
-    const id = requestAnimationFrame(() => {
+    const frameId = requestAnimationFrame(() => {
       setEdited(formatRelativeTime(createdAt));
     });
-    return () => cancelAnimationFrame(id);
+    return () => cancelAnimationFrame(frameId);
   }, [createdAt]);
 
   const firstLine = text.split("\n").map((l) => l.trim()).filter(Boolean)[0] ?? "";
   return (
-    <div onClick={onOpen} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm cursor-pointer hover:border-[#2D7A58]/40 transition-colors">
-      <div className="aspect-1/1.25 overflow-hidden bg-[#F7F9F7] pointer-events-none">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      aria-label={`Mở CV ${filename}`}
+      className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xs cursor-pointer hover:border-[#2D7A58]/60 hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[#2D7A58]/30"
+    >
+      <div className="aspect-1/1.25 overflow-hidden bg-[#F7F9F7] pointer-events-none relative">
         {hasPdf && !thumbFailed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={`/api/cv/${id}/thumbnail${thumbnailFileId ? `?v=${encodeURIComponent(thumbnailFileId)}` : ""}`}
-            alt={filename}
+            alt=""
+            aria-hidden="true"
             className="h-full w-full object-cover object-top"
             loading="lazy"
             onError={() => setThumbFailed(true)}
           />
-        ) : pdfUrl && !pdfFailed ? (
-          <CVPdfThumb url={pdfUrl} label={filename} onError={() => setPdfFailed(true)} />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-1 p-3 text-center">
-            <FileText size={20} className="text-gray-300" />
-            <p className="line-clamp-2 text-[11px] font-semibold text-gray-500">{firstLine || filename}</p>
+          <div className="flex h-full flex-col items-center justify-center gap-1.5 p-4 text-center">
+            <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400">
+              <FileText size={20} />
+            </div>
+            <p className="line-clamp-3 text-[11px] font-semibold text-gray-500">{firstLine || filename}</p>
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2 border-t border-gray-100 px-3 py-2.5">
+      <div className="flex items-center gap-2 border-t border-gray-100 px-3.5 py-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-slate-800">{filename}</p>
-          {edited && <p className="text-[11px] text-gray-400">Đã sửa {edited}</p>}
+          <p className="truncate text-sm font-bold text-slate-800 group-hover:text-[#2D7A58] transition-colors">{filename}</p>
+          {edited && <p className="text-[11px] text-gray-400 mt-0.5">Đã sửa {edited}</p>}
         </div>
         <button
           type="button"
           aria-label={`Xóa ${filename}`}
-          className="rounded-lg p-1.5 text-gray-400 hover:text-[#B22222] hover:bg-red-50 shrink-0 cursor-pointer"
+          className="rounded-lg p-2 text-red-600/70 hover:text-red-700 hover:bg-red-50 shrink-0 cursor-pointer transition-colors relative after:absolute after:-inset-1"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();

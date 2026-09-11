@@ -7,6 +7,7 @@ import hashlib
 from html import escape
 
 from app.models.cv_document_v2 import (
+    _EMAIL_PATTERN,
     CVBlockType,
     CVBulletBlock,
     CVDocumentV2,
@@ -155,10 +156,13 @@ def render_cv_document(
 
 def _render_header_html(document: CVDocumentV2) -> str:
     parts: list[str] = ['<div class="cv-header">']
-    if document.identity.full_name:
+    display_name = document.identity.full_name or document.identity.name or ""
+    if display_name and ("@" in display_name or _EMAIL_PATTERN.search(display_name)):
+        display_name = ""
+    if display_name:
         parts.append(
             f'<h1 class="cv-name" data-field-id="identity:full_name">'
-            f"{escape(document.identity.full_name)}"
+            f"{escape(display_name)}"
             f"</h1>"
         )
     if document.identity.headline and not document.identity.is_field_hidden("headline"):
@@ -267,10 +271,11 @@ def _render_block_html(block_key: str, block: CVBlockType) -> str:
     ]
 
     if isinstance(block, CVEntryBlock):
-        has_org = bool(block.organization)
-        has_loc = bool(block.location)
-        has_date = bool(block.date)
-        has_sub = bool(block.subtitle)
+        has_org = bool(block.organization and block.organization.strip())
+        has_loc = bool(block.location and block.location.strip())
+        has_date = bool(block.date and block.date.strip())
+        has_sub = bool(block.subtitle and block.subtitle.strip())
+        has_title = bool(block.title and block.title.strip())
 
         parts.append('<div class="entry-header">')
         # Row 1
@@ -291,7 +296,7 @@ def _render_block_html(block_key: str, block: CVBlockType) -> str:
             parts.append(
                 f'<span class="entry-title" data-field-id="{block_key}:organization">{escape(block.organization)}</span>'
             )
-            if block.title:
+            if has_title:
                 parts.append(' <span class="entry-separator">|</span> ')
                 parts.append(
                     f'<span class="entry-subtitle" data-field-id="{block_key}:title"><em>{escape(block.title)}</em></span>'
@@ -305,11 +310,13 @@ def _render_block_html(block_key: str, block: CVBlockType) -> str:
                 parts.append("</div>")
         else:
             parts.append('<div class="row-left">')
-            parts.append(
-                f'<span class="entry-title" data-field-id="{block_key}:title">{escape(block.title)}</span>'
-            )
+            if has_title:
+                parts.append(
+                    f'<span class="entry-title" data-field-id="{block_key}:title">{escape(block.title)}</span>'
+                )
             if has_sub:
-                parts.append(' <span class="entry-separator">|</span> ')
+                if has_title:
+                    parts.append(' <span class="entry-separator">|</span> ')
                 parts.append(
                     f'<span class="entry-subtitle" data-field-id="{block_key}:subtitle"><em>{escape(block.subtitle)}</em></span>'
                 )
@@ -331,11 +338,13 @@ def _render_block_html(block_key: str, block: CVBlockType) -> str:
         if has_org and has_loc:
             parts.append('<div class="entry-row-2">')
             parts.append('<div class="row-left">')
-            parts.append(
-                f'<span class="entry-subtitle" data-field-id="{block_key}:title"><em>{escape(block.title)}</em></span>'
-            )
+            if has_title:
+                parts.append(
+                    f'<span class="entry-subtitle" data-field-id="{block_key}:title"><em>{escape(block.title)}</em></span>'
+                )
             if has_sub:
-                parts.append(" – ")
+                if has_title:
+                    parts.append(" – ")
                 parts.append(
                     f'<span data-field-id="{block_key}:subtitle">{escape(block.subtitle)}</span>'
                 )

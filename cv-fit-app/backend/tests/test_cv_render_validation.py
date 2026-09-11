@@ -156,3 +156,93 @@ def test_typography_override_sanitization() -> None:
     assert "font-size: 8.0pt" in css
     assert "font-size: 16.8pt" in css  # name = 8.0 * 2.1
     assert "Inter" in css
+
+
+def test_entry_block_sanitizes_empty_parens_and_dangling_separators() -> None:
+    from app.models.cv_document_v2 import CVEntryBlock
+
+    entry = CVEntryBlock(
+        title="Senior AI Engineer () |",
+        organization="TechCorp () -",
+        location="Hanoi, Vietnam ()",
+        date="2022 - 2024 () |",
+        subtitle="Core Platform () /",
+    )
+    assert entry.title == "Senior AI Engineer"
+    assert entry.organization == "TechCorp"
+    assert entry.location == "Hanoi, Vietnam"
+    assert entry.date == "2022 - 2024"
+    assert entry.subtitle == "Core Platform"
+
+    empty_entry = CVEntryBlock(
+        title="() |",
+        organization="() -",
+        subtitle="()",
+    )
+    assert empty_entry.title == ""
+    assert empty_entry.organization is None
+    assert empty_entry.subtitle is None
+
+
+def test_cv_identity_swap_validator_never_leaves_email_as_name() -> None:
+    from app.models.cv_document_v2 import CVIdentity
+
+    # Case 1: Name is email, real name in contact_lines
+    id1 = CVIdentity(
+        name="phamvinh257@gmail.com",
+        headline="Senior AI Engineer",
+        contact_lines=["PHAM HONG VINH", "0123456789"],
+    )
+    assert id1.full_name == "PHAM HONG VINH"
+    assert id1.name == "PHAM HONG VINH"
+    assert id1.email == "phamvinh257@gmail.com"
+    assert id1.headline == "Senior AI Engineer"
+
+    # Case 2: Direct full_name set to email with no real name candidate
+    id2 = CVIdentity(
+        full_name="phamvinh257@gmail.com",
+    )
+    assert id2.full_name is None
+    assert id2.email == "phamvinh257@gmail.com"
+
+
+def test_cv_template_render_clean_entry_and_identity() -> None:
+    from app.models.cv_document_v2 import (
+        CVDocumentV2,
+        CVEntryBlock,
+        CVIdentity,
+        CVSection,
+    )
+    from app.services.cv_template_render_service import render_cv_document
+
+    doc = CVDocumentV2(
+        identity=CVIdentity(
+            full_name="PHAM HONG VINH",
+            headline="Senior AI Engineer",
+            email="phamvinh257@gmail.com",
+            links=[
+                "https://www.google.com/url?q=https://linkedin.com/in/phvinh2000&sa=D"
+            ],
+        ),
+        sections=[
+            CVSection(
+                type="experience",
+                title="Experience",
+                blocks=[
+                    CVEntryBlock(
+                        title="Senior AI Engineer () |",
+                        organization="AI Labs",
+                        date="2023 - Present",
+                    )
+                ],
+            )
+        ],
+    )
+    result = render_cv_document(doc, template_id="classic_ats")
+    assert "Senior AI Engineer () |" not in result.html
+    assert "Senior AI Engineer" in result.html
+    assert "https://linkedin.com/in/phvinh2000" in result.html
+    assert "google.com/url" not in result.html
+    assert result.diagnostics.is_valid is True
+    assert result.diagnostics.missing_field_ids == []
+    assert result.diagnostics.mismatched_field_ids == []

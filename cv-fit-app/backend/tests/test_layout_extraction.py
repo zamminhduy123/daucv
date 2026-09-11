@@ -10,6 +10,10 @@ Run with:
     cd backend && pytest tests/test_layout_extraction.py -v
 """
 
+from app.models.cv_document_v2 import (
+    unwrap_google_redirect_url,
+    unwrap_google_urls_in_text,
+)
 from app.models.cv_raw_extraction import (
     ExtractionMethod,
     RawBlock,
@@ -1262,3 +1266,27 @@ def test_read_blocks_in_order_keeps_real_narrow_gutter() -> None:
     b1 = next(b for b in ordered if b.block_id == "b1")
     assert a1.column_id == 1
     assert b1.column_id == 2
+
+
+class TestGoogleRedirectUnwrapping:
+    def test_unwrap_standard_google_redirect(self) -> None:
+        url = "https://www.google.com/url?q=https://linkedin.com/in/phvinh2000&sa=D&sntz=1&usg=AFQjCN..."
+        unwrapped = unwrap_google_redirect_url(url)
+        assert unwrapped == "https://linkedin.com/in/phvinh2000"
+
+    def test_unwrap_encoded_google_redirect_with_nested_params(self) -> None:
+        url = "https://www.google.com/url?q=https%3A%2F%2Fgithub.com%2Ffoo%3Ftab%3Dstars%26sort%3Ddesc&sa=D&ved=0ah"
+        unwrapped = unwrap_google_redirect_url(url)
+        assert unwrapped == "https://github.com/foo?tab=stars&sort=desc"
+
+    def test_non_google_url_untouched(self) -> None:
+        url = "https://example.com/some/path?param=1"
+        assert unwrap_google_redirect_url(url) == url
+
+    def test_unwrap_google_urls_in_free_text(self) -> None:
+        text = "Profiles: https://www.google.com/url?q=https://linkedin.com/in/phvinh2000&sa=D and https://www.google.com/url?q=https://github.com/phvinh&sa=D."
+        cleaned = unwrap_google_urls_in_text(text)
+        assert (
+            cleaned
+            == "Profiles: https://linkedin.com/in/phvinh2000 and https://github.com/phvinh."
+        )

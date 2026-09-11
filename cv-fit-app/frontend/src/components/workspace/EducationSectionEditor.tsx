@@ -82,7 +82,7 @@ export function EducationForm({ block, onChange }: Props) {
               <button
                 type="button"
                 onClick={() => onChange({ details: block.details.filter((_, i) => i !== index) })}
-                className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-[#B22222] transition-colors"
+                className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-700 transition-colors"
                 aria-label="Xóa chi tiết"
               >
                 <Trash2 size={14} />

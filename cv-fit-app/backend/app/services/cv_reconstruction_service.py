@@ -159,7 +159,46 @@ def finalize_document_provenance(
         dict.fromkeys([*document.reconstruction_warnings, *conservation_warnings])
     )
 
+    backfill_source_block_citations(document, raw)
+
     return document
+
+
+def backfill_source_block_citations(document: CVDocumentV2, raw: RawExtraction) -> int:
+    """Cite raw blocks for document blocks whose line ids resolve to them.
+
+    The deterministic reconstruct path assigns ``source_line_ids`` (which, in
+    practice, are raw block ids like ``p1-b10``) but never populates
+    ``source_block_ids`` — only the LLM plan path does. Without citations,
+    evidence bundles cannot be built and tailor-and-save rejects every
+    rewrite. This fills citations exactly (no text fuzz): a line id is cited
+    only if a raw block with that id exists. Blocks with no resolvable lines
+    (e.g. candidate-added blocks with no PDF source) are left untouched;
+    persistence skips their rewrites with an explicit reason instead.
+
+    Returns the number of blocks that gained citations.
+    """
+    valid_ids = {block.block_id for page in raw.pages for block in page.blocks}
+    targets = [block for section in document.sections for block in section.blocks]
+    if document.summary is not None:
+        targets.append(document.summary)
+    filled = 0
+    for block in targets:
+        if block.source_block_ids:
+            continue
+        cited = list(
+            dict.fromkeys(
+                line_id
+                for line_id in (block.source_line_ids or [])
+                if line_id in valid_ids
+            )
+        )
+        if cited:
+            block.source_block_ids = cited
+            filled += 1
+    if filled:
+        _logger.info("Backfilled raw-block citations for %d blocks.", filled)
+    return filled
 
 
 def audit_semantic_omissions(

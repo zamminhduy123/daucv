@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Pen, ArrowRight, ArrowDown, HelpCircle, AlertTriangle, ShieldCheck } from "lucide-react";
 import type { SuggestedEdit } from "@/types";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 
 const RISK_CONFIG = {
   safe: {

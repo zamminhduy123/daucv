@@ -578,7 +578,10 @@ export async function deleteUserCVAPI(cvId: string): Promise<{ success: boolean 
 }
 
 export async function listUserCVsAPI(): Promise<{ cvs: UserCV[] }> {
-  const res = await fetchWithAuth(`${API_URL}/api/user/cvs`);
+  const res = await fetchWithAuth(`${API_URL}/api/user/cvs`, {
+    cache: "no-store",
+    headers: { "Cache-Control": "no-cache" },
+  });
   if (!res.ok) {
     throw await parseApiError(res);
   }

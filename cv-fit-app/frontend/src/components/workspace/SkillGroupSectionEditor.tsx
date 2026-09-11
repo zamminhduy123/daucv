@@ -30,7 +30,7 @@ export function SkillGroupForm({ block, onChange }: Props) {
             (block.skills ?? []).map((skill, index) => (
               <span
                 key={index}
-                className="inline-flex items-center gap-1.5 rounded-full bg-[#EAF5EC] px-3 py-1 text-xs font-medium text-[#2D7A58] border border-[#6A9B5E]/30"
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#EAF5EC] px-3 py-1 text-xs font-medium text-[#2D7A58] border border-[#2D7A58]/30"
               >
                 {skill}
                 <button

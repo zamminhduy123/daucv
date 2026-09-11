@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 interface FadeInProps {
   children: React.ReactNode;
@@ -52,7 +52,7 @@ export function FadeIn({
   return (
     <motion.div
       initial={variant.initial}
-      animate={variant.animate}
+      whileInView={variant.animate}
       exit={variant.exit}
       transition={{
         duration: 0.5,

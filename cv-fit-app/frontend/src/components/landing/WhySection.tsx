@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import Image from "next/image";
 import { ArrowRight, FileX2, Leaf, MessageCircleMore, MicOff } from "lucide-react";
 

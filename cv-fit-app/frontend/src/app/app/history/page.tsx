@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, FileCheck, FileDiff, Loader2, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 import type { TailoredCVVersion } from "@/types";
 import { deleteTailoredCVVersionAPI, listTailoredCVVersionsAPI } from "@/lib/api";
@@ -20,10 +21,38 @@ function changeCount(version: TailoredCVVersion): number | null {
   }
 }
 
+const listVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.06,
+      delayChildren: 0.05,
+      duration: 0.2,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 14 },
+  visible: (index: number = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: 0.05 + index * 0.06, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as const },
+  }),
+  exit: {
+    opacity: 0,
+    scale: 0.97,
+    transition: { duration: 0.2 },
+  },
+};
+
 export default function HistoryPage() {
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const [versions, setVersions] = useState<TailoredCVVersion[] | null>(null);
-  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     listTailoredCVVersionsAPI()
@@ -40,15 +69,16 @@ export default function HistoryPage() {
   );
 
   const remove = async (id: string) => {
-    if (!confirm("Xóa CV đã tối ưu này? CV gốc của bạn sẽ không bị ảnh hưởng.")) return;
-    setRemovingId(id);
+    setIsDeleting(true);
     try {
       await deleteTailoredCVVersionAPI(id);
       setVersions((items) => (items ?? []).filter((item) => item.id !== id));
+      toast.success("Đã xóa bản CV đã tối ưu.");
+      setConfirmDeleteId(null);
     } catch (error) {
       toast.error(apiErrorMessage(error));
     } finally {
-      setRemovingId(null);
+      setIsDeleting(false);
     }
   };
 
@@ -59,7 +89,7 @@ export default function HistoryPage() {
       <div className="mx-auto w-full space-y-6 p-4">
         <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#6A9B5E]/10 text-[#6A9B5E] shadow-sm">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#2D7A58]/10 text-[#2D7A58] shadow-sm">
               <FileCheck size={32} />
             </div>
             <div>
@@ -93,7 +123,7 @@ export default function HistoryPage() {
             <p className="mt-1 text-sm text-gray-500">Chạy phân tích một CV để tạo bản tối ưu đầu tiên.</p>
             <button
               onClick={() => router.push("/app/setup")}
-              className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-[#6A9B5E] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-[#6A9B5E]/20 transition hover:bg-[#5a874e] active:scale-95"
+              className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-[#2D7A58] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-[#2D7A58]/20 transition hover:bg-[#246347] active:scale-95"
             >
               <Plus size={18} />
               Phân tích CV mới
@@ -102,20 +132,31 @@ export default function HistoryPage() {
         )}
 
         {sorted.length > 0 && (
-          <ul className="space-y-3">
-            {sorted.map((version) => {
+          <motion.ul
+            className="space-y-3"
+            variants={listVariants}
+            initial={reduceMotion ? false : "hidden"}
+            animate="visible"
+          >
+            <AnimatePresence initial={false}>
+            {sorted.map((version, index) => {
               const count = changeCount(version);
               return (
-                <li
+                <motion.li
                   key={version.id}
-                  className="group flex flex-col gap-3 rounded-2xl border border-[#2F4F4F]/5 bg-white p-4 shadow-sm transition hover:border-[#6A9B5E]/30 hover:shadow-md md:flex-row md:items-center md:justify-between"
+                  variants={itemVariants}
+                  custom={index}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="group flex flex-col gap-3 rounded-2xl border border-[#2F4F4F]/5 bg-white p-4 shadow-sm transition hover:border-[#2D7A58]/30 hover:shadow-md md:flex-row md:items-center md:justify-between"
                 >
                   <button
                     type="button"
                     onClick={() => openExport(version.id)}
                     className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
                   >
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#6A9B5E]" />
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#2D7A58]" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-base font-black text-[#2F4F4F]">
                         {tailoredCVDisplayName(version)}
@@ -152,29 +193,25 @@ export default function HistoryPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => remove(version.id)}
-                      disabled={removingId === version.id}
-                      className="cursor-pointer rounded-xl p-2 text-[#B22222] transition hover:bg-[#B22222]/5 disabled:opacity-50"
+                      onClick={() => setConfirmDeleteId(version.id)}
+                      className="cursor-pointer rounded-xl p-2 text-red-600/70 transition hover:bg-red-50 hover:text-red-700"
                       aria-label="Xóa CV"
                     >
-                      {removingId === version.id ? (
-                        <Loader2 size={18} className="animate-spin" />
-                      ) : (
-                        <Trash2 size={18} />
-                      )}
+                      <Trash2 size={18} />
                     </button>
                   </span>
-                </li>
+                </motion.li>
               );
             })}
-          </ul>
+            </AnimatePresence>
+          </motion.ul>
         )}
 
         {sorted.length > 0 && (
-          <section className="flex items-start gap-3 rounded-3xl border border-[#6A9B5E]/10 bg-[#6A9B5E]/5 p-5">
-            <ShieldCheck size={18} className="mt-0.5 shrink-0 text-[#6A9B5E]" />
+          <section className="flex items-start gap-3 rounded-3xl border border-[#2D7A58]/10 bg-[#2D7A58]/5 p-5">
+            <ShieldCheck size={18} className="mt-0.5 shrink-0 text-[#2D7A58]" />
             <div>
-              <p className="text-xs font-black uppercase tracking-widest text-[#6A9B5E]">
+              <p className="text-xs font-black uppercase tracking-widest text-[#2D7A58]">
                 Bảo toàn nội dung
               </p>
               <p className="mt-1 text-xs font-bold leading-relaxed text-[#2F4F4F]">
@@ -187,6 +224,45 @@ export default function HistoryPage() {
           </section>
         )}
       </div>
+
+      {/* In-app delete confirmation modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Xác nhận xóa CV đã tối ưu">
+          <button type="button" aria-label="Hủy xóa" onClick={() => !isDeleting && setConfirmDeleteId(null)} className="absolute inset-0 bg-slate-900/50 cursor-pointer" />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <Trash2 size={20} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold text-slate-900">Xóa bản CV đã tối ưu?</h3>
+                <p className="mt-1 text-xs text-gray-500 leading-relaxed">
+                  Bản CV đã tối ưu này sẽ bị xóa khỏi lịch sử. CV gốc trong thư viện của bạn không bị ảnh hưởng.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setConfirmDeleteId(null)}
+                className="rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => void remove(confirmDeleteId)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50 cursor-pointer transition-colors"
+              >
+                {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                {isDeleting ? "Đang xóa..." : "Xác nhận xóa"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

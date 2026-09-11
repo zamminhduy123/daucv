@@ -20,8 +20,8 @@ function DesignThumbnail({ design }: { design: CVDesign }) {
 
 export default function CVDesignSelector({ selected, onChange, disabled = false }: { selected: CVDesign; onChange: (design: CVDesign) => void; disabled?: boolean }) {
   return <div className="grid gap-3 md:grid-cols-2">
-    {CV_DESIGNS.map((design) => <button key={design.value} type="button" onClick={() => onChange(design.value)} disabled={disabled} aria-pressed={selected === design.value} className={`group relative rounded-2xl border bg-white p-3 text-left transition-all hover:shadow-lg disabled:cursor-wait disabled:opacity-70 ${selected === design.value ? "border-[#6A9B5E] shadow-md ring-2 ring-[#6A9B5E]" : "border-gray-100 hover:border-gray-200"}`}>
-      {selected === design.value && <CheckCircle2 size={20} className="absolute right-3 top-3 fill-[#6A9B5E] text-white" />}
+    {CV_DESIGNS.map((design) => <button key={design.value} type="button" onClick={() => onChange(design.value)} disabled={disabled} aria-pressed={selected === design.value} className={`group relative rounded-2xl border bg-white p-3 text-left transition-all hover:shadow-lg disabled:cursor-wait disabled:opacity-70 ${selected === design.value ? "border-[#2D7A58] shadow-md ring-2 ring-[#2D7A58]" : "border-gray-100 hover:border-gray-200"}`}>
+      {selected === design.value && <CheckCircle2 size={20} className="absolute right-3 top-3 fill-[#2D7A58] text-white" />}
       <DesignThumbnail design={design.value} />
       <h3 className="mt-3 text-sm font-black">{design.label}</h3>
       <p className="mt-1 text-[11px] font-medium leading-relaxed text-gray-500">{design.description}</p>

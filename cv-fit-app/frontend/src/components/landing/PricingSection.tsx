@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { Check, FileText, Mic, Infinity, Shield, Zap, Sparkles, HelpCircle, ChevronRight } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "motion/react";
 
 import { CREDIT_PACKAGES, GENERAL_BENEFITS } from "@/lib/constants";
 

@@ -307,12 +307,32 @@ function legacyIdentity(name: string, headline?: string, contactLines?: string[]
   const normalizedContacts = [parsed.email, parsed.phone, ...parsed.links, ...parsed.residual]
     .filter((value): value is string => Boolean(value))
     .filter((value, index, all) => all.indexOf(value) === index);
-  const fullName = name.trim() || null;
+  let fullName = name.trim() || null;
+  let resolvedHeadline = headline?.trim() || null;
+  let resolvedEmail = parsed.email;
+
+  if (fullName && (fullName.includes("@") || /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/.test(fullName))) {
+    const emailFromName = fullName;
+    const looksLikeName = (t: string) => !t.includes("@") && !/[0-9]/.test(t) && t.split(/\s+/).length >= 2 && t.split(/\s+/).length <= 5;
+    if (resolvedHeadline && looksLikeName(resolvedHeadline)) {
+      fullName = resolvedHeadline;
+      resolvedHeadline = null;
+    } else {
+      const nameContactIdx = contacts.findIndex(looksLikeName);
+      if (nameContactIdx !== -1) {
+        fullName = contacts[nameContactIdx];
+        contacts.splice(nameContactIdx, 1);
+      } else {
+        fullName = null;
+      }
+    }
+    if (!resolvedEmail) resolvedEmail = emailFromName;
+  }
 
   return {
     full_name: fullName,
-    headline: headline?.trim() || null,
-    email: parsed.email,
+    headline: resolvedHeadline,
+    email: resolvedEmail,
     phone: parsed.phone,
     location: null,
     links: parsed.links,

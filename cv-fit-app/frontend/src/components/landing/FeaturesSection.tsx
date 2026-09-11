@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { FileCheck, Target, Wand2, MessageSquare, Search, Globe, Brain, LineChart, GraduationCap } from 'lucide-react';
 import Image from 'next/image';
 

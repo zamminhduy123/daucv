@@ -29,7 +29,10 @@ from app.schemas.tailored_cv import (
     TailoredCVVersionResponse,
 )
 from app.services.cv_language import detect_cv_language
-from app.services.cv_reconstruction_service import validate_reconstruction_gate
+from app.services.cv_reconstruction_service import (
+    backfill_source_block_citations,
+    validate_reconstruction_gate,
+)
 from app.services.cv_rewrite_service import build_evidence_bundle
 from app.services.cv_tailoring_service import (
     hash_field_value,
@@ -150,6 +153,12 @@ async def persist_pipeline_tailoring(
     from app.services.cv_source_grounding import normalize_grounding_text
 
     validate_reconstruction_gate(source_document)
+    # Stored wizard docs predate block-level citations (only the LLM plan
+    # path populated source_block_ids). Backfill exact citations from
+    # resolvable line ids so evidence bundles can be built; blocks with no
+    # PDF source (candidate-added) stay uncited and their rewrites are
+    # skipped with an explicit reason below instead of failing the save.
+    backfill_source_block_citations(source_document, raw_extraction)
     jd_text = (
         job_description.strip() if job_description and job_description.strip() else ""
     )
@@ -244,9 +253,29 @@ async def persist_pipeline_tailoring(
             language,
         )
         if bundle is None:
-            raise ValueError(
-                "Cannot export a rewrite without authoritative raw evidence."
+            # No authoritative raw evidence for this block (e.g. a
+            # candidate-added block with no PDF source). Skip the rewrite
+            # with an explicit reason instead of failing the whole save;
+            # applying an unevidenced rewrite would violate groundedness.
+            _logger.warning(
+                "Skipping export rewrite without raw evidence: block %s.",
+                block.block_id,
             )
+            proposed_hash = hash_field_value(proposed_value)
+            decisions.append(
+                CVRewriteDecision(
+                    operation_id=_decision_id(
+                        block.block_id, field, original_hash, proposed_hash
+                    ),
+                    block_id=block.block_id,
+                    field=field,
+                    status="rejected",
+                    reason_codes=["missing_raw_evidence"],
+                    original_value_hash=original_hash,
+                    proposed_value_hash=proposed_hash,
+                )
+            )
+            continue
 
         from app.models.cv_document_v2 import CVRewriteOperation
 

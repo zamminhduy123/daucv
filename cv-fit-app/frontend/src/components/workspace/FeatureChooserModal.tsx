@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, BarChart3, FileText, Loader2, MessagesSquare, Search, Sparkles, Upload, X } from "lucide-react";
 import { extractPdfAPI } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/errorMessages";
@@ -39,13 +39,22 @@ export default function FeatureChooserModal({ open, cvName, canUseFeatures, init
   const [jdError, setJdError] = useState<string | null>(null);
   const jdFileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!open) return null;
-
   const close = () => {
     setStep("menu");
     setJdError(null);
     onClose();
   };
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
+  if (!open) return null;
 
   const pickJdFile = async (candidate: File | undefined | null) => {
     if (!candidate) return;

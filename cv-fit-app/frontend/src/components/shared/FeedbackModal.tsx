@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { submitFeedbackAPI } from "@/lib/api";
 import { X, Star, Send, Gem, CheckCircle, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 
 export default function FeedbackModal() {
   const { isFeedbackOpen, setFeedbackOpen } = useWorkspace();
@@ -22,17 +22,15 @@ export default function FeedbackModal() {
     new_credits: number;
   } | null>(null);
 
-  if (!isFeedbackOpen) return null;
-
   const handleClose = () => {
     setFeedbackOpen(false);
-    // Reset form after transition
+    // Reset form after exit transition
     setTimeout(() => {
       setRating(5);
       setContent("");
       setSuccessData(null);
       setLoading(false);
-    }, 300);
+    }, 400);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,6 +71,7 @@ export default function FeedbackModal() {
 
   return (
     <AnimatePresence>
+      {isFeedbackOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         {/* Backdrop */}
         <motion.div
@@ -88,7 +87,7 @@ export default function FeedbackModal() {
           initial={{ scale: 0.95, opacity: 0, y: 15 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 15 }}
-          transition={{ type: "spring", duration: 0.4 }}
+          transition={{ type: "spring", visualDuration: 0.4, bounce: 0.2 }}
           className="relative bg-[#FEFDF8] w-full max-w-md rounded-3xl p-6 shadow-xl border border-gray-100/50 overflow-hidden z-10"
         >
           {/* Close button */}
@@ -251,6 +250,7 @@ export default function FeedbackModal() {
           )}
         </motion.div>
       </div>
+      )}
     </AnimatePresence>
   );
 }
