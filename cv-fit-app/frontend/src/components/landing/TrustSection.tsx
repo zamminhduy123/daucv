@@ -35,12 +35,12 @@ export default function TrustSection() {
         {points.map((point, idx) => (
           <div
             key={idx}
-            className={`flex items-center justify-center md:items-start gap-3.5 px-3 h-full ${
+            className={`flex items-start justify-center md:items-start gap-3.5 px-3 h-full ${
               idx > 0 ? "md:border-l border-[#2F4F4F]/10" : ""
             }`}
           >
             <div 
-              className="shrink-0 flex items-center justify-center w-9 h-9 rounded-xl"
+              className="shrink-0 flex items-center justify-center w-9 h-9 rounded-xl mt-0.5"
               style={{ backgroundColor: "rgba(16, 185, 129, 0.08)" }}
             >
               {point.icon}
@@ -49,7 +49,7 @@ export default function TrustSection() {
               <span className="font-heading font-extrabold text-[#1A2D2D] text-sm md:text-[1.1rem] leading-snug tracking-tight">
                 {point.value}
               </span>
-              <span className="text-[10px] md:text-xs text-[#5A6D6D] mt-1 leading-snug font-medium">
+              <span className="text-[10px] md:text-xs text-[#3F5454] mt-1 leading-snug font-medium">
                 {point.label}
               </span>
             </div>

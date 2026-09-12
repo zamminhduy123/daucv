@@ -17,8 +17,27 @@ const containerVariants = {
 export default function HeroSection() {
   return (
     <section
-      className="relative overflow-hidden pt-20 pb-24 lg:pt-16 lg:pb-24 bg-none lg:bg-[url('/bg2.webp')] bg-[49%_auto] bg-right bg-no-repeat"
+      className="relative overflow-hidden pt-4"
     >
+      <div
+        className="pointer-events-none absolute right-[3%] top-1/2 hidden w-[46%] -translate-y-1/2 lg:block"
+        aria-hidden="true"
+      >
+        <video
+          className="w-full object-cover object-center"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster="/bg2.webp"
+          disablePictureInPicture
+        >
+          <source src="/hero.webm" type="video/webm" />
+        </video>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#FEFDF8] via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-l from-[#FEFDF8] via-transparent to-transparent" />
+      </div>
       <motion.div
         className="max-w-7xl mx-auto px-6 relative z-10 flex flex-col items-center lg:items-start"
         variants={containerVariants}
@@ -29,13 +48,13 @@ export default function HeroSection() {
         <div className="z-10 text-center lg:text-left lg:max-w-2xl">
           {/* Badge */}
           <motion.div
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#2F4F4F] rounded-full border border-(--primary)/30 mb-6 lg:mb-8 text-left"
-            style={{ padding: "0.5rem 1rem", backgroundColor: "rgba(152,193,142,0.15)" }}
+            className="inline-flex items-center justify-center gap-2 text-center rounded-full mb-6 lg:mb-8 max-w-full text-[13px] font-bold text-[#2D7A58]"
+            style={{ padding: "0.5rem 1rem", backgroundColor: "#EAF5EC" }}
             initial={{ opacity: 0, y: 12, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <span className="text-(--primary) text-base shrink-0 mr-2 sm:mr-0">🌱</span>
+            <span className="text-(--primary) text-base shrink-0">🌱</span>
             <span className="leading-tight sm:leading-normal">Công cụ AI giúp bạn tối ưu CV và luyện phỏng vấn</span>
           </motion.div>
 
@@ -53,7 +72,7 @@ export default function HeroSection() {
 
           {/* Subtitle */}
           <motion.p
-            className="text-[#5A6D6D] leading-relaxed mb-8 lg:mb-10 mx-auto lg:mx-0 text-base lg:text-xl"
+            className="text-[#3F5454] leading-relaxed mb-8 mx-auto lg:mx-0 text-base lg:text-xl"
             style={{ maxWidth: "600px" }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -69,17 +88,17 @@ export default function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.7 }}
           >
-            <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
-              <Link href="/app/setup" className="group px-6 py-4 lg:px-8 bg-(--primary) text-white rounded-xl font-bold hover:opacity-90 transition-all shadow-md flex justify-center items-center gap-2 text-base lg:text-lg">
+            <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="w-full sm:w-auto">
+              <Link href="/app/setup" className="group px-6 py-4 lg:px-8 bg-(--primary) text-white rounded-xl font-bold hover:opacity-90 transition-all shadow-md flex w-full sm:w-auto justify-center items-center gap-2 text-base lg:text-lg">
                 Phân tích CV/JD <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
               </Link>
             </motion.div>
-            <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+            <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="w-full sm:w-auto">
               <Link
                 href="/app"
-                className="inline-flex items-center justify-center gap-3 px-6 py-4 lg:px-8 rounded-xl font-bold bg-white text-[#2F4F4F] border border-gray-200 hover:shadow-md transition-all text-base lg:text-lg"
+                className="flex w-full sm:w-auto items-center justify-center gap-3 px-6 py-4 lg:px-8 rounded-xl font-bold bg-white text-[#2F4F4F] border border-gray-200 hover:shadow-md transition-all text-base lg:text-lg"
               >
-                <div className="bg-gray-100 rounded-full p-1"><Play size={16} fill="currentColor" /></div>
+                <div className="bg-[#2D7A58] rounded-full p-2 text-white flex items-center justify-center"><Play size={16} fill="currentColor" /></div>
                 Phỏng vấn thử
               </Link>
             </motion.div>

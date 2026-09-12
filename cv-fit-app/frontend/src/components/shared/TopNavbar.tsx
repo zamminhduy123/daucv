@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+import { Menu, X } from "lucide-react";
 import Logo from "./Logo";
 
 interface TopNavbarProps {
@@ -50,9 +54,11 @@ export default function TopNavbar({ leftSlot, rightSlot, currentStep }: TopNavba
 
 /** Convenience: the sticky Landing navbar */
 export function LandingNavbar() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
   return (
     <header
-      className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-12 py-6 lg:py-8"
+      className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-12 py-6 lg:py-8 relative"
     >
       <Logo size="md" />
       <nav className="hidden md:flex gap-4 lg:gap-8 text-sm font-semibold">
@@ -84,9 +90,38 @@ export function LandingNavbar() {
           </a>
         ))} */}
       </nav>
-      <Link href="/app/setup" className="btn-green text-sm sm:text-base px-4 py-2 sm:px-6 sm:py-3">
-        Bắt đầu ngay
-      </Link>
+      <div className="flex items-center gap-2">
+        <Link href="/app/setup" className="inline-flex items-center rounded-xl border border-gray-200 bg-white px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-bold text-[#2F4F4F] no-underline transition-all hover:shadow-md hover:border-[#2D7A58]/40">
+          Bắt đầu ngay
+        </Link>
+        <button
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-label={menuOpen ? "Đóng menu" : "Mở menu"}
+          aria-expanded={menuOpen}
+          className="md:hidden rounded-xl p-2.5 text-[#2F4F4F] hover:bg-gray-100 transition-colors cursor-pointer"
+        >
+          {menuOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
+      </div>
+      {menuOpen && (
+        <nav className="md:hidden absolute top-full left-4 right-4 sm:left-6 sm:right-6 z-50 flex flex-col gap-1 rounded-2xl border border-gray-100 bg-white p-3 shadow-xl">
+          {[
+            { href: "/", label: "Trang chủ" },
+            { href: "/qna", label: "Hỏi đáp" },
+            { href: "/blog", label: "Blog" },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={closeMenu}
+              className="rounded-xl px-4 py-3 text-sm font-semibold text-[#2F4F4F] no-underline hover:bg-gray-50 transition-colors"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      )}
     </header>
   );
 }
