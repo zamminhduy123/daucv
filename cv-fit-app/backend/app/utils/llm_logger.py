@@ -10,13 +10,14 @@ to prevent accidental leakage of identifiable data.
 
 import json
 import logging
+import re
 import threading
 from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.core.config import LOGS_DIR
+from app.core.config import LOGS_DIR, llm_input_logging_enabled
 from app.utils.pii_sanitizer import sanitize
 
 _logger = logging.getLogger("app.llm_logger")
@@ -147,18 +148,27 @@ def log_llm_input(
     prompt_version: str = "1.0.0",
     response_model: type[BaseModel] | None = None,
 ) -> str:
-    """Save raw LLM system prompt, user input, and expected JSON schema to file BEFORE sending request.
+    """Save LLM system prompt, user input, and expected JSON schema to file BEFORE sending request.
 
     Saves to:
     1. Daily JSONL file: logs/YYYY-MM-DD-llm-inputs.jsonl
     2. Readable text file: logs/prompts/YYYYMMDD_HHMMSS_{feature}_{provider}.txt
+
+    Prompts contain whole CVs, so this is gated by ``LOG_LLM_INPUTS`` (default
+    on only when ENV=development) and the prompt text is always run through
+    the PII sanitizer before it touches disk. Returns the text-file path, or
+    an empty string when logging is disabled.
     """
+    if not llm_input_logging_enabled():
+        return ""
+
     now = datetime.now(timezone.utc)
     timestamp_str = now.isoformat()
     date_str = now.strftime("%Y-%m-%d")
     time_file_str = now.strftime("%Y%m%d_%H%M%S_%f")[:19]
 
-    user_str = str(user_content)
+    user_str = sanitize(user_content)
+    system_prompt = sanitize(system_prompt)
 
     schema_dict = None
     schema_str = ""
@@ -189,8 +199,11 @@ def log_llm_input(
     jsonl_path = LOGS_DIR / f"{date_str}-llm-inputs.jsonl"
     line = json.dumps(record, ensure_ascii=False) + "\n"
 
-    # 2. Write human-readable prompt text file
-    txt_filename = f"{time_file_str}_{feature}_{provider}.txt"
+    # 2. Write human-readable prompt text file (feature/provider are internal
+    # labels, but keep them filename-safe regardless)
+    safe_feature = re.sub(r"[^A-Za-z0-9_.-]", "_", str(feature))[:64]
+    safe_provider = re.sub(r"[^A-Za-z0-9_.-]", "_", str(provider))[:64]
+    txt_filename = f"{time_file_str}_{safe_feature}_{safe_provider}.txt"
     txt_path = PROMPTS_DIR / txt_filename
 
     schema_section = (

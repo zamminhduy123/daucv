@@ -13,6 +13,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.core.rate_limit import rate_limit
 from app.dependencies import (
     get_current_user,
     get_file_service,
@@ -71,7 +72,11 @@ async def _refund_reserved_credit(user_id: str, description: str) -> None:
         )
 
 
-@router.post("/parse", response_model=CanonicalCVResponse)
+@router.post(
+    "/parse",
+    response_model=CanonicalCVResponse,
+    dependencies=[Depends(rate_limit("llm"))],
+)
 async def parse_cv(
     payload: CVParseRequest,
     request: Request,
@@ -236,7 +241,11 @@ async def mint_source_ticket(
     )
 
 
-@router.post("/evaluate", response_model=CVEvaluationResponse)
+@router.post(
+    "/evaluate",
+    response_model=CVEvaluationResponse,
+    dependencies=[Depends(rate_limit("llm"))],
+)
 async def evaluate_cv(
     payload: CVEvaluateRequest,
     request: Request,
@@ -256,7 +265,11 @@ async def evaluate_cv(
     return CVEvaluationResponse(evaluation=result.report)
 
 
-@router.post("/tailor", response_model=CVTailoringResponse)
+@router.post(
+    "/tailor",
+    response_model=CVTailoringResponse,
+    dependencies=[Depends(rate_limit("llm"))],
+)
 async def tailor_cv_endpoint(
     payload: CVTailorRequest,
     request: Request,
@@ -282,7 +295,11 @@ async def tailor_cv_endpoint(
     return CVTailoringResponse(tailoring=result.response)
 
 
-@router.post("/tailor-and-save", response_model=TailoredCVVersionResponse)
+@router.post(
+    "/tailor-and-save",
+    response_model=TailoredCVVersionResponse,
+    dependencies=[Depends(rate_limit("llm"))],
+)
 async def tailor_and_save_cv(
     payload: CVTailorAndSaveRequest,
     user: dict = Depends(get_current_user),

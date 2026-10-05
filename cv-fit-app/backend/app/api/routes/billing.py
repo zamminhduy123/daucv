@@ -1,67 +1,103 @@
 import hashlib
 import hmac
+import html
 import logging
 import os
 import time
 import urllib.parse
+import uuid
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
+
+from app.core.config import (
+    BILLING_APPROVAL_SECRET,
+    NEXTAUTH_SECRET,
+    current_env,
+    is_mock_billing_enabled,
+)
+from app.dependencies import (
+    DuplicateCreditReferenceError,
+    add_credits,
+    get_current_user,
+)
+from app.schemas.billing import (
+    BuyCreditsRequest,
+    BuyCreditsResponse,
+    MockPaymentConfirmRequest,
+    MockPaymentConfirmResponse,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
-try:
-    from app.dependencies import add_credits, get_current_user
-except ImportError:
+# Approval links expire after 7 days.
+APPROVAL_LINK_TTL_SECONDS = 604800
 
-    async def add_credits(user_id, amount, tx_type, description):
-        logger.info(f"MOCK add_credits for user {user_id}: added {amount} credits")
-        return 9999
+_approval_secret_fallback_warned = False
 
-    async def get_current_user():
-        return {
-            "id": "12345678-1234-1234-1234-123456789012",
-            "email": "test@example.com",
-            "name": "Test User",
-            "image": None,
-            "credits": 10,
+
+def _approval_secret() -> str:
+    """HMAC key for manual-payment approval links.
+
+    Uses BILLING_APPROVAL_SECRET; falls back to NEXTAUTH_SECRET (warning once)
+    so existing deployments keep working until the dedicated secret is set.
+    """
+    global _approval_secret_fallback_warned
+    if BILLING_APPROVAL_SECRET:
+        return BILLING_APPROVAL_SECRET
+    if not _approval_secret_fallback_warned:
+        logger.warning(
+            "BILLING_APPROVAL_SECRET is not set; signing manual-payment approval "
+            "links with NEXTAUTH_SECRET. Set a dedicated secret in production."
+        )
+        _approval_secret_fallback_warned = True
+    return NEXTAUTH_SECRET
+
+
+def sign_approval(user_id: str, package_id: str, timestamp: int) -> str:
+    message = f"{user_id}:{package_id}:{timestamp}"
+    return hmac.new(
+        _approval_secret().encode("utf-8"),
+        message.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def build_approval_url(
+    user_id: str, package_id: str, timestamp: int, sig: str | None = None
+) -> str:
+    """One-click approval link for a manual payment (signed if ``sig`` is None)."""
+    if sig is None:
+        sig = sign_approval(user_id, package_id, timestamp)
+    base_url = os.getenv("BASE_URL", "https://daucv.com")
+    query = urllib.parse.urlencode(
+        {
+            "user_id": user_id,
+            "package_id": package_id,
+            "timestamp": timestamp,
+            "sig": sig,
         }
-
-
-try:
-    from app.core.config import ALLOW_MOCK_BILLING, NEXTAUTH_SECRET
-except (ImportError, AttributeError):
-    ALLOW_MOCK_BILLING = os.getenv("ALLOW_MOCK_BILLING", "true").lower() == "true"
-    NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET", "")
-    if not NEXTAUTH_SECRET:
-        raise ValueError("CRITICAL: NEXTAUTH_SECRET is required.")
-
-try:
-    from app.schemas.billing import (
-        BuyCreditsRequest,
-        BuyCreditsResponse,
-        MockPaymentConfirmRequest,
-        MockPaymentConfirmResponse,
     )
-except ImportError:
-    from pydantic import BaseModel
+    return f"{base_url}/api/billing/approve-manual-payment?{query}"
 
-    class BuyCreditsRequest(BaseModel):
-        package_id: str
 
-    class BuyCreditsResponse(BaseModel):
-        checkout_url: str
+def _require_mock_billing() -> None:
+    if not is_mock_billing_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="Cổng thanh toán thử nghiệm không được bật ở môi trường này.",
+        )
 
-    class MockPaymentConfirmRequest(BaseModel):
-        package_id: str
-        amount: int
-        credits_to_add: int
 
-    class MockPaymentConfirmResponse(BaseModel):
-        success: bool
-        new_credits: int
+def _html_page(message: str, status_code: int) -> HTMLResponse:
+    """Minimal HTML response; ``message`` is escaped here."""
+    return HTMLResponse(
+        content=f"<h2>{html.escape(message)}</h2>",
+        status_code=status_code,
+    )
 
 
 PACKAGES = {
@@ -73,14 +109,7 @@ PACKAGES = {
 
 @router.post("/buy-credits", response_model=BuyCreditsResponse)
 async def buy_credits(req: BuyCreditsRequest, user: dict = Depends(get_current_user)):
-    if (
-        not ALLOW_MOCK_BILLING
-        or os.getenv("ENV", "development").lower() == "production"
-    ):
-        raise HTTPException(
-            status_code=403,
-            detail="Cổng thanh toán thử nghiệm không được bật ở môi trường này.",
-        )
+    _require_mock_billing()
 
     package_id = req.package_id
     if package_id not in PACKAGES:
@@ -102,14 +131,7 @@ async def mock_confirm(
     req: MockPaymentConfirmRequest,
     user: dict = Depends(get_current_user),
 ):
-    if (
-        not ALLOW_MOCK_BILLING
-        or os.getenv("ENV", "development").lower() == "production"
-    ):
-        raise HTTPException(
-            status_code=403,
-            detail="Cổng thanh toán thử nghiệm không được bật ở môi trường này.",
-        )
+    _require_mock_billing()
 
     package_id = req.package_id
     if package_id not in PACKAGES:
@@ -136,56 +158,14 @@ async def mock_confirm(
         )
 
         return MockPaymentConfirmResponse(success=True, new_credits=new_balance)
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error executing credit addition for user {user['id']}: {e}")
-        raise HTTPException(status_code=500, detail=f"Không thể cập nhật số dư: {e}")
+        logger.exception("Error executing credit addition for user %s", user["id"])
+        raise HTTPException(status_code=500, detail="Không thể cập nhật số dư.") from e
 
 
 # --- Manual Billing (VietQR & Telegram one-click approval) ------------------
-
-try:
-    from app.core.db import Database
-except ImportError:
-
-    class Database:
-        pool = None
-
-        @classmethod
-        async def connect(cls):
-            pass
-
-        @classmethod
-        async def fetch_one(cls, query: str, *args):
-            logger.info(f"MOCK Database.fetch_one: {query}")
-
-        @classmethod
-        async def execute(cls, query: str, *args):
-            logger.info(f"MOCK Database.execute: {query}")
-
-
-@router.post("/test-request")
-async def test_request(
-    req: BuyCreditsRequest,
-    user_id: str = "ad0b8d18-7803-415d-8d0e-c41934b334bb",
-    email: str = "ntminhduy123@gmail.com",
-    name: str = "Duy Nguyen (D)",
-):
-    if (
-        not ALLOW_MOCK_BILLING
-        or os.getenv("ENV", "development").lower() == "production"
-    ):
-        raise HTTPException(
-            status_code=403,
-            detail="Cổng thanh toán thử nghiệm không được bật ở môi trường này.",
-        )
-    mock_user = {
-        "id": user_id,
-        "email": email,
-        "name": name,
-        "image": None,
-        "credits": 10,
-    }
-    return await request_manual_payment(req, user=mock_user)
 
 
 @router.post("/request-manual-payment")
@@ -200,29 +180,21 @@ async def request_manual_payment(
     package = PACKAGES[package_id]
     timestamp = int(time.time())
 
-    # Generate a secure HMAC signature for the approval link using the shared secret
-    message = f"{user['id']}:{package_id}:{timestamp}"
-    sig = hmac.new(
-        NEXTAUTH_SECRET.encode("utf-8"),
-        message.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
+    # HMAC-sign the approval link (BILLING_APPROVAL_SECRET; see _approval_secret)
+    sig = sign_approval(str(user["id"]), package_id, timestamp)
 
-    # Construct approval URL
-    base_url = os.getenv("BASE_URL", "https://daucv.com")
-    approve_url = (
-        f"{base_url}/api/billing/approve-manual-payment"
-        f"?user_id={user['id']}&package_id={package_id}&timestamp={timestamp}&sig={sig}"
-    )
+    approve_url = build_approval_url(str(user["id"]), package_id, timestamp, sig)
 
-    # Format Telegram Message
+    # Format Telegram Message (parse_mode=HTML, so escape interpolated values)
+    safe_email = html.escape(str(user["email"]))
+    safe_user_id = html.escape(str(user["id"]))
     message_text = (
         f"🔔 <b>Yêu cầu nạp tiền mới!</b>\n\n"
-        f"• <b>User:</b> {user['email']} (ID: <code>{user['id']}</code>)\n"
+        f"• <b>User:</b> {safe_email} (ID: <code>{safe_user_id}</code>)\n"
         f"• <b>Gói:</b> {package['name']} ({package['credits']} credits)\n"
         f"• <b>Số tiền:</b> {package['price']:,} VND\n"
-        f"• <b>Nội dung chuyển khoản:</b> <code>DAUCV {package_id.upper()} {user['email']}</code>\n\n"
-        f"👉 <a href='{approve_url}'>Duyệt nạp tiền (Approve)</a>"
+        f"• <b>Nội dung chuyển khoản:</b> <code>DAUCV {package_id.upper()} {safe_email}</code>\n\n"
+        f"👉 <a href='{html.escape(approve_url, quote=True)}'>Duyệt nạp tiền (Approve)</a>"
     )
 
     # Send to Telegram if configured
@@ -232,11 +204,9 @@ async def request_manual_payment(
 
     if telegram_token and chat_id:
         try:
-            import httpx
-
-            # Async client or standard post with short timeout to prevent blocking
-            with httpx.Client() as client:
-                response = client.post(
+            # Async client so the event loop is never blocked on Telegram.
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.post(
                     f"https://api.telegram.org/bot{telegram_token}/sendMessage",
                     json={
                         "chat_id": chat_id,
@@ -244,21 +214,41 @@ async def request_manual_payment(
                         "parse_mode": "HTML",
                         "disable_web_page_preview": True,
                     },
-                    timeout=5.0,
                 )
-                if response.status_code == 200:
-                    sent_to_telegram = True
-                else:
-                    logger.error(f"Telegram API responded with error: {response.text}")
+            if response.status_code == 200:
+                sent_to_telegram = True
+            else:
+                logger.error(
+                    "Telegram API responded with status %s: %s",
+                    response.status_code,
+                    response.text[:500],
+                )
         except Exception as e:
-            logger.error(f"Failed to send Telegram notification: {e}")
+            # Never log the exception text verbatim: httpx errors include the
+            # request URL, which embeds the bot token.
+            logger.error(
+                "Failed to send Telegram notification: error_type=%s",
+                type(e).__name__,
+            )
 
     if not sent_to_telegram:
-        logger.info(
-            f"\n================ TELEGRAM MOCK ALERTS ================\n"
-            f"{message_text}\n"
-            f"======================================================",
-        )
+        if current_env() == "development":
+            logger.info(
+                f"\n================ TELEGRAM MOCK ALERTS ================\n"
+                f"{message_text}\n"
+                f"======================================================",
+            )
+        else:
+            # The signed approval link works like a password for this top-up,
+            # so it never goes into logs outside development. Regenerate it
+            # with: python scripts/sign_approval_link.py <user_id> <package_id> <timestamp>
+            logger.error(
+                "Manual payment request NOT delivered to Telegram: "
+                "user_id=%s package_id=%s timestamp=%s",
+                user["id"],
+                package_id,
+                timestamp,
+            )
 
     # Configure VietQR Bank Transfer Details
     bank_id = os.getenv("BANK_ID", "TCB")
@@ -297,132 +287,72 @@ async def approve_manual_payment(
 
     # Replay Protection: Link expires after 7 days (604800 seconds)
     current_time = int(time.time())
-    if current_time - timestamp > 604800:
-        return HTMLResponse(
-            content="<h2>Yêu cầu nạp tiền thất bại: Link duyệt này đã hết hạn (quá 7 ngày)!</h2>",
+    if current_time - timestamp > APPROVAL_LINK_TTL_SECONDS:
+        return _html_page(
+            "Yêu cầu nạp tiền thất bại: Link duyệt này đã hết hạn (quá 7 ngày)!",
             status_code=400,
         )
 
-    # Verify signature
-    message = f"{user_id}:{package_id}:{timestamp}"
-    expected_sig = hmac.new(
-        NEXTAUTH_SECRET.encode("utf-8"),
-        message.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-
-    if not hmac.compare_digest(expected_sig, sig):
+    # Verify signature over the exact values that were signed.
+    expected_sig = sign_approval(user_id, package_id, timestamp)
+    # Compare as bytes: compare_digest raises TypeError on non-ASCII str input.
+    if not hmac.compare_digest(expected_sig.encode(), sig.encode("utf-8")):
         raise HTTPException(status_code=403, detail="Mã phê duyệt không hợp lệ.")
 
-    # Deduplication check
-    unique_marker = f"INV_{user_id}_{package_id}_{timestamp}"
-    if not Database.pool:
-        await Database.connect()
+    try:
+        canonical_user_id = str(uuid.UUID(user_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="user_id không hợp lệ.") from exc
 
-    existing_tx = await Database.fetch_one(
-        "SELECT 1 FROM public.credit_transactions WHERE description LIKE $1",
-        f"%{unique_marker}%",
-    )
-    if existing_tx:
-        return HTMLResponse(
-            content="<h2>Giao dịch này đã được duyệt trước đó! Không thể duyệt lại.</h2>",
-            status_code=200,
-        )
+    # Idempotency key. Same format as the legacy "Ref: INV_..." description
+    # marker (backfilled into credit_transactions.reference by migration 015).
+    unique_marker = f"INV_{canonical_user_id}_{package_id}_{timestamp}"
 
-    # Top-Up credits using add_credits helper
+    # Dedup check + balance update + ledger insert run in ONE transaction
+    # inside add_credits (user row lock + unique index on reference), so a
+    # double click can never credit twice.
     package = PACKAGES[package_id]
     try:
         new_balance = await add_credits(
-            user_id=user_id,
+            user_id=canonical_user_id,
             amount=package["credits"],
             tx_type="purchase",
             description=f"Duyệt nạp tiền thủ công. Gói {package['name']} nạp {package['credits']} credits. Ref: {unique_marker}",
+            reference=unique_marker,
         )
-        logger.info(
-            f"Manually approved {package['credits']} credits for user {user_id}. New balance: {new_balance}",
+    except DuplicateCreditReferenceError:
+        return _html_page(
+            "Giao dịch này đã được duyệt trước đó! Không thể duyệt lại.",
+            status_code=200,
         )
-        return HTMLResponse(
-            content=f"""
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return _html_page("Không tìm thấy người dùng.", status_code=404)
+        raise
+    except Exception:
+        logger.exception(
+            "Error processing manual credit addition for user %s", canonical_user_id
+        )
+        return _html_page("Lỗi hệ thống khi cập nhật số dư.", status_code=500)
+
+    logger.info(
+        "Manually approved %s credits for user %s. New balance: %s",
+        package["credits"],
+        canonical_user_id,
+        new_balance,
+    )
+    safe_user_id = html.escape(canonical_user_id)
+    safe_credits = html.escape(str(package["credits"]))
+    safe_balance = html.escape(str(new_balance))
+    return HTMLResponse(
+        content=f"""
             <html>
                 <head><title>Duyệt thành công</title></head>
                 <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
                     <h1 style="color: #10B981;">Duyệt nạp tiền thành công!</h1>
-                    <p>Tài khoản <b>{user_id}</b> đã được cộng <b>{package["credits"]} credits</b>.</p>
-                    <p>Số dư hiện tại: <b>{new_balance} credits</b>.</p>
+                    <p>Tài khoản <b>{safe_user_id}</b> đã được cộng <b>{safe_credits} credits</b>.</p>
+                    <p>Số dư hiện tại: <b>{safe_balance} credits</b>.</p>
                 </body>
             </html>
             """,
-        )
-    except Exception as e:
-        logger.error(f"Error processing manual credit addition: {e}")
-        return HTMLResponse(
-            content=f"<h2>Lỗi hệ thống khi cập nhật số dư: {e}</h2>",
-            status_code=500,
-        )
-
-
-@router.get("/debug-imports")
-async def debug_imports():
-    try:
-        import inspect
-
-        import app.dependencies
-
-        return {
-            "status": "ok",
-            "message": "Import app.dependencies succeeded!",
-            "file_path": inspect.getfile(app.dependencies),
-            "has_add_credits": hasattr(app.dependencies, "add_credits"),
-        }
-    except Exception as e:
-        import traceback
-
-        return {
-            "status": "error",
-            "error_type": type(e).__name__,
-            "message": str(e),
-            "traceback": traceback.format_exc(),
-        }
-
-
-@router.get("/debug-db")
-async def debug_db():
-    try:
-        from urllib.parse import urlparse
-
-        from app.core.config import DATABASE_URL
-        from app.core.db import Database
-
-        parsed = urlparse(DATABASE_URL)
-        db_info = {
-            "host": parsed.hostname,
-            "port": parsed.port,
-        }
-
-        if not Database.pool:
-            await Database.connect()
-        # Test query
-        res = await Database.fetch_one("SELECT 1")
-        return {
-            "status": "ok",
-            "message": "Database connection succeeded!",
-            "db_info": db_info,
-            "result": dict(res) if res else None,
-        }
-    except Exception as e:
-        import traceback
-        from urllib.parse import urlparse
-
-        from app.core.config import DATABASE_URL
-
-        parsed = urlparse(DATABASE_URL)
-        return {
-            "status": "error",
-            "error_type": type(e).__name__,
-            "message": str(e),
-            "db_info": {
-                "host": parsed.hostname,
-                "port": parsed.port,
-            },
-            "traceback": traceback.format_exc(),
-        }
+    )

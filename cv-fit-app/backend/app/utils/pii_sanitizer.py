@@ -25,8 +25,9 @@ from typing import Any
 # Vietnamese ID card / CCCD: 12 consecutive digits (often starts with 0)
 _ID_CARD = re.compile(r"\b0\d{11}\b")
 
-# Vietnamese phone: +84 xx xxx xxxx or +84-xx-xxx-xxxx or 0xx xxx xxxx or 0xx-xxx-xxxx
-_PHONE_VN = re.compile(r"(?:\+84[\s.-]?|0)\d{2}[\s.-]?\d{3}[\s.-]?\d{4}\b")
+# Vietnamese phone: +84 or a leading 0, then 9-10 more digits in any grouping
+# (0912 345 678, 091 234 5678, 0912.345.678, +84 912 345 678, 024 3826 4567).
+_PHONE_VN = re.compile(r"(?<![\d+])(?:\+84|0)(?:[\s.-]?\d){9,10}(?!\d)")
 
 # International phone: +1-3 digit country code followed by digits
 # Matches: +1 555 1234, +44 20 7946, +81-3-1234-5678, etc.

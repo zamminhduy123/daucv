@@ -7,7 +7,6 @@ import asyncio
 import json
 import logging
 import re
-import tempfile
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from dataclasses import asdict
@@ -26,7 +25,7 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from app.core.config import (
     CV_ANALYSIS_REQUEST_TIMEOUT,
@@ -34,6 +33,7 @@ from app.core.config import (
     RAW_EXTRACTION_BUCKET,
     SKIP_RAW_EXTRACTION_UPLOAD,
 )
+from app.core.rate_limit import rate_limit
 from app.dependencies import (
     get_current_user,
     get_file_service,
@@ -91,7 +91,9 @@ from app.services.pdf_thumbnail import generate_pdf_thumbnail
 from app.services.tailored_cv_metadata import (
     issue_tailoring_entitlement_v3,
 )
+from app.utils.error_summary import describe_exception
 from app.utils.helpers import extract_text_from_pdf
+from app.utils.upload_validation import require_pdf_bytes
 
 _logger = logging.getLogger(__name__)
 
@@ -160,7 +162,11 @@ def _build_cv_analysis_envelope(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/upload-and-match", response_model=MatchResult)
+@router.post(
+    "/upload-and-match",
+    response_model=MatchResult,
+    dependencies=[Depends(rate_limit("llm"))],
+)
 async def upload_and_match(
     background_tasks: BackgroundTasks,
     cv_file: UploadFile = File(...),
@@ -181,7 +187,13 @@ async def upload_and_match(
             detail=f"PDF too large. Maximum size is {PDF_MAX_SIZE // (1024 * 1024)} MB.",
         )
 
-    file_bytes = await cv_file.read()
+    file_bytes = await cv_file.read(PDF_MAX_SIZE + 1)
+    if len(file_bytes) > PDF_MAX_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"PDF too large. Maximum size is {PDF_MAX_SIZE // (1024 * 1024)} MB.",
+        )
+    require_pdf_bytes(file_bytes)
     try:
         cv_text = extract_text_from_pdf(file_bytes)
     except Exception as e:
@@ -216,14 +228,17 @@ async def upload_and_match(
         )
         return data
     except json.JSONDecodeError as e:
+        _logger.warning("upload_and_match: AI returned invalid JSON: %s", e)
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
-        raise HTTPException(status_code=502, detail=f"AI returned invalid JSON: {e}")
+        raise HTTPException(status_code=502, detail="AI returned invalid JSON.") from e
     except HTTPException:
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise
     except Exception as e:
+        _logger.error("upload_and_match: LLM call failed: %s", describe_exception(e))
+        _logger.debug("upload_and_match: LLM call failed (traceback)", exc_info=True)
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
-        raise HTTPException(status_code=502, detail=f"LLM error: {e}")
+        raise HTTPException(status_code=502, detail="LLM error.") from e
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +246,7 @@ async def upload_and_match(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/extract-pdf")
+@router.post("/extract-pdf", dependencies=[Depends(rate_limit("pdf"))])
 async def extract_pdf(
     file: UploadFile = File(...),
     purpose: Literal["cv", "jd"] = Form(...),
@@ -253,6 +268,7 @@ async def extract_pdf(
                 status_code=413,
                 detail="PDF exceeds the maximum allowed size.",
             )
+        require_pdf_bytes(file_bytes)
         user_id = str(user["id"])
         raw = extract_cv_content_blocks(file_bytes)
         lines = raw_extraction_to_layout_lines(raw)
@@ -398,7 +414,11 @@ async def delete_raw_extraction(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/analyze-cv", response_model=CVAnalysisEnvelope)
+@router.post(
+    "/analyze-cv",
+    response_model=CVAnalysisEnvelope,
+    dependencies=[Depends(rate_limit("llm"))],
+)
 async def analyze_cv(
     req: AnalyzeCVRequest,
     background_tasks: BackgroundTasks,
@@ -476,7 +496,7 @@ async def analyze_cv(
         )
 
 
-@router.post("/analyze-cv/stream")
+@router.post("/analyze-cv/stream", dependencies=[Depends(rate_limit("llm"))])
 async def analyze_cv_stream(
     req: AnalyzeCVRequest,
     background_tasks: BackgroundTasks,
@@ -623,7 +643,11 @@ async def analyze_cv_stream(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/jobs/parse-profile", response_model=CandidateProfileResponse)
+@router.post(
+    "/jobs/parse-profile",
+    response_model=CandidateProfileResponse,
+    dependencies=[Depends(rate_limit("llm"))],
+)
 async def parse_profile(
     req: ParseProfileRequest,
     background_tasks: BackgroundTasks,
@@ -663,11 +687,13 @@ async def parse_profile(
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise
     except Exception as e:
+        _logger.error("parse_profile: LLM call failed: %s", describe_exception(e))
+        _logger.debug("parse_profile: LLM call failed (traceback)", exc_info=True)
         await _refund_reserved_credit(user["id"], tx_type, refund_description)
         raise HTTPException(
             status_code=500,
-            detail=f"Profile parsing failed: {e}",
-        )
+            detail="Profile parsing failed.",
+        ) from e
 
 
 # ---------------------------------------------------------------------------
@@ -675,7 +701,11 @@ async def parse_profile(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/interview/chat", response_model=InterviewTurnResponse)
+@router.post(
+    "/interview/chat",
+    response_model=InterviewTurnResponse,
+    dependencies=[Depends(rate_limit("llm"))],
+)
 async def interview_chat(
     req: InterviewChatRequest,
     background_tasks: BackgroundTasks,
@@ -780,13 +810,15 @@ async def interview_chat(
             )
         raise
     except Exception as e:
+        _logger.error("interview_chat: LLM call failed: %s", describe_exception(e))
+        _logger.debug("interview_chat: LLM call failed (traceback)", exc_info=True)
         if req.current_question == 1:
             await _refund_reserved_credit(
                 user["id"],
                 "mock_interview",
                 "Hoàn credit do lỗi khi bắt đầu phỏng vấn giả định",
             )
-        raise HTTPException(status_code=502, detail=f"AI Provider error: {e}")
+        raise HTTPException(status_code=502, detail="AI Provider error.") from e
 
 
 # ---------------------------------------------------------------------------
@@ -794,10 +826,15 @@ async def interview_chat(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/interview/finish", response_model=FinalInterviewReport)
+@router.post(
+    "/interview/finish",
+    response_model=FinalInterviewReport,
+    dependencies=[Depends(rate_limit("llm"))],
+)
 async def interview_finish(
     req: InterviewFinishRequest,
     background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
 ):
     """Takes the completed chat history and generates a comprehensive
     Final Assessment report with per-turn analysis.
@@ -843,10 +880,12 @@ async def interview_finish(
     except HTTPException:
         raise
     except Exception as e:
+        _logger.error("interview_finish: LLM call failed: %s", describe_exception(e))
+        _logger.debug("interview_finish: LLM call failed (traceback)", exc_info=True)
         raise HTTPException(
             status_code=502,
-            detail=f"Final assessment generation failed: {e}",
-        )
+            detail="Final assessment generation failed.",
+        ) from e
 
 
 # ---------------------------------------------------------------------------
@@ -854,21 +893,33 @@ async def interview_finish(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/interview/tts")
-async def generate_tts(req: TTSRequest):
+@router.post("/interview/tts", dependencies=[Depends(rate_limit("tts"))])
+async def generate_tts(
+    req: TTSRequest,
+    user: dict = Depends(get_current_user),
+):
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty.")
 
+    # Audio is buffered in memory (text length is capped by TTSRequest), so no
+    # temp files are left behind on disk.
+    audio = bytearray()
     try:
         # Note: vi-VN-HoaiMyNeural seems to have downtime/restrictions causing NoAudioReceived
         # using vi-VN-NamMinhNeural as it successfully generates audio
         communicate = edge_tts.Communicate(req.text, "vi-VN-NamMinhNeural")
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
-            tmp_path = tmp_file.name
-        await communicate.save(tmp_path)
-        return FileResponse(tmp_path, media_type="audio/mpeg")
+        async for chunk in communicate.stream():
+            if chunk.get("type") == "audio" and chunk.get("data"):
+                audio.extend(chunk["data"])
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        _logger.error("TTS generation failed: %s", describe_exception(e))
+        _logger.debug("TTS generation failed (traceback)", exc_info=True)
+        raise HTTPException(
+            status_code=500, detail="Text-to-speech generation failed."
+        ) from e
+    if not audio:
+        raise HTTPException(status_code=502, detail="Text-to-speech returned no audio.")
+    return Response(content=bytes(audio), media_type="audio/mpeg")
 
 
 # ---------------------------------------------------------------------------
@@ -876,8 +927,16 @@ async def generate_tts(req: TTSRequest):
 # ---------------------------------------------------------------------------
 
 
-@router.post("/writer/generate", response_model=WriterResponse)
-async def writer_generate(req: WriterRequest, background_tasks: BackgroundTasks):
+@router.post(
+    "/writer/generate",
+    response_model=WriterResponse,
+    dependencies=[Depends(rate_limit("llm"))],
+)
+async def writer_generate(
+    req: WriterRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
+):
     """Generate an application email, cover letter, LinkedIn message, Zalo message,
     or custom writing based on the user's CV and JD.
     """
@@ -912,7 +971,9 @@ async def writer_generate(req: WriterRequest, background_tasks: BackgroundTasks)
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Writer generation failed: {e}")
+        _logger.error("writer_generate: LLM call failed: %s", describe_exception(e))
+        _logger.debug("writer_generate: LLM call failed (traceback)", exc_info=True)
+        raise HTTPException(status_code=502, detail="Writer generation failed.") from e
 
 
 @router.get("/user/credits")

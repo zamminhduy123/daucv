@@ -10,6 +10,7 @@ from contextlib import suppress
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 
+from app.core.rate_limit import rate_limit
 from app.dependencies import get_current_user, refund_credits, reserve_credits
 from app.models.domain import Message
 from app.models.requests import JobSearchRequest
@@ -295,7 +296,7 @@ def _rule_based_parse(cv_text: str) -> CandidateProfileResponse:
     )
 
 
-@router.post("/search", response_model=dict)
+@router.post("/search", response_model=dict, dependencies=[Depends(rate_limit("llm"))])
 async def search_jobs_endpoint(
     req: JobSearchRequest,
     background_tasks: BackgroundTasks,

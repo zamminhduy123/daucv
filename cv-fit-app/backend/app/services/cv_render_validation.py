@@ -147,12 +147,9 @@ async def _run_playwright_layout_gate(
         page = await browser.new_page(viewport={"width": 794, "height": 1123})
 
         # Network isolation: block external URLs
-        await page.route(
-            "**/*",
-            lambda route: route.abort()
-            if route.request.url.startswith("http")
-            else route.continue_(),
-        )
+        from app.utils.render_isolation import block_non_inline_requests
+
+        await page.route("**/*", block_non_inline_requests)
 
         await page.set_content(html, wait_until="domcontentloaded")
         await page.evaluate("document.fonts.ready")

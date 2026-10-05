@@ -20,6 +20,7 @@ from app.core.config import (
     CV_RANGE_PLAN_SECTION_MAX_OUTPUT_TOKENS,
     CV_STRUCTURING_MAX_RETRIES,
     LOGS_DIR,
+    llm_input_logging_enabled,
 )
 from app.models.cv_document_v2 import (
     _JOB_TITLE_KEYWORDS,
@@ -67,6 +68,7 @@ from app.services.layout_extraction import (
     validate_raw_extraction,
 )
 from app.services.section_vocabulary import classify_heading
+from app.utils.pii_sanitizer import sanitize
 
 
 class InvalidRangePlanError(ValueError):
@@ -1010,7 +1012,13 @@ def _log_section_to_file(
     system_prompt: str | None = None,
     user_content: str | None = None,
 ) -> None:
-    """Log section details, final system prompt, and ledger atoms to file before invoking the LLM cursor planner."""
+    """Log section details, final system prompt, and ledger atoms to file before invoking the LLM cursor planner.
+
+    The entry holds raw CV text, so it follows the same rule as prompt logs:
+    only with ``LOG_LLM_INPUTS=true``, and always PII-sanitized.
+    """
+    if not llm_input_logging_enabled():
+        return
     try:
         log_file = LOGS_DIR / "cv_range_plan_sections.log"
         now = datetime.now(timezone.utc).isoformat()
@@ -1038,7 +1046,7 @@ def _log_section_to_file(
         )
 
         with open(log_file, "a", encoding="utf-8") as f:
-            f.write(entry)
+            f.write(sanitize(entry))
 
         _logger.info(
             "Logged section [%d/%d] '%s' (%d atoms) and system prompt to %s",

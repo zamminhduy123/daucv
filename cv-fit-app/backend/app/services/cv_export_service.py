@@ -20,6 +20,10 @@ from app.services.tailored_cv_service import (
     get_version,
     verify_exportable_v3_gates,
 )
+from app.utils.render_isolation import (
+    block_non_inline_requests,
+    inject_no_subresource_csp,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -92,7 +96,7 @@ def sanitize_wysiwyg_html(html: str) -> str:
         clean = pattern.sub("", clean)
     if "<html" not in clean.lower():
         raise ValueError("Preview HTML is not a complete document.")
-    return clean
+    return inject_no_subresource_csp(clean)
 
 
 async def generate_pdf_from_html(
@@ -116,12 +120,7 @@ async def generate_pdf_from_html(
         browser = await playwright.chromium.launch(headless=True)
         try:
             page = await browser.new_page(viewport={"width": 794, "height": 1123})
-            await page.route(
-                "**/*",
-                lambda route: route.abort()
-                if route.request.url.startswith("http")
-                else route.continue_(),
-            )
+            await page.route("**/*", block_non_inline_requests)
             await page.set_content(clean, wait_until="domcontentloaded")
             await page.evaluate("document.fonts.ready")
             pdf_bytes = await page.pdf(

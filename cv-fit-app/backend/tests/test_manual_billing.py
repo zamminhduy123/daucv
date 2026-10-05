@@ -3,34 +3,34 @@ import hmac
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 from fastapi.testclient import TestClient
 
-# We use the HS256 secret configured in conftest or tests to calculate valid signatures
-TEST_SECRET_KEY = "daucv"
+from app.api.routes.billing import _approval_secret
+from app.dependencies import DuplicateCreditReferenceError
 
 
 def calculate_approval_sig(user_id: str, package_id: str, timestamp: int) -> str:
+    # Independent HMAC computation with the configured approval secret
+    # (BILLING_APPROVAL_SECRET, falling back to NEXTAUTH_SECRET).
     message = f"{user_id}:{package_id}:{timestamp}"
     return hmac.new(
-        TEST_SECRET_KEY.encode("utf-8"),
+        _approval_secret().encode("utf-8"),
         message.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
 
 
 def test_request_manual_payment_success(client: TestClient) -> None:
-    original_post = httpx.Client.post
+    async def mock_post_side_effect(self, url, *args, **kwargs):
+        assert "telegram.org" in str(url)
+        mock_res = MagicMock()
+        mock_res.status_code = 200
+        mock_res.json.return_value = {"ok": True}
+        return mock_res
 
-    def mock_post_side_effect(self, url, *args, **kwargs):
-        if "telegram.org" in str(url):
-            mock_res = MagicMock()
-            mock_res.status_code = 200
-            mock_res.json.return_value = {"ok": True}
-            return mock_res
-        return original_post(self, url, *args, **kwargs)
-
-    with patch("httpx.Client.post", autospec=True, side_effect=mock_post_side_effect):
+    with patch(
+        "httpx.AsyncClient.post", autospec=True, side_effect=mock_post_side_effect
+    ):
         # Request pro pack (35,000 VND)
         resp = client.post(
             "/api/billing/request-manual-payment", json={"package_id": "pro"}
@@ -55,11 +55,9 @@ def test_request_manual_payment_invalid_package(client: TestClient) -> None:
 
 
 @patch("app.api.routes.billing.add_credits", new_callable=AsyncMock)
-@patch("app.core.db.Database.fetch_one", new_callable=AsyncMock)
 def test_approve_manual_payment_success(
-    mock_fetch_one: AsyncMock, mock_add_credits: AsyncMock, client: TestClient
+    mock_add_credits: AsyncMock, client: TestClient
 ) -> None:
-    mock_fetch_one.return_value = None  # No existing transactions
     mock_add_credits.return_value = 60  # New balance
 
     user_id = "12345678-1234-1234-1234-123456789012"
@@ -76,12 +74,13 @@ def test_approve_manual_payment_success(
     assert "Duyệt nạp tiền thành công" in resp.text
     assert "60 credits" in resp.text
 
-    # Verify add_credits was triggered transactionally
+    # Verify add_credits was triggered transactionally with an idempotency key
     mock_add_credits.assert_called_once_with(
         user_id=user_id,
         amount=50,  # Pro package credits = 50
         tx_type="purchase",
         description=f"Duyệt nạp tiền thủ công. Gói Pro Pack nạp 50 credits. Ref: INV_{user_id}_pro_{now_timestamp}",
+        reference=f"INV_{user_id}_pro_{now_timestamp}",
     )
 
 
@@ -116,12 +115,11 @@ def test_approve_manual_payment_expired(client: TestClient) -> None:
 
 
 @patch("app.api.routes.billing.add_credits", new_callable=AsyncMock)
-@patch("app.core.db.Database.fetch_one", new_callable=AsyncMock)
 def test_approve_manual_payment_duplicate(
-    mock_fetch_one: AsyncMock, mock_add_credits: AsyncMock, client: TestClient
+    mock_add_credits: AsyncMock, client: TestClient
 ) -> None:
-    # Mock that transaction ALREADY exists in public.credit_transactions
-    mock_fetch_one.return_value = {"id": "already-exists"}
+    # add_credits detects the already-used reference inside its transaction
+    mock_add_credits.side_effect = DuplicateCreditReferenceError("INV_dup")
 
     user_id = "12345678-1234-1234-1234-123456789012"
     package_id = "pro"
@@ -135,4 +133,4 @@ def test_approve_manual_payment_duplicate(
 
     assert resp.status_code == 200
     assert "Giao dịch này đã được duyệt trước đó" in resp.text
-    mock_add_credits.assert_not_called()
+    mock_add_credits.assert_awaited_once()

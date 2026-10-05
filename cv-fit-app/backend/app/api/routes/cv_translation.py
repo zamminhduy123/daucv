@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.core.rate_limit import rate_limit
 from app.dependencies import get_current_user
 from app.schemas.cv_translation import (
     CVTranslationListResponse,
@@ -49,7 +50,11 @@ def _unsupported_schema(exc: UnsupportedCVSchemaVersionError) -> HTTPException:
     )
 
 
-@router.post("/{version_id}/translations", response_model=CVTranslationVariantResponse)
+@router.post(
+    "/{version_id}/translations",
+    response_model=CVTranslationVariantResponse,
+    dependencies=[Depends(rate_limit("llm"))],
+)
 async def create_cv_translation(
     version_id: str,
     payload: CVTranslationRequest,
@@ -79,9 +84,7 @@ async def create_cv_translation(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         _logger.error("Dịch thuật CV thất bại: %s", exc)
-        raise HTTPException(
-            status_code=500, detail=f"Dịch thuật CV thất bại: {exc}"
-        ) from exc
+        raise HTTPException(status_code=500, detail="Dịch thuật CV thất bại.") from exc
 
 
 @router.get("/{version_id}/translations", response_model=CVTranslationListResponse)
@@ -112,5 +115,5 @@ async def list_cv_translations(
     except Exception as exc:
         _logger.error("Lấy danh sách bản dịch thất bại: %s", exc)
         raise HTTPException(
-            status_code=500, detail=f"Lấy danh sách bản dịch thất bại: {exc}"
+            status_code=500, detail="Lấy danh sách bản dịch thất bại."
         ) from exc

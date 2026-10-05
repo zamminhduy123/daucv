@@ -57,6 +57,26 @@ FALLBACK_SEARCH_URLS: dict[str, str] = {
     "ybox": "https://ybox.vn/api/v1/post?search={query}&category=tuyen-dung&page=1",
 }
 
+# SSRF guard (defense in depth): the crawler only ever fetches the fixed
+# search templates above. User/LLM-derived text is interpolated into the query
+# string only, never the scheme/host, but every outbound fetch is still checked
+# against this https host allowlist before it is made.
+_ALLOWED_FETCH_HOSTS: frozenset[str] = frozenset(
+    (urlparse(template).hostname or "").lower()
+    for template in (*SEARCH_URLS.values(), *FALLBACK_SEARCH_URLS.values())
+)
+
+
+def _is_allowed_fetch_url(url: str) -> bool:
+    """True only for https URLs on a known job-board host."""
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    return parsed.scheme == "https" and host in _ALLOWED_FETCH_HOSTS
+
+
 # Browser stealth headers
 HEADERS = {
     "User-Agent": (
@@ -299,6 +319,8 @@ async def managed_browser():
 
 async def _navigate(page: Page, url: str, timeout_ms: int = 15000) -> bool:
     """Navigate to URL with stealth. Returns True if content loaded."""
+    if not _is_allowed_fetch_url(url):
+        return False
     try:
         await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
         # Wait briefly for dynamic content
@@ -1022,6 +1044,8 @@ async def _crawl_careerviet(query: str, location: str) -> list[dict]:
     URL pattern: /vi/tim-viec-lam/<id>.html
     """
     url = SEARCH_URLS["careerviet"].format(query=query)
+    if not _is_allowed_fetch_url(url):
+        return []
 
     async with AsyncClient(timeout=Timeout(10.0), follow_redirects=True) as client:
         resp = await client.get(url, headers=HEADERS)
@@ -1066,6 +1090,8 @@ async def _crawl_ybox(query: str, location: str) -> list[dict]:
     Ybox renders job data in window.__INITIAL_ADS__ = {"Ads":{"count":"N","edges":[...]}}
     """
     url = SEARCH_URLS["ybox"].format(query=query)
+    if not _is_allowed_fetch_url(url):
+        return []
 
     async with AsyncClient(timeout=Timeout(10.0), follow_redirects=True) as client:
         resp = await client.get(url, headers=HEADERS)

@@ -1,8 +1,21 @@
+import logging
+
+import asyncpg
 import jwt
 from fastapi import Depends, Header, HTTPException
 
-from app.core.config import NEXTAUTH_SECRET
+from app.core.config import NEXTAUTH_SECRET, get_admin_emails
 from app.core.db import Database
+
+_logger = logging.getLogger(__name__)
+
+
+class DuplicateCreditReferenceError(Exception):
+    """Raised when a credit ledger entry with the same idempotency reference exists."""
+
+    def __init__(self, reference: str) -> None:
+        super().__init__(f"Credit transaction reference already used: {reference}")
+        self.reference = reference
 
 
 async def get_current_user(authorization: str = Header(None)) -> dict:
@@ -15,7 +28,12 @@ async def get_current_user(authorization: str = Header(None)) -> dict:
     token = authorization.split(" ")[1]
     try:
         # Decode the NextAuth JWT signed via HS256
-        payload = jwt.decode(token, NEXTAUTH_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(
+            token,
+            NEXTAUTH_SECRET,
+            algorithms=["HS256"],
+            options={"require": ["exp"]},
+        )
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Unauthorized: Token has expired.")
     except jwt.InvalidTokenError:
@@ -49,11 +67,12 @@ async def get_current_user(authorization: str = Header(None)) -> dict:
                 "SELECT id, email, name, image, credits FROM public.users WHERE email = $1",
                 email,
             )
-        except Exception as e:
+        except Exception as exc:
+            _logger.exception("User auto-registration failed")
             raise HTTPException(
                 status_code=500,
-                detail=f"Database synchronization error: {e}",
-            )
+                detail="Database synchronization error.",
+            ) from exc
 
         if not user:
             raise HTTPException(
@@ -62,6 +81,14 @@ async def get_current_user(authorization: str = Header(None)) -> dict:
             )
 
     return dict(user)
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """Allow only authenticated users whose email is listed in ``ADMIN_EMAILS``."""
+    email = str(user.get("email") or "").strip().lower()
+    if not email or email not in get_admin_emails():
+        raise HTTPException(status_code=403, detail="Forbidden: admin access required.")
+    return user
 
 
 def verify_credits(required_credits: int = 1):
@@ -139,9 +166,22 @@ async def reserve_credits(user_id, amount: int, tx_type: str, description: str) 
     )
 
 
-async def add_credits(user_id, amount: int, tx_type: str, description: str) -> int:
+async def add_credits(
+    user_id,
+    amount: int,
+    tx_type: str,
+    description: str,
+    reference: str | None = None,
+) -> int:
     """Transactionally adds credits to a user profile and logs a transaction ledger record.
     Returns the new credit balance.
+
+    When ``reference`` is given the top-up is idempotent: the duplicate check,
+    the balance update and the ledger insert all happen in ONE transaction
+    while holding the user's row lock, and the ``credit_transactions.reference``
+    unique index (migration 015) rejects any duplicate that slips through.
+    A repeated reference raises ``DuplicateCreditReferenceError`` and nothing
+    is credited.
     """
     if amount <= 0:
         raise ValueError("Addition amount must be positive.")
@@ -149,33 +189,61 @@ async def add_credits(user_id, amount: int, tx_type: str, description: str) -> i
     if not Database.pool:
         await Database.connect()
 
-    async with Database.pool.acquire() as conn, conn.transaction():
-        user = await conn.fetchrow(
-            "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE",
-            user_id,
-        )
-        if not user:
-            raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
+    try:
+        async with Database.pool.acquire() as conn, conn.transaction():
+            user = await conn.fetchrow(
+                "SELECT credits FROM public.users WHERE id = $1 FOR UPDATE",
+                user_id,
+            )
+            if not user:
+                raise HTTPException(
+                    status_code=404, detail="Không tìm thấy người dùng."
+                )
 
-        new_credits = user["credits"] + amount
+            if reference is not None:
+                # Same-reference approvals always target the same user row, so
+                # the FOR UPDATE lock above serialises them; this read then sees
+                # any row committed by the transaction that held the lock.
+                existing = await conn.fetchrow(
+                    "SELECT 1 FROM public.credit_transactions WHERE reference = $1",
+                    reference,
+                )
+                if existing:
+                    raise DuplicateCreditReferenceError(reference)
 
-        # Update credits
-        await conn.execute(
-            "UPDATE public.users SET credits = $1, updated_at = now() WHERE id = $2",
-            new_credits,
-            user_id,
-        )
+            new_credits = user["credits"] + amount
 
-        # Record ledger record
-        await conn.execute(
-            "INSERT INTO public.credit_transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
-            user_id,
-            amount,
-            tx_type,
-            description,
-        )
+            # Update credits
+            await conn.execute(
+                "UPDATE public.users SET credits = $1, updated_at = now() WHERE id = $2",
+                new_credits,
+                user_id,
+            )
 
-        return new_credits
+            # Record ledger record
+            if reference is None:
+                await conn.execute(
+                    "INSERT INTO public.credit_transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
+                    user_id,
+                    amount,
+                    tx_type,
+                    description,
+                )
+            else:
+                await conn.execute(
+                    "INSERT INTO public.credit_transactions (user_id, amount, type, description, reference) VALUES ($1, $2, $3, $4, $5)",
+                    user_id,
+                    amount,
+                    tx_type,
+                    description,
+                    reference,
+                )
+
+            return new_credits
+    except asyncpg.exceptions.UniqueViolationError as exc:
+        if reference is not None:
+            raise DuplicateCreditReferenceError(reference) from exc
+        raise
 
 
 async def refund_credits(user_id, amount: int, tx_type: str, description: str) -> int:

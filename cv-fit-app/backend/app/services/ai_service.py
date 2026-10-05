@@ -17,6 +17,7 @@ from fastapi import BackgroundTasks, HTTPException
 from pydantic import ValidationError
 
 from app.core import config
+from app.utils.error_summary import describe_exception
 from app.utils.llm_logger import LLMLogRecord, log_llm_input, log_llm_request
 from app.utils.pii_sanitizer import sanitize
 
@@ -180,7 +181,9 @@ async def call_llm_with_fallback(
             except Exception as e:
                 completed_attempts += 1
                 latency_ms = int((time.perf_counter() - start_time) * 1000)
-                last_error = str(e)
+                # Summary only: str(ValidationError) echoes the model output
+                # (CV text) and transport errors can contain the endpoint URL.
+                last_error = describe_exception(e)
 
                 if isinstance(e, ValidationError):
                     json_valid = False
@@ -237,7 +240,14 @@ async def call_llm_with_fallback(
                     )
                     break
 
+    # The detail is shown to users: never include ``last_error`` (it can name
+    # internal hosts). It is already logged above, per attempt.
+    _logger.error(
+        "All providers failed for feature=%s. Last error: %s",
+        feature_name,
+        last_error,
+    )
     raise HTTPException(
         status_code=503,
-        detail=f"All AI providers are currently overloaded. Last error: {last_error}",
+        detail="All AI providers are currently overloaded. Please try again later.",
     )

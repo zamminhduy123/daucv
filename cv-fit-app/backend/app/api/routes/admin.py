@@ -2,11 +2,18 @@
 
 import json
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.core.config import LOGS_DIR
+from app.dependencies import require_admin
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+# Every route on this router requires an authenticated user listed in
+# ADMIN_EMAILS (401 without a valid token, 403 for non-admins).
+router = APIRouter(
+    prefix="/api/admin",
+    tags=["admin"],
+    dependencies=[Depends(require_admin)],
+)
 
 
 @router.get("/metrics")

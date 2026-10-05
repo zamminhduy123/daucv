@@ -73,10 +73,75 @@ NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET")
 if not NEXTAUTH_SECRET:
     raise ValueError("CRITICAL: NEXTAUTH_SECRET is required in all environments.")
 
-# Gate mock billing route in production
-ALLOW_MOCK_BILLING = os.getenv("ALLOW_MOCK_BILLING", "true").lower() == "true"
-if ENV == "production":
-    ALLOW_MOCK_BILLING = os.getenv("ALLOW_MOCK_BILLING", "false").lower() == "true"
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    return raw.strip().lower() in _TRUTHY
+
+
+def current_env() -> str:
+    """Return the deployment environment (read at call time so tests can patch it)."""
+    return os.getenv("ENV", "development").strip().lower()
+
+
+def is_mock_billing_enabled() -> bool:
+    """Single source of truth for the mock (fake-payment) billing routes.
+
+    Mock billing grants real credits without payment, so it is OFF unless BOTH:
+    * ``ALLOW_MOCK_BILLING=true`` is set explicitly, and
+    * ``ENV`` is exactly ``development``.
+    """
+    return current_env() == "development" and _env_flag("ALLOW_MOCK_BILLING")
+
+
+# Kept for backward compatibility; prefer ``is_mock_billing_enabled()``.
+ALLOW_MOCK_BILLING = is_mock_billing_enabled()
+
+# Dedicated HMAC secret for one-click manual-payment approval links. Falls back
+# to NEXTAUTH_SECRET (with a warning) when unset so existing deployments keep
+# working, but production should set a separate value.
+BILLING_APPROVAL_SECRET = os.getenv("BILLING_APPROVAL_SECRET", "").strip()
+
+
+def get_admin_emails() -> frozenset[str]:
+    """Lower-cased admin allowlist from ``ADMIN_EMAILS`` (comma-separated).
+
+    Empty/unset means nobody is an admin.
+    """
+    raw = os.getenv("ADMIN_EMAILS", "")
+    return frozenset(e.strip().lower() for e in raw.split(",") if e.strip())
+
+
+def llm_input_logging_enabled() -> bool:
+    """Whether LLM prompts may be written to ``logs/`` (always PII-sanitized).
+
+    Off unless ``LOG_LLM_INPUTS=true`` is set explicitly, in every environment.
+    Prompts contain whole CVs and the sanitizer only masks emails, phone numbers
+    and ID numbers, so this must never be on by accident (an unset ``ENV``
+    counts as development, so ENV is not a safe signal here).
+    """
+    return _env_flag("LOG_LLM_INPUTS", default=False)
+
+
+# ---------------------------------------------------------------------------
+# Rate limiting (per user, per route group, sliding 60 s window, per process)
+# ---------------------------------------------------------------------------
+
+RATE_LIMIT_ENABLED = _env_flag("RATE_LIMIT_ENABLED", default=True)
+RATE_LIMIT_WINDOW_SECONDS = float(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
+RATE_LIMITS_PER_WINDOW: dict[str, int] = {
+    "llm": int(os.getenv("RATE_LIMIT_LLM_PER_MINUTE", "20")),
+    "pdf": int(os.getenv("RATE_LIMIT_PDF_PER_MINUTE", "20")),
+    "tts": int(os.getenv("RATE_LIMIT_TTS_PER_MINUTE", "30")),
+}
+if RATE_LIMIT_WINDOW_SECONDS <= 0:
+    raise ValueError("RATE_LIMIT_WINDOW_SECONDS must be positive.")
+if any(limit < 1 for limit in RATE_LIMITS_PER_WINDOW.values()):
+    raise ValueError("RATE_LIMIT_*_PER_MINUTE values must be at least 1.")
 
 # ---------------------------------------------------------------------------
 # Logging

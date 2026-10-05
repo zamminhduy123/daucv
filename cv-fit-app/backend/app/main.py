@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     admin,
+    billing,
     cv_pipeline,
     cv_translation,
     health,
@@ -16,11 +17,6 @@ from app.api.routes import (
     tailored_cv,
     user,
 )
-
-try:
-    from app.api.routes import billing
-except ImportError:
-    billing = None
 
 
 async def _lifespan(app: FastAPI) -> None:
@@ -93,8 +89,7 @@ def create_app() -> FastAPI:
     application.include_router(cv_translation.router)
     application.include_router(jobs.router)
     application.include_router(admin.router)
-    if billing:
-        application.include_router(billing.router)
+    application.include_router(billing.router)
 
     return application
 

@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS public.credit_transactions (
 -- Index on user_id for faster transaction history lookups
 CREATE INDEX IF NOT EXISTS idx_credit_transactions_user_id ON public.credit_transactions(user_id);
 
+-- Idempotency key for credit top-ups (see migrations/015_add_credit_transaction_reference.sql)
+ALTER TABLE public.credit_transactions ADD COLUMN IF NOT EXISTS reference TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_credit_transactions_reference ON public.credit_transactions(reference);
+
 -- Create user_cvs table to store historical resume plain text uploads
 CREATE TABLE IF NOT EXISTS public.user_cvs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -138,7 +138,7 @@ def test_remote_qwen_requests_are_serialized(monkeypatch) -> None:
     assert peak_active == 1
 
 
-def test_remote_qwen_queue_has_a_deadline(monkeypatch) -> None:
+def test_remote_qwen_queue_has_a_deadline(monkeypatch, caplog) -> None:
     class RemoteQwenProvider:
         name = "Remote-Qwen"
         model = "qwen-test"
@@ -157,7 +157,8 @@ def test_remote_qwen_queue_has_a_deadline(monkeypatch) -> None:
     monkeypatch.setattr(ai_service, "_remote_qwen_semaphore", asyncio.Semaphore(0))
     monkeypatch.setattr(ai_service, "log_llm_request", lambda _: None)
 
-    with pytest.raises(HTTPException, match="queue wait timed out"):
+    # The user-facing 503 detail is generic; the reason is logged instead.
+    with caplog.at_level("WARNING"), pytest.raises(HTTPException) as exc:
         asyncio.run(
             asyncio.wait_for(
                 ai_service.call_llm_with_fallback(
@@ -168,3 +169,5 @@ def test_remote_qwen_queue_has_a_deadline(monkeypatch) -> None:
                 timeout=0.1,
             )
         )
+    assert exc.value.status_code == 503
+    assert "queue wait timed out" in caplog.text

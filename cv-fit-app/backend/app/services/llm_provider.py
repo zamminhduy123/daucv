@@ -15,7 +15,17 @@ from google import genai
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
+from app.utils.error_summary import describe_exception
+
 _logger = logging.getLogger("app.services.llm_provider")
+
+
+def _prompt_logging_enabled() -> bool:
+    # Imported lazily: app.core.config imports this module at load time.
+    from app.core.config import llm_input_logging_enabled
+
+    return llm_input_logging_enabled()
+
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -173,13 +183,20 @@ class OpenAIProvider(BaseAIProvider):
             parsed = response_model.model_validate_json(json_str)
         except Exception as err:
             _logger.error(
-                "Provider %s JSON validation error: %s | finish_reason: %s | Extracted snippet: %r | Raw snippet: %r",
+                "Provider %s JSON validation error: %s | finish_reason: %s | raw_len=%d",
                 self.name,
-                err,
+                describe_exception(err),
                 finish_reason,
-                json_str[:300],
-                content[:300],
+                len(content),
             )
+            if _prompt_logging_enabled():
+                # Model output is CV content; only with explicit LOG_LLM_INPUTS=true.
+                _logger.debug(
+                    "Provider %s output snippets | extracted=%r | raw=%r",
+                    self.name,
+                    json_str[:300],
+                    content[:300],
+                )
             raise
 
         input_tokens = 0
@@ -393,13 +410,20 @@ class QwenCustomProvider(BaseAIProvider):
                 parsed = response_model.model_validate_json(json_str)
             except Exception as err:
                 _logger.error(
-                    "Provider %s JSON validation error: %s | finish_reason: %s | Extracted snippet: %r | Raw snippet: %r",
+                    "Provider %s JSON validation error: %s | finish_reason: %s | raw_len=%d",
                     self.name,
-                    err,
+                    describe_exception(err),
                     finish_reason,
-                    json_str[:300],
-                    content[:300],
+                    len(content),
                 )
+                if _prompt_logging_enabled():
+                    # Model output is CV content; only with explicit LOG_LLM_INPUTS=true.
+                    _logger.debug(
+                        "Provider %s output snippets | extracted=%r | raw=%r",
+                        self.name,
+                        json_str[:300],
+                        content[:300],
+                    )
                 raise
 
             usage = data.get("usage", {})

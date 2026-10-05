@@ -65,8 +65,13 @@ class InterviewFinishRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+# Interview questions are short; the cap bounds edge-tts work and the in-memory
+# audio buffer per request.
+TTS_MAX_TEXT_LENGTH = 3000
+
+
 class TTSRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=TTS_MAX_TEXT_LENGTH)
 
 
 # ---------------------------------------------------------------------------

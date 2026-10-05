@@ -2,6 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 
+from app.core.rate_limit import rate_limit
 from app.dependencies import get_current_user
 from app.models.cv_template import CVTemplateDefinition, CVTypographyOverride
 from app.schemas.tailored_cv import (
@@ -115,7 +116,7 @@ async def preview_tailored_cv(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/{version_id}/pdf")
+@router.get("/{version_id}/pdf", dependencies=[Depends(rate_limit("pdf"))])
 async def download_tailored_cv_pdf(
     version_id: str,
     translation_variant_id: str | None = None,
@@ -175,7 +176,7 @@ async def download_tailored_cv_pdf(
     )
 
 
-@router.post("/{version_id}/pdf-wysiwyg")
+@router.post("/{version_id}/pdf-wysiwyg", dependencies=[Depends(rate_limit("pdf"))])
 async def download_wysiwyg_pdf(
     version_id: str,
     req: WysiwygPdfRequest,
