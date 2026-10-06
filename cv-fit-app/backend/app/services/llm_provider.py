@@ -107,15 +107,19 @@ class OpenAIProvider(BaseAIProvider):
         timeout: float | None = None,
         max_output_tokens: int | None = None,
         extra_body: dict[str, Any] | None = None,
+        default_headers: dict[str, str] | None = None,
     ):
         super().__init__(name, model, timeout, max_output_tokens)
         self.api_key = api_key
         self.base_url = base_url
-        self.client = AsyncOpenAI(
-            api_key=api_key or "not-needed",
-            base_url=base_url,
-            max_retries=0,
-        )
+        client_kwargs: dict[str, Any] = {
+            "api_key": api_key or "not-needed",
+            "base_url": base_url,
+            "max_retries": 0,
+        }
+        if default_headers:
+            client_kwargs["default_headers"] = default_headers
+        self.client = AsyncOpenAI(**client_kwargs)
         self.extra_body = extra_body
 
     @property

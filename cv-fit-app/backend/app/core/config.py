@@ -155,7 +155,7 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 # LLM Waterfall Provider Configuration
 # ---------------------------------------------------------------------------
 
-from app.services.llm_provider import QwenCustomProvider  # noqa: E402
+from app.services.llm_provider import OpenAIProvider, QwenCustomProvider  # noqa: E402
 
 # Remote Qwen runs on our own GPU host. It supports long contexts, but large
 # structured CV requests can legitimately take minutes to finish. Keep this
@@ -205,6 +205,50 @@ CV_ANALYSIS_REQUEST_TIMEOUT = float(
     ),
 )
 
+# ---------------------------------------------------------------------------
+# OpenRouter free-tier fallback
+# ---------------------------------------------------------------------------
+# Used only when Remote-Qwen fails or its queue is full (the waterfall in
+# ai_service tries providers in order) and only if OPENROUTER_API_KEY is set.
+# Free (":free") models are capped by OpenRouter at roughly 20 requests/min and
+# 50 requests/day per account (1000/day after buying $10 of credits), so this
+# is an emergency backup, not a primary path.
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "qwen/qwen3.8-27b:free").strip()
+# OpenRouter's own fallback list, tried in order if OPENROUTER_MODEL is down
+# or rate limited. Free models come and go: check openrouter.ai/models.
+OPENROUTER_FALLBACK_MODELS: list[str] = [
+    m.strip()
+    for m in os.getenv(
+        "OPENROUTER_FALLBACK_MODELS", "google/gemma-4-31b-it:free"
+    ).split(",")
+    if m.strip() and m.strip() != OPENROUTER_MODEL
+]
+# "deny" (default) routes only to endpoints that do not store or train on
+# prompts. CVs are personal data, so only set "allow" after checking the
+# chosen model's data policy.
+OPENROUTER_DATA_COLLECTION = os.getenv("OPENROUTER_DATA_COLLECTION", "deny").strip()
+if OPENROUTER_DATA_COLLECTION not in {"deny", "allow"}:
+    raise ValueError("OPENROUTER_DATA_COLLECTION must be 'deny' or 'allow'.")
+OPENROUTER_TIMEOUT = float(os.getenv("OPENROUTER_TIMEOUT", "180.0"))
+OPENROUTER_MAX_OUTPUT_TOKENS = int(
+    os.getenv("OPENROUTER_MAX_OUTPUT_TOKENS", str(LLM_MAX_OUTPUT_TOKENS))
+)
+
+
+def openrouter_extra_body() -> dict:
+    """Request options sent to OpenRouter with every call."""
+    return {
+        # Model fallback inside OpenRouter (primary first).
+        "models": [OPENROUTER_MODEL, *OPENROUTER_FALLBACK_MODELS],
+        "provider": {
+            # Only providers that honour response_format (JSON mode).
+            "require_parameters": True,
+            "data_collection": OPENROUTER_DATA_COLLECTION,
+        },
+    }
+
+
 PROVIDERS = [
     # Primary: our long-context GPU host. CV mapping can take minutes and must
     # preserve dense, multi-page source blocks, which is its strongest path.
@@ -237,13 +281,19 @@ PROVIDERS = [
     #     timeout=CLOUD_LLM_TIMEOUT,
     #     max_output_tokens=LLM_MAX_OUTPUT_TOKENS,
     # ),
-    # 4. Final Fallback: OpenRouter
-    # OpenAIProvider(
-    #     name="OpenRouter",
-    #     model="google/gemini-2.5-flash",
-    #     api_key=os.getenv("OPENROUTER_API_KEY", ""),
-    #     base_url="https://openrouter.ai/api/v1",
-    #     timeout=CLOUD_LLM_TIMEOUT,
-    #     max_output_tokens=LLM_MAX_OUTPUT_TOKENS,
-    # ),
+    # Fallback: OpenRouter free tier (skipped when OPENROUTER_API_KEY is unset).
+    OpenAIProvider(
+        name="OpenRouter",
+        model=OPENROUTER_MODEL,
+        api_key=os.getenv("OPENROUTER_API_KEY", ""),
+        base_url=OPENROUTER_BASE_URL,
+        timeout=OPENROUTER_TIMEOUT,
+        max_output_tokens=OPENROUTER_MAX_OUTPUT_TOKENS,
+        extra_body=openrouter_extra_body(),
+        default_headers={
+            # Optional OpenRouter app attribution.
+            "HTTP-Referer": os.getenv("BASE_URL", "https://daucv.com"),
+            "X-Title": "DAUCV",
+        },
+    ),
 ]

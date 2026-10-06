@@ -182,6 +182,32 @@ def test_openai_provider_passes_extra_body(monkeypatch) -> None:
 def test_provider_waterfall_order() -> None:
     from app.core import config
 
-    assert len(config.PROVIDERS) >= 2
-    assert config.PROVIDERS[0].name == "NVIDIA"
-    assert config.PROVIDERS[1].name == "Gemini"
+    # Self-hosted Qwen first; OpenRouter free tier as the fallback.
+    assert [p.name for p in config.PROVIDERS] == ["Remote-Qwen", "OpenRouter"]
+
+
+def test_openrouter_fallback_provider_config() -> None:
+    from app.core import config
+    from app.services.llm_provider import OpenAIProvider
+
+    provider = next(p for p in config.PROVIDERS if p.name == "OpenRouter")
+    assert isinstance(provider, OpenAIProvider)
+    assert provider.base_url == "https://openrouter.ai/api/v1"
+    assert provider.model == config.OPENROUTER_MODEL
+    body = provider.extra_body
+    assert body["models"][0] == config.OPENROUTER_MODEL
+    assert len(body["models"]) == len(set(body["models"]))
+    assert body["provider"]["require_parameters"] is True
+    assert body["provider"]["data_collection"] == "deny"
+
+
+def test_openrouter_skipped_without_api_key() -> None:
+    from app.services.llm_provider import OpenAIProvider
+
+    provider = OpenAIProvider(
+        name="OpenRouter",
+        model="qwen/qwen3.8-27b:free",
+        api_key="",
+        base_url="https://openrouter.ai/api/v1",
+    )
+    assert provider.is_configured is False
